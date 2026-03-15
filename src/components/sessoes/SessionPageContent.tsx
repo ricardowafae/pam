@@ -17,13 +17,11 @@ import {
 } from "lucide-react";
 import type { SessionData } from "./session-data";
 import { useCart } from "@/hooks/useCart";
-import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 import { getPixPrice } from "@/lib/pricing-config";
 import { toast } from "sonner";
 import type { Product } from "@/types";
 
 export type { SessionData };
-export { SESSIONS } from "./session-data";
 
 const TAB_ITEMS = [
   { slug: "pocket", label: "Pocket" },
@@ -42,16 +40,17 @@ const HOW_IT_WORKS = [
 
 interface Props {
   session: SessionData;
+  serverInstallments: number;
+  serverPixDiscountPct: number;
 }
 
-export default function SessionPageContent({ session }: Props) {
+export default function SessionPageContent({ session, serverInstallments, serverPixDiscountPct }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
-  const paymentCfg = usePaymentConfig();
 
-  // Use dynamic payment config from admin (localStorage) instead of static values
-  const installments = paymentCfg.maxInstallments;
-  const pixPrice = getPixPrice(session.price, paymentCfg.pixDiscountPct);
+  // Use server-side values passed as props (fetched from Supabase at render time)
+  const installments = serverInstallments;
+  const pixPrice = getPixPrice(session.price, serverPixDiscountPct);
 
   const sessionProduct: Product = {
     id: `sessao-${session.slug}`,
@@ -61,7 +60,7 @@ export default function SessionPageContent({ session }: Props) {
     description: session.description,
     base_price: session.price,
     max_installments: installments,
-    pix_discount_pct: paymentCfg.pixDiscountPct,
+    pix_discount_pct: serverPixDiscountPct,
     image_url: session.image,
     active: true,
     sort_order: 0,
@@ -208,7 +207,7 @@ export default function SessionPageContent({ session }: Props) {
                 {pixPrice.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}{" "}
-                ({paymentCfg.pixDiscountPct}% off)
+                ({serverPixDiscountPct}% off)
               </p>
             </div>
 

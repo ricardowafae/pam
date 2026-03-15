@@ -20,6 +20,30 @@ const supabaseAdmin = createClient(
 // ─── GET ────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get("key");
+
+  if (key === "product_prices") {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("products")
+        .select("slug, base_price")
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+
+      return NextResponse.json(
+        { products: data },
+        {
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    } catch (err: any) {
+      console.error("[settings GET product_prices]", err);
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+  }
+
   if (key !== "payment_config") {
     return NextResponse.json({ value: null });
   }

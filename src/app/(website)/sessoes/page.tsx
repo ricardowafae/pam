@@ -3,8 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Clock, ImageIcon, MapPin, Star, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SESSIONS } from "@/components/sessoes/session-data";
-import SessionPriceDisplay from "@/components/sessoes/SessionPriceDisplay";
+import { getSessions } from "@/components/sessoes/session-data";
+import { getServerSideData } from "@/lib/payment-config-server";
+import { getPixPrice } from "@/lib/pricing-config";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Sessões Fotográficas Pet",
@@ -12,10 +15,13 @@ export const metadata: Metadata = {
     "Escolha a sessão fotográfica ideal para o seu pet. Pacotes Pocket, Estúdio e Ar-livre + Estúdio com o fotógrafo Juliano Lemos em São Paulo.",
 };
 
-export default function SessoesOverviewPage() {
+export default async function SessoesOverviewPage() {
+  const { paymentConfig, prices } = await getServerSideData();
+  const sessions = getSessions({ paymentConfig, prices });
+
   return (
     <div className="pb-0">
-      {/* ── Back link ── */}
+      {/* -- Back link -- */}
       <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -26,7 +32,7 @@ export default function SessoesOverviewPage() {
         </Link>
       </div>
 
-      {/* ── Header ── */}
+      {/* -- Header -- */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center mb-10">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70 mb-2">
           Sessões Fotográficas
@@ -41,7 +47,7 @@ export default function SessoesOverviewPage() {
         </p>
       </section>
 
-      {/* ── Photographer badge ── */}
+      {/* -- Photographer badge -- */}
       <div className="flex justify-center mb-10">
         <div className="flex items-center gap-3 rounded-full bg-secondary/40 px-5 py-2.5">
           <div className="relative size-10 rounded-full overflow-hidden shrink-0">
@@ -63,10 +69,19 @@ export default function SessoesOverviewPage() {
         </div>
       </div>
 
-      {/* ── Session Cards ── */}
+      {/* -- Session Cards -- */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-8 md:grid-cols-3">
-          {SESSIONS.map((session) => {
+          {sessions.map((session) => {
+            const installments = paymentConfig.maxInstallments;
+            const installmentValue = (session.price / installments)
+              .toFixed(2)
+              .replace(".", ",");
+            const pixPrice = getPixPrice(
+              session.price,
+              paymentConfig.pixDiscountPct
+            );
+
             return (
               <div
                 key={session.slug}
@@ -157,7 +172,16 @@ export default function SessoesOverviewPage() {
                         minimumFractionDigits: 2,
                       })}
                     </p>
-                    <SessionPriceDisplay price={session.price} />
+                    <p className="text-xs text-muted-foreground">
+                      ou {installments}x de R$ {installmentValue}
+                    </p>
+                    <p className="text-xs font-medium text-green-600 mt-0.5">
+                      No PIX: R${" "}
+                      {pixPrice.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      ({paymentConfig.pixDiscountPct}% off)
+                    </p>
                   </div>
 
                   {/* CTA */}
@@ -179,7 +203,7 @@ export default function SessoesOverviewPage() {
         </div>
       </section>
 
-      {/* ── Location + How it Works ── */}
+      {/* -- Location + How it Works -- */}
       <section className="mt-12 md:mt-16 border-t border-border/50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">

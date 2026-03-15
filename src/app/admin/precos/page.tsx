@@ -278,8 +278,9 @@ export default function PrecosPage() {
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(initialPayment);
   const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(initialPayment);
 
-  // Load saved payment config from Supabase on mount
+  // Load saved payment config AND product prices from Supabase on mount
   useEffect(() => {
+    // Load payment config
     fetch("/api/settings?key=payment_config")
       .then((res) => res.json())
       .then((data) => {
@@ -291,6 +292,45 @@ export default function PrecosPage() {
           };
           setPaymentConfig(loaded);
           setSavedPaymentConfig(loaded);
+        }
+      })
+      .catch(() => { /* use defaults */ });
+
+    // Load product prices from Supabase
+    fetch("/api/settings?key=product_prices")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.products && Array.isArray(data.products)) {
+          const slugToName: Record<string, string> = {
+            dogbook: "Dogbook",
+            "sessao-pocket": "Sessão Pocket",
+            "sessao-estudio": "Sessão Estúdio",
+            "sessao-completa": "Sessão Completa",
+          };
+          setProducts((prev) =>
+            prev.map((p) => {
+              const match = data.products.find(
+                (sp: { slug: string; base_price: number }) =>
+                  slugToName[sp.slug] === p.name
+              );
+              if (match) {
+                return { ...p, price: formatBRL(match.base_price) };
+              }
+              return p;
+            })
+          );
+          setSavedProducts((prev) =>
+            prev.map((p) => {
+              const match = data.products.find(
+                (sp: { slug: string; base_price: number }) =>
+                  slugToName[sp.slug] === p.name
+              );
+              if (match) {
+                return { ...p, price: formatBRL(match.base_price) };
+              }
+              return p;
+            })
+          );
         }
       })
       .catch(() => { /* use defaults */ });
@@ -314,8 +354,30 @@ export default function PrecosPage() {
         boletoDiscountPct: parseFloat(paymentConfig.boletoDiscount) || PAYMENT_CONFIG.boletoDiscountPct,
       });
       if (!saved) {
-        throw new Error("Falha ao salvar no banco de dados");
+        throw new Error("Falha ao salvar formas de pagamento");
       }
+
+      // Save product prices to Supabase via API
+      const slugMap: Record<string, string> = {
+        Dogbook: "dogbook",
+        "Sessão Pocket": "sessao-pocket",
+        "Sessão Estúdio": "sessao-estudio",
+        "Sessão Completa": "sessao-completa",
+      };
+      const productUpdates = products.map((p) => ({
+        slug: slugMap[p.name] || p.name.toLowerCase(),
+        name: p.name,
+        price: parsePrice(p.price),
+      }));
+      const priceRes = await fetch("/api/admin/save-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products: productUpdates }),
+      });
+      if (!priceRes.ok) {
+        throw new Error("Falha ao salvar preços dos produtos");
+      }
+
       setSavedProducts(JSON.parse(JSON.stringify(products)));
       setSavedGiftCards(JSON.parse(JSON.stringify(giftCards)));
       setSavedCoupons(JSON.parse(JSON.stringify(fixedCoupons)));
@@ -329,7 +391,7 @@ export default function PrecosPage() {
     } finally {
       setSaving(false);
     }
-  }, [products, giftCards, fixedCoupons, redemptionSettings]);
+  }, [products, giftCards, fixedCoupons, redemptionSettings, paymentConfig]);
 
   const handleSaveProduct = useCallback(async (productName: string) => {
     setSaving(true);
