@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PawPrint, Lock } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,10 +22,30 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      // TODO: Implement Supabase auth
-      console.log("Admin login:", { email, password });
+      const supabase = createClient();
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      if (signInError) {
+        setError("Credenciais invalidas. Tente novamente.");
+        return;
+      }
+
+      const role = data.user?.user_metadata?.role;
+
+      if (role === "admin" || role === "equipe") {
+        router.push("/admin");
+      } else {
+        setError(
+          "Acesso restrito. Esta area e exclusiva para administradores."
+        );
+        await supabase.auth.signOut();
+      }
     } catch {
-      setError("Credenciais inválidas. Tente novamente.");
+      setError("Credenciais invalidas. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -39,7 +62,7 @@ export default function AdminLoginPage() {
             Painel Administrativo
           </h1>
           <p className="text-sm text-[#8b5e5e]/60">
-            Acesse o painel de gestão
+            Acesse o painel de gestao
           </p>
         </div>
 
@@ -57,7 +80,7 @@ export default function AdminLoginPage() {
             <Input
               id="email"
               type="email"
-              placeholder="admin@patasamorememorias.com.br"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -66,9 +89,11 @@ export default function AdminLoginPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-[#8b5e5e]">
-              Senha
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password" className="text-[#8b5e5e]">
+                Senha
+              </Label>
+            </div>
             <Input
               id="password"
               type="password"
