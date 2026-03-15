@@ -9,6 +9,7 @@ import {
   Clock,
   CheckCircle,
   CalendarDays,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -20,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -33,90 +34,43 @@ import {
   Line,
   ComposedChart,
 } from "recharts";
+import { createClient } from "@/lib/supabase/client";
 
-/* ─────────── Mock Data ─────────── */
+/* ─────────── Types ─────────── */
 
-const mockInfluencer = {
-  name: "Camila Pets",
-  slug: "camila-pets",
-  link: "https://patasamorememorias.com.br/p/camila-pets",
-};
+interface Influencer {
+  id: string;
+  name: string;
+  slug: string;
+  email: string;
+  total_sales: number;
+  total_commission: number;
+}
 
-const kpis = [
-  {
-    label: "Vendas Totais",
-    value: "R$ 4.770",
-    icon: DollarSign,
-    color: "text-green-600",
-  },
-  {
-    label: "Comissao Total",
-    value: "R$ 477",
-    icon: TrendingUp,
-    color: "text-primary",
-  },
-  {
-    label: "Comissao Pendente",
-    value: "R$ 120",
-    icon: Clock,
-    color: "text-amber-600",
-  },
-  {
-    label: "Valor por Venda",
-    value: "R$ 10",
-    icon: CheckCircle,
-    color: "text-blue-600",
-  },
-];
+interface Commission {
+  id: string;
+  influencer_id: string;
+  order_id: string | null;
+  product_type: string | null;
+  product_name: string | null;
+  sale_amount: number;
+  commission_rate: number;
+  commission_amount: number;
+  status: string;
+  created_at: string;
+}
 
-const revenueData = [
-  { month: "Out", Dogbook: 8500, Pocket: 2200, Estudio: 3100, Completa: 1800 },
-  { month: "Nov", Dogbook: 9200, Pocket: 2800, Estudio: 3500, Completa: 2300 },
-  { month: "Dez", Dogbook: 14000, Pocket: 3500, Estudio: 5800, Completa: 4200 },
-  { month: "Jan", Dogbook: 10500, Pocket: 3000, Estudio: 4200, Completa: 3100 },
-  { month: "Fev", Dogbook: 11200, Pocket: 3200, Estudio: 5200, Completa: 3800 },
-  { month: "Mar", Dogbook: 12800, Pocket: 3800, Estudio: 6000, Completa: 4500 },
-];
+interface PageView {
+  id: string;
+  page_path: string;
+  influencer_id: string;
+  session_id: string | null;
+  visitor_id: string | null;
+  device_type: string | null;
+  created_at: string;
+}
 
-const visitorsByDay = [
-  { day: "01", v: 120 }, { day: "02", v: 135 }, { day: "03", v: 98 },
-  { day: "04", v: 142 }, { day: "05", v: 165 }, { day: "06", v: 178 },
-  { day: "07", v: 155 }, { day: "08", v: 132 }, { day: "09", v: 148 },
-  { day: "10", v: 190 }, { day: "11", v: 175 }, { day: "12", v: 160 },
-  { day: "13", v: 145 }, { day: "14", v: 198 }, { day: "15", v: 210 },
-  { day: "16", v: 185 }, { day: "17", v: 170 }, { day: "18", v: 155 },
-  { day: "19", v: 142 }, { day: "20", v: 225 }, { day: "21", v: 238 },
-  { day: "22", v: 195 }, { day: "23", v: 180 }, { day: "24", v: 165 },
-  { day: "25", v: 205 }, { day: "26", v: 215 }, { day: "27", v: 190 },
-  { day: "28", v: 175 }, { day: "29", v: 248 }, { day: "30", v: 260 },
-];
-
-const visitorsByHour = [
-  { hour: "00h", novos: 8, recorrentes: 15 },
-  { hour: "01h", novos: 5, recorrentes: 10 },
-  { hour: "02h", novos: 3, recorrentes: 5 },
-  { hour: "03h", novos: 2, recorrentes: 4 },
-  { hour: "04h", novos: 4, recorrentes: 8 },
-  { hour: "05h", novos: 10, recorrentes: 18 },
-  { hour: "06h", novos: 15, recorrentes: 30 },
-  { hour: "07h", novos: 35, recorrentes: 78 },
-  { hour: "08h", novos: 55, recorrentes: 90 },
-  { hour: "09h", novos: 80, recorrentes: 120 },
-  { hour: "10h", novos: 95, recorrentes: 145 },
-  { hour: "11h", novos: 110, recorrentes: 170 },
-  { hour: "12h", novos: 90, recorrentes: 132 },
-  { hour: "13h", novos: 105, recorrentes: 155 },
-  { hour: "14h", novos: 120, recorrentes: 180 },
-  { hour: "15h", novos: 115, recorrentes: 165 },
-  { hour: "16h", novos: 100, recorrentes: 148 },
-  { hour: "17h", novos: 85, recorrentes: 130 },
-  { hour: "18h", novos: 75, recorrentes: 110 },
-  { hour: "19h", novos: 100, recorrentes: 145 },
-  { hour: "20h", novos: 130, recorrentes: 190 },
-  { hour: "21h", novos: 120, recorrentes: 175 },
-  { hour: "22h", novos: 60, recorrentes: 95 },
-  { hour: "23h", novos: 25, recorrentes: 42 },
-];
+/* ─────────── Constants ─────────── */
 
 const HOUR_COLORS = [
   "#e8d5c4", "#e0c8b4", "#d8bca5", "#d0b096",  // 00-03
@@ -145,6 +99,35 @@ const CHART_COLORS = {
   visitors: "#b08968",                  // warm brown
 };
 
+const MONTH_NAMES = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+];
+
+/* ─────────── Helpers ─────────── */
+
+function formatCurrency(value: number): string {
+  return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function getDateRange(
+  selectedPeriod: number,
+  customStart: string,
+  customEnd: string
+): { start: Date; end: Date } {
+  const end = new Date();
+  let start: Date;
+
+  if (customStart && customEnd) {
+    start = new Date(customStart + "T00:00:00");
+    return { start, end: new Date(customEnd + "T23:59:59") };
+  }
+
+  start = new Date();
+  start.setDate(start.getDate() - (selectedPeriod || 30));
+  return { start, end };
+}
+
 /* ─────────── Component ─────────── */
 
 export default function InfluenciadorPage() {
@@ -153,21 +136,277 @@ export default function InfluenciadorPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [influencer, setInfluencer] = useState<Influencer | null>(null);
+  const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [pageViews, setPageViews] = useState<PageView[]>([]);
+
+  const supabase = useMemo(() => createClient(), []);
+
+  // ── Fetch influencer identity ──
+  useEffect(() => {
+    async function loadInfluencer() {
+      // Try localStorage slug first
+      const storedSlug =
+        typeof window !== "undefined"
+          ? localStorage.getItem("pam_influencer_portal")
+          : null;
+
+      if (storedSlug) {
+        const { data, error: err } = await supabase
+          .from("influencers")
+          .select("*")
+          .eq("slug", storedSlug)
+          .single();
+
+        if (data && !err) {
+          setInfluencer(data as Influencer);
+          return;
+        }
+      }
+
+      // Fallback: match by authenticated user email
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        setError("Nenhum influenciador encontrado. Faca login novamente.");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: err } = await supabase
+        .from("influencers")
+        .select("*")
+        .eq("email", user.email)
+        .single();
+
+      if (err || !data) {
+        setError("Influenciador nao encontrado para este email.");
+        setLoading(false);
+        return;
+      }
+
+      setInfluencer(data as Influencer);
+    }
+
+    loadInfluencer();
+  }, [supabase]);
+
+  // ── Fetch commissions and page views whenever influencer or period changes ──
+  const fetchData = useCallback(async () => {
+    if (!influencer) return;
+
+    setLoading(true);
+    setError(null);
+
+    const { start, end } = getDateRange(selectedPeriod, customStart, customEnd);
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+
+    try {
+      const [commissionsRes, pageViewsRes] = await Promise.all([
+        supabase
+          .from("commissions")
+          .select("*")
+          .eq("influencer_id", influencer.id)
+          .gte("created_at", startISO)
+          .lte("created_at", endISO)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("page_views")
+          .select("*")
+          .eq("influencer_id", influencer.id)
+          .gte("created_at", startISO)
+          .lte("created_at", endISO)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (commissionsRes.error) throw commissionsRes.error;
+      if (pageViewsRes.error) throw pageViewsRes.error;
+
+      setCommissions((commissionsRes.data ?? []) as Commission[]);
+      setPageViews((pageViewsRes.data ?? []) as PageView[]);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Erro ao carregar dados. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }, [influencer, selectedPeriod, customStart, customEnd, supabase]);
+
+  useEffect(() => {
+    if (influencer) {
+      fetchData();
+    }
+  }, [influencer, fetchData]);
+
+  // ── Derived data ──
+
+  const influencerLink = influencer
+    ? `https://patasamorememorias.com.br/p/${influencer.slug}`
+    : "";
+
+  // KPI calculations
+  const kpis = useMemo(() => {
+    const totalSales = commissions.reduce((sum, c) => sum + c.sale_amount, 0);
+    const totalCommission = commissions.reduce(
+      (sum, c) => sum + c.commission_amount,
+      0
+    );
+    const pendingCommission = commissions
+      .filter((c) => c.status === "pending")
+      .reduce((sum, c) => sum + c.commission_amount, 0);
+    const avgPerSale =
+      commissions.length > 0 ? totalCommission / commissions.length : 0;
+
+    return [
+      {
+        label: "Vendas Totais",
+        value: formatCurrency(totalSales),
+        icon: DollarSign,
+        color: "text-green-600",
+      },
+      {
+        label: "Comissao Total",
+        value: formatCurrency(totalCommission),
+        icon: TrendingUp,
+        color: "text-primary",
+      },
+      {
+        label: "Comissao Pendente",
+        value: formatCurrency(pendingCommission),
+        icon: Clock,
+        color: "text-amber-600",
+      },
+      {
+        label: "Valor por Venda",
+        value: formatCurrency(Math.round(avgPerSale)),
+        icon: CheckCircle,
+        color: "text-blue-600",
+      },
+    ];
+  }, [commissions]);
+
+  // Revenue by month grouped by product type
+  const revenueWithTotal = useMemo(() => {
+    const monthMap: Record<
+      string,
+      { Dogbook: number; Pocket: number; Estudio: number; Completa: number }
+    > = {};
+
+    for (const c of commissions) {
+      const d = new Date(c.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+      if (!monthMap[key]) {
+        monthMap[key] = { Dogbook: 0, Pocket: 0, Estudio: 0, Completa: 0 };
+      }
+
+      const type = (c.product_type ?? "").toLowerCase();
+      if (type.includes("dogbook")) {
+        monthMap[key].Dogbook += c.sale_amount;
+      } else if (type.includes("pocket")) {
+        monthMap[key].Pocket += c.sale_amount;
+      } else if (type.includes("estudio") || type.includes("studio")) {
+        monthMap[key].Estudio += c.sale_amount;
+      } else if (type.includes("completa")) {
+        monthMap[key].Completa += c.sale_amount;
+      } else {
+        // default to Dogbook for unrecognized types
+        monthMap[key].Dogbook += c.sale_amount;
+      }
+    }
+
+    return Object.keys(monthMap)
+      .sort()
+      .map((key) => {
+        const monthIndex = parseInt(key.split("-")[1], 10);
+        const data = monthMap[key];
+        return {
+          month: MONTH_NAMES[monthIndex],
+          ...data,
+          Total: data.Dogbook + data.Pocket + data.Estudio + data.Completa,
+        };
+      });
+  }, [commissions]);
+
+  // Visitors by day
+  const visitorsByDay = useMemo(() => {
+    const dayMap: Record<string, number> = {};
+
+    for (const pv of pageViews) {
+      const d = new Date(pv.created_at);
+      const dayKey = String(d.getDate()).padStart(2, "0");
+      dayMap[dayKey] = (dayMap[dayKey] ?? 0) + 1;
+    }
+
+    return Object.keys(dayMap)
+      .sort()
+      .map((day) => ({ day, v: dayMap[day] }));
+  }, [pageViews]);
+
+  // Visitors by hour (new vs returning based on visitor_id frequency)
+  const visitorsByHour = useMemo(() => {
+    // Count how many times each visitor_id appears to determine new vs returning
+    const visitorCounts: Record<string, number> = {};
+    for (const pv of pageViews) {
+      const vid = pv.visitor_id ?? pv.session_id ?? "unknown";
+      visitorCounts[vid] = (visitorCounts[vid] ?? 0) + 1;
+    }
+
+    const hourData: { novos: number; recorrentes: number }[] = Array.from(
+      { length: 24 },
+      () => ({ novos: 0, recorrentes: 0 })
+    );
+
+    for (const pv of pageViews) {
+      const hour = new Date(pv.created_at).getHours();
+      const vid = pv.visitor_id ?? pv.session_id ?? "unknown";
+      if (visitorCounts[vid] > 1) {
+        hourData[hour].recorrentes += 1;
+      } else {
+        hourData[hour].novos += 1;
+      }
+    }
+
+    return hourData.map((d, i) => ({
+      hour: `${String(i).padStart(2, "0")}h`,
+      novos: d.novos,
+      recorrentes: d.recorrentes,
+    }));
+  }, [pageViews]);
+
   function handleCopy() {
-    navigator.clipboard.writeText(mockInfluencer.link);
+    navigator.clipboard.writeText(influencerLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Add "Total" to each revenue data point for the line
-  const revenueWithTotal = useMemo(
-    () =>
-      revenueData.map((d) => ({
-        ...d,
-        Total: d.Dogbook + d.Pocket + d.Estudio + d.Completa,
-      })),
-    []
-  );
+  function handleApplyPeriod() {
+    // Trigger refetch by toggling selectedPeriod to 0 (custom range)
+    setSelectedPeriod(0);
+  }
+
+  // ── Loading / Error states ──
+
+  if (!influencer && loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <span className="ml-3 text-muted-foreground">Carregando painel...</span>
+      </div>
+    );
+  }
+
+  if (error && !influencer) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-destructive">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -195,7 +434,7 @@ export default function InfluenciadorPage() {
           <div className="flex items-center gap-2">
             <Input
               readOnly
-              value={mockInfluencer.link}
+              value={influencerLink}
               className="font-mono text-xs"
             />
           </div>
@@ -209,7 +448,7 @@ export default function InfluenciadorPage() {
               {copied ? "Copiado!" : "Copiar Link"}
             </Button>
             <a
-              href={mockInfluencer.link}
+              href={influencerLink}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -220,7 +459,7 @@ export default function InfluenciadorPage() {
             </a>
           </div>
           <p className="text-xs text-muted-foreground">
-            Slug: /p/{mockInfluencer.slug}
+            Slug: /p/{influencer?.slug}
           </p>
         </CardContent>
       </Card>
@@ -285,12 +524,29 @@ export default function InfluenciadorPage() {
               size="sm"
               variant="ghost"
               disabled={!customStart || !customEnd}
+              onClick={handleApplyPeriod}
             >
               Aplicar Periodo
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Loading overlay for data */}
+      {loading && influencer && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="size-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">
+            Carregando dados...
+          </span>
+        </div>
+      )}
+
+      {error && influencer && (
+        <div className="text-center py-4">
+          <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -320,61 +576,67 @@ export default function InfluenciadorPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={revenueWithTotal}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e8e0da" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  formatter={(value) => [
-                    `R$ ${Number(value).toLocaleString("pt-BR")}`,
-                  ]}
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "1px solid #e8e0da",
-                    fontSize: 13,
-                  }}
-                />
-                <Legend
-                  iconType="square"
-                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-                />
-                <Bar
-                  dataKey="Completa"
-                  stackId="revenue"
-                  fill={CHART_COLORS.completa}
-                  radius={[0, 0, 0, 0]}
-                />
-                <Bar
-                  dataKey="Dogbook"
-                  stackId="revenue"
-                  fill={CHART_COLORS.dogbook}
-                />
-                <Bar
-                  dataKey="Estudio"
-                  stackId="revenue"
-                  fill={CHART_COLORS.estudio}
-                />
-                <Bar
-                  dataKey="Pocket"
-                  stackId="revenue"
-                  fill={CHART_COLORS.pocket}
-                  radius={[4, 4, 0, 0]}
-                />
-                <Line
-                  dataKey="Total"
-                  type="monotone"
-                  stroke={CHART_COLORS.line}
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: CHART_COLORS.line }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+          {revenueWithTotal.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">
+              Nenhuma venda registrada neste periodo.
+            </p>
+          ) : (
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={revenueWithTotal}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e8e0da" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value) => [
+                      `R$ ${Number(value).toLocaleString("pt-BR")}`,
+                    ]}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #e8e0da",
+                      fontSize: 13,
+                    }}
+                  />
+                  <Legend
+                    iconType="square"
+                    wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                  />
+                  <Bar
+                    dataKey="Completa"
+                    stackId="revenue"
+                    fill={CHART_COLORS.completa}
+                    radius={[0, 0, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="Dogbook"
+                    stackId="revenue"
+                    fill={CHART_COLORS.dogbook}
+                  />
+                  <Bar
+                    dataKey="Estudio"
+                    stackId="revenue"
+                    fill={CHART_COLORS.estudio}
+                  />
+                  <Bar
+                    dataKey="Pocket"
+                    stackId="revenue"
+                    fill={CHART_COLORS.pocket}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line
+                    dataKey="Total"
+                    type="monotone"
+                    stroke={CHART_COLORS.line}
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: CHART_COLORS.line }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -384,38 +646,44 @@ export default function InfluenciadorPage() {
           <CardTitle className="text-base">Visitantes por Dia</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={visitorsByDay}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e8e0da"
-                />
-                <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip
-                  formatter={(value) => [
-                    `${Number(value)} visitantes`,
-                    "Visitantes",
-                  ]}
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "1px solid #e8e0da",
-                    fontSize: 13,
-                  }}
-                />
-                <Bar
-                  dataKey="v"
-                  name="Visitantes"
-                  fill={CHART_COLORS.visitors}
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {visitorsByDay.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">
+              Nenhuma visita registrada neste periodo.
+            </p>
+          ) : (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={visitorsByDay}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#e8e0da"
+                  />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value) => [
+                      `${Number(value)} visitantes`,
+                      "Visitantes",
+                    ]}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #e8e0da",
+                      fontSize: 13,
+                    }}
+                  />
+                  <Bar
+                    dataKey="v"
+                    name="Visitantes"
+                    fill={CHART_COLORS.visitors}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 

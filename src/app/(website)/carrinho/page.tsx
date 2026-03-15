@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -15,8 +14,10 @@ import {
   Minus,
   Plus,
   ShoppingBag,
+  Tag,
   Trash2,
   User,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +27,12 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 import { useCart } from "@/hooks/useCart";
+import { clearInfluencerTracking } from "@/lib/influencer-tracking";
 import { toast } from "sonner";
 
 type PersonType = "pf" | "pj";
 
 export default function CarrinhoPage() {
-  const router = useRouter();
   const {
     items,
     updateQuantity,
@@ -39,14 +40,23 @@ export default function CarrinhoPage() {
     subtotal,
     discount,
     discountAmount,
+    appliedCoupon,
+    couponDiscount,
+    applyCouponCode,
+    removeCoupon,
+    influencerSlug,
     total,
     pixTotal,
     totalItems,
+    clearCart,
   } = useCart();
 
   /* --- form state --- */
   const [personType, setPersonType] = useState<PersonType>("pf");
   const [valeCode, setValeCode] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   /* --- form fields --- */
   const [name, setName] = useState("");
@@ -116,7 +126,23 @@ export default function CarrinhoPage() {
     toast.info("Funcionalidade de vale presente em breve!");
   }
 
-  function handleContinue() {
+  async function handleApplyCoupon() {
+    if (!couponCode.trim()) {
+      toast.error("Digite o código do cupom.");
+      return;
+    }
+    setCouponLoading(true);
+    const success = await applyCouponCode(couponCode.trim());
+    setCouponLoading(false);
+    if (success) {
+      toast.success("Cupom aplicado com sucesso!");
+      setCouponCode("");
+    } else {
+      toast.error("Cupom inválido ou expirado.");
+    }
+  }
+
+  async function handleContinue() {
     setSubmitted(true);
 
     const requiredPersonal = personType === "pf"
@@ -132,8 +158,41 @@ export default function CarrinhoPage() {
       return;
     }
 
-    // All fields filled — navigate to payment page
-    router.push("/pagamento");
+    // Create Stripe Checkout Session
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            slug: item.product.slug,
+            quantity: item.quantity,
+          })),
+          customerEmail: email,
+          customerName: name,
+          customerPhone: phone,
+          couponCode: appliedCoupon?.code || undefined,
+          influencerSlug: influencerSlug || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        // Clear tracking after successful checkout creation
+        clearInfluencerTracking();
+        clearCart();
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error || "Erro ao criar sessão de pagamento.");
+        setCheckoutLoading(false);
+      }
+    } catch {
+      toast.error("Erro de conexão. Tente novamente.");
+      setCheckoutLoading(false);
+    }
   }
 
   /* --- derived values --- */
@@ -518,6 +577,59 @@ export default function CarrinhoPage() {
 
               <Separator className="my-4" />
 
+              {/* Cupom de Desconto */}
+              <div className="mb-4">
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <Tag className="size-4 text-primary" />
+                  Cupom de Desconto
+                </p>
+                {appliedCoupon ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+                    <Tag className="size-3.5 text-green-600" />
+                    <span className="flex-1 text-xs font-medium text-green-700">
+                      {appliedCoupon.code}
+                      {appliedCoupon.fromInfluencer && " (indicacao)"}
+                      {" — "}
+                      {appliedCoupon.type === "fixo"
+                        ? `R$ ${appliedCoupon.value.toFixed(2).replace(".", ",")} off`
+                        : `${appliedCoupon.value}% off`}
+                    </span>
+                    {!appliedCoupon.fromInfluencer && (
+                      <button
+                        type="button"
+                        onClick={removeCoupon}
+                        className="text-green-600 hover:text-red-500 transition-colors"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="CODIGO DO CUPOM"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className="h-9 flex-1 border-border/60 uppercase text-xs"
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-4 text-xs"
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading}
+                    >
+                      {couponLoading ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        "Aplicar"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {/* Vale Presente */}
               <div className="mb-4">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -556,10 +668,21 @@ export default function CarrinhoPage() {
                 {discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>
-                      Desconto ({(discount * 100).toFixed(0)}%)
+                      Desc. quantidade ({(discount * 100).toFixed(0)}%)
                     </span>
                     <span className="font-medium">
                       -R$ {discountAmount.toFixed(2).replace(".", ",")}
+                    </span>
+                  </div>
+                )}
+
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>
+                      Cupom {appliedCoupon?.code}
+                    </span>
+                    <span className="font-medium">
+                      -R$ {couponDiscount.toFixed(2).replace(".", ",")}
                     </span>
                   </div>
                 )}
@@ -589,10 +712,20 @@ export default function CarrinhoPage() {
               <Button
                 type="button"
                 onClick={handleContinue}
+                disabled={checkoutLoading}
                 className="mt-5 w-full h-12 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm uppercase tracking-wide"
               >
-                <Lock className="size-4" />
-                Continuar para Pagamento
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="size-4" />
+                    Finalizar Compra
+                  </>
+                )}
               </Button>
 
               {/* Stripe badge */}

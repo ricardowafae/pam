@@ -86,7 +86,19 @@ export default function ConviteInfluenciadorPage() {
 
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 1500));
+      const res = await fetch("/api/influencers/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        toast.error(data.error || "Erro ao enviar cadastro. Tente novamente.");
+        return;
+      }
+
       toast.success(
         "Cadastro enviado com sucesso! Entraremos em contato em breve."
       );

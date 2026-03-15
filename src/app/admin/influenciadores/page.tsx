@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import {
   Card,
   CardContent,
@@ -73,7 +74,7 @@ import {
 /* ────────────────────── Types ────────────────────── */
 
 interface Influencer {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -86,12 +87,21 @@ interface Influencer {
   estudio: number;
   completa: number;
   status: "ativo" | "inativo";
+  coupon_id: string | null;
+  commission_rates: {
+    dogbook?: number;
+    pocket?: number;
+    estudio?: number;
+    completa?: number;
+  } | null;
+  total_sales: number;
+  total_commission: number;
 }
 
 type CommissionStatus = "pago" | "pendente" | "atrasado" | "cancelado";
 
 interface CommissionPayment {
-  id: number;
+  id: string;
   influencerName: string;
   month: string;
   sales: number;
@@ -110,187 +120,6 @@ interface SeasonalCoupon {
   discount: string;
   active: boolean;
 }
-
-/* ────────────────────── Mock Data ────────────────────── */
-
-const mockInfluencers: Influencer[] = [
-  {
-    id: 1,
-    name: "Influencer Teste",
-    email: "influencer@patasamor.com",
-    phone: "",
-    instagram: "—",
-    slug: "/p/teste-influencer",
-    views: 2,
-    visitors: 0,
-    dogbook: 0,
-    pocket: 0,
-    estudio: 0,
-    completa: 0,
-    status: "ativo",
-  },
-  {
-    id: 2,
-    name: "Camila Pet",
-    email: "camila@email.com",
-    phone: "(11) 98765-4321",
-    instagram: "@camilapet",
-    slug: "/p/camila-pet",
-    views: 4520,
-    visitors: 1280,
-    dogbook: 8,
-    pocket: 6,
-    estudio: 3,
-    completa: 1,
-    status: "ativo",
-  },
-  {
-    id: 3,
-    name: "Doglovers SP",
-    email: "contato@dogloverssp.com",
-    phone: "(11) 91234-5678",
-    instagram: "@dogloverssp",
-    slug: "/p/doglovers-sp",
-    views: 3180,
-    visitors: 890,
-    dogbook: 5,
-    pocket: 4,
-    estudio: 2,
-    completa: 1,
-    status: "ativo",
-  },
-  {
-    id: 4,
-    name: "Amor de Pata",
-    email: "amor@pata.com",
-    phone: "(21) 99876-1234",
-    instagram: "@amordepata",
-    slug: "/p/amor-de-pata",
-    views: 1650,
-    visitors: 420,
-    dogbook: 3,
-    pocket: 1,
-    estudio: 1,
-    completa: 0,
-    status: "inativo",
-  },
-  {
-    id: 5,
-    name: "Vida Animal",
-    email: "vida@animal.com",
-    phone: "(11) 97654-3210",
-    instagram: "@vidaanimal",
-    slug: "/p/vida-animal",
-    views: 980,
-    visitors: 310,
-    dogbook: 2,
-    pocket: 1,
-    estudio: 0,
-    completa: 0,
-    status: "ativo",
-  },
-];
-
-const mockCommissions: CommissionPayment[] = [
-  {
-    id: 1,
-    influencerName: "Camila Pet",
-    month: "Marco/2026",
-    sales: 5,
-    product: "Dogbook (3), Pocket (2)",
-    revenue: "R$ 3.270,00",
-    commissionValue: "R$ 490,00",
-    status: "pendente",
-    paidDate: null,
-    dueDate: "2026-04-10",
-    receiptUrl: null,
-    notes: "",
-  },
-  {
-    id: 2,
-    influencerName: "Doglovers SP",
-    month: "Marco/2026",
-    sales: 3,
-    product: "Dogbook (2), Estudio (1)",
-    revenue: "R$ 4.680,00",
-    commissionValue: "R$ 370,00",
-    status: "pendente",
-    paidDate: null,
-    dueDate: "2026-04-10",
-    receiptUrl: null,
-    notes: "",
-  },
-  {
-    id: 3,
-    influencerName: "Camila Pet",
-    month: "Fevereiro/2026",
-    sales: 6,
-    product: "Dogbook (4), Pocket (2)",
-    revenue: "R$ 3.760,00",
-    commissionValue: "R$ 520,00",
-    status: "pago",
-    paidDate: "2026-03-08",
-    dueDate: "2026-03-10",
-    receiptUrl: "comprovante_fev_camila.pdf",
-    notes: "Pago via PIX",
-  },
-  {
-    id: 4,
-    influencerName: "Doglovers SP",
-    month: "Fevereiro/2026",
-    sales: 4,
-    product: "Pocket (2), Estudio (1), Completa (1)",
-    revenue: "R$ 10.400,00",
-    commissionValue: "R$ 870,00",
-    status: "pago",
-    paidDate: "2026-03-09",
-    dueDate: "2026-03-10",
-    receiptUrl: "comprovante_fev_doglovers.pdf",
-    notes: "Pago via transferencia",
-  },
-  {
-    id: 5,
-    influencerName: "Amor de Pata",
-    month: "Janeiro/2026",
-    sales: 3,
-    product: "Dogbook (2), Pocket (1)",
-    revenue: "R$ 1.880,00",
-    commissionValue: "R$ 220,00",
-    status: "atrasado",
-    paidDate: null,
-    dueDate: "2026-02-10",
-    receiptUrl: null,
-    notes: "Influenciador inativo, pendencia de pagamento",
-  },
-  {
-    id: 6,
-    influencerName: "Camila Pet",
-    month: "Janeiro/2026",
-    sales: 7,
-    product: "Dogbook (5), Pocket (2)",
-    revenue: "R$ 4.250,00",
-    commissionValue: "R$ 580,00",
-    status: "pago",
-    paidDate: "2026-02-07",
-    dueDate: "2026-02-10",
-    receiptUrl: "comprovante_jan_camila.pdf",
-    notes: "Pago via PIX",
-  },
-  {
-    id: 7,
-    influencerName: "Vida Animal",
-    month: "Janeiro/2026",
-    sales: 2,
-    product: "Dogbook (1), Pocket (1)",
-    revenue: "R$ 1.390,00",
-    commissionValue: "R$ 130,00",
-    status: "pago",
-    paidDate: "2026-02-09",
-    dueDate: "2026-02-10",
-    receiptUrl: "comprovante_jan_vida.pdf",
-    notes: "",
-  },
-];
 
 /* ────────────────────── Helpers ────────────────────── */
 
@@ -313,6 +142,50 @@ function formatDate(date: string): string {
     month: "2-digit",
     year: "numeric",
   });
+}
+
+function formatCurrency(value: number): string {
+  return `R$ ${value
+    .toFixed(2)
+    .replace(".", ",")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
+function mapSupabaseCommissionStatus(status: string): CommissionStatus {
+  switch (status) {
+    case "paid":
+      return "pago";
+    case "pending":
+      return "pendente";
+    case "approved":
+      return "pendente";
+    default:
+      return "pendente";
+  }
+}
+
+function mapCommissionStatusToSupabase(status: CommissionStatus): string {
+  switch (status) {
+    case "pago":
+      return "paid";
+    case "pendente":
+      return "pending";
+    case "atrasado":
+      return "pending";
+    case "cancelado":
+      return "pending";
+    default:
+      return "pending";
+  }
+}
+
+function getMonthLabel(dateStr: string): string {
+  const date = new Date(dateStr);
+  const months = [
+    "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  ];
+  return `${months[date.getMonth()]}/${date.getFullYear()}`;
 }
 
 /* ────────────────────── Form Default State ────────────────────── */
@@ -347,19 +220,167 @@ const emptyForm = {
 /* ────────────────────── Page ────────────────────── */
 
 export default function InfluenciadoresPage() {
-  const [influencers] = useState<Influencer[]>(mockInfluencers);
-  const [commissions, setCommissions] = useState<CommissionPayment[]>(mockCommissions);
+  const supabase = createClient();
+
+  const [influencers, setInfluencers] = useState<Influencer[]>([]);
+  const [commissions, setCommissions] = useState<CommissionPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [commissionFilter, setCommissionFilter] = useState<CommissionStatus | "todos">("todos");
   const [commissionInfluencerFilter, setCommissionInfluencerFilter] = useState("todos");
-  const [expandedCommissionId, setExpandedCommissionId] = useState<number | null>(null);
+  const [expandedCommissionId, setExpandedCommissionId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
   const [linkCopied, setLinkCopied] = useState(false);
   const [editInfluencer, setEditInfluencer] = useState<Influencer | null>(null);
   const [deleteInfluencer, setDeleteInfluencer] = useState<Influencer | null>(null);
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+
+  /* ─── Fetch data from Supabase ─── */
+  const fetchInfluencers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("influencers")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching influencers:", error);
+      toast.error("Erro ao carregar influenciadores.");
+      return;
+    }
+
+    if (!data) {
+      setInfluencers([]);
+      return;
+    }
+
+    // Fetch page_views stats for all influencers
+    const influencerIds = data.map((inf) => inf.id);
+
+    // Get view counts
+    const { data: viewCounts } = await supabase
+      .from("page_views")
+      .select("influencer_id")
+      .in("influencer_id", influencerIds);
+
+    // Get unique visitor counts
+    const { data: visitorData } = await supabase
+      .from("page_views")
+      .select("influencer_id, visitor_id")
+      .in("influencer_id", influencerIds);
+
+    // Get commission product counts
+    const { data: commissionCounts } = await supabase
+      .from("commissions")
+      .select("influencer_id, product_type")
+      .in("influencer_id", influencerIds);
+
+    // Build stats maps
+    const viewsMap: Record<string, number> = {};
+    const visitorsMap: Record<string, Set<string>> = {};
+    const productMap: Record<string, { dogbook: number; pocket: number; estudio: number; completa: number }> = {};
+
+    if (viewCounts) {
+      for (const v of viewCounts) {
+        viewsMap[v.influencer_id] = (viewsMap[v.influencer_id] || 0) + 1;
+      }
+    }
+
+    if (visitorData) {
+      for (const v of visitorData) {
+        if (!visitorsMap[v.influencer_id]) {
+          visitorsMap[v.influencer_id] = new Set();
+        }
+        if (v.visitor_id) {
+          visitorsMap[v.influencer_id].add(v.visitor_id);
+        }
+      }
+    }
+
+    if (commissionCounts) {
+      for (const c of commissionCounts) {
+        if (!productMap[c.influencer_id]) {
+          productMap[c.influencer_id] = { dogbook: 0, pocket: 0, estudio: 0, completa: 0 };
+        }
+        const pt = (c.product_type || "").toLowerCase();
+        if (pt === "dogbook") productMap[c.influencer_id].dogbook++;
+        else if (pt === "pocket") productMap[c.influencer_id].pocket++;
+        else if (pt === "estudio") productMap[c.influencer_id].estudio++;
+        else if (pt === "completa") productMap[c.influencer_id].completa++;
+      }
+    }
+
+    const mapped: Influencer[] = data.map((inf) => ({
+      id: inf.id,
+      name: inf.name || "",
+      email: inf.email || "",
+      phone: inf.phone || "",
+      instagram: inf.instagram || "—",
+      slug: inf.slug ? (inf.slug.startsWith("/p/") ? inf.slug : `/p/${inf.slug}`) : "",
+      views: viewsMap[inf.id] || 0,
+      visitors: visitorsMap[inf.id] ? visitorsMap[inf.id].size : 0,
+      dogbook: productMap[inf.id]?.dogbook || 0,
+      pocket: productMap[inf.id]?.pocket || 0,
+      estudio: productMap[inf.id]?.estudio || 0,
+      completa: productMap[inf.id]?.completa || 0,
+      status: inf.status === "ativo" ? "ativo" : "inativo",
+      coupon_id: inf.coupon_id || null,
+      commission_rates: inf.commission_rates || null,
+      total_sales: inf.total_sales || 0,
+      total_commission: inf.total_commission || 0,
+    }));
+
+    setInfluencers(mapped);
+  }, [supabase]);
+
+  const fetchCommissions = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("commissions")
+      .select("*, influencer:influencers(name, slug)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching commissions:", error);
+      toast.error("Erro ao carregar comissões.");
+      return;
+    }
+
+    if (!data) {
+      setCommissions([]);
+      return;
+    }
+
+    const mapped: CommissionPayment[] = data.map((c) => {
+      const influencerData = c.influencer as { name: string; slug: string } | null;
+      return {
+        id: c.id,
+        influencerName: influencerData?.name || "Desconhecido",
+        month: getMonthLabel(c.created_at),
+        sales: 1,
+        product: c.product_name || c.product_type || "",
+        revenue: formatCurrency(c.sale_amount || 0),
+        commissionValue: formatCurrency(c.commission_amount || 0),
+        status: mapSupabaseCommissionStatus(c.status),
+        paidDate: c.status === "paid" ? c.created_at?.split("T")[0] : null,
+        dueDate: c.created_at?.split("T")[0] || "",
+        receiptUrl: null,
+        notes: "",
+      };
+    });
+
+    setCommissions(mapped);
+  }, [supabase]);
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      await Promise.all([fetchInfluencers(), fetchCommissions()]);
+      setLoading(false);
+    }
+    loadData();
+  }, [fetchInfluencers, fetchCommissions]);
 
   const handleResetPassword = async (email: string, name: string) => {
     setResettingEmail(email);
@@ -437,6 +458,10 @@ export default function InfluenciadoresPage() {
       instagram: inf.instagram,
       slug: inf.slug.replace("/p/", ""),
       ativo: inf.status === "ativo",
+      comDogbook: inf.commission_rates?.dogbook?.toFixed(2) || "10.00",
+      comPocket: inf.commission_rates?.pocket?.toFixed(2) || "20.00",
+      comEstudio: inf.commission_rates?.estudio?.toFixed(2) || "50.00",
+      comCompleta: inf.commission_rates?.completa?.toFixed(2) || "100.00",
     });
     setEditInfluencer(inf);
     setShowNewForm(true);
@@ -451,11 +476,107 @@ export default function InfluenciadoresPage() {
     });
   }, []);
 
-  const handleConfirmDelete = useCallback(() => {
+  const handleSaveInfluencer = useCallback(async () => {
+    setSaving(true);
+    try {
+      const slugValue = form.slug.startsWith("/p/") ? form.slug : form.slug;
+      const commissionRates = {
+        dogbook: parseFloat(form.comDogbook) || 10,
+        pocket: parseFloat(form.comPocket) || 20,
+        estudio: parseFloat(form.comEstudio) || 50,
+        completa: parseFloat(form.comCompleta) || 100,
+      };
+
+      const influencerData = {
+        name: form.name,
+        slug: slugValue,
+        email: form.email,
+        phone: form.phone,
+        instagram: form.instagram,
+        commission_rates: commissionRates,
+        status: form.ativo ? "ativo" : "inativo",
+      };
+
+      if (editInfluencer) {
+        // Update existing influencer
+        const { error } = await supabase
+          .from("influencers")
+          .update(influencerData)
+          .eq("id", editInfluencer.id);
+
+        if (error) throw error;
+
+        toast.success(`Influenciador "${form.name}" atualizado com sucesso!`);
+      } else {
+        // Create new influencer
+        const { data: newInfluencer, error: infError } = await supabase
+          .from("influencers")
+          .insert(influencerData)
+          .select()
+          .single();
+
+        if (infError) throw infError;
+
+        // Create linked coupon
+        if (newInfluencer && form.cupomCodigo) {
+          const { data: couponData, error: couponError } = await supabase
+            .from("coupons")
+            .insert({
+              code: form.cupomCodigo.toUpperCase(),
+              coupon_type: "percentual",
+              discount_value: parseFloat(form.cupomDesconto) || 10,
+              influencer_id: newInfluencer.id,
+              active: true,
+            })
+            .select()
+            .single();
+
+          if (couponError) {
+            console.error("Error creating coupon:", couponError);
+          } else if (couponData) {
+            // Link coupon to influencer
+            await supabase
+              .from("influencers")
+              .update({ coupon_id: couponData.id })
+              .eq("id", newInfluencer.id);
+          }
+        }
+
+        toast.success(`Influenciador "${form.name}" cadastrado com sucesso!`);
+      }
+
+      handleCloseForm();
+      await fetchInfluencers();
+    } catch (err: any) {
+      console.error("Error saving influencer:", err);
+      toast.error("Erro ao salvar influenciador.", {
+        description: err.message,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [form, editInfluencer, supabase, fetchInfluencers]);
+
+  const handleConfirmDelete = useCallback(async () => {
     if (!deleteInfluencer) return;
-    toast.success(`Influenciador "${deleteInfluencer.name}" excluído com sucesso.`);
-    setDeleteInfluencer(null);
-  }, [deleteInfluencer]);
+    try {
+      const { error } = await supabase
+        .from("influencers")
+        .delete()
+        .eq("id", deleteInfluencer.id);
+
+      if (error) throw error;
+
+      toast.success(`Influenciador "${deleteInfluencer.name}" excluído com sucesso.`);
+      setDeleteInfluencer(null);
+      await fetchInfluencers();
+    } catch (err: any) {
+      console.error("Error deleting influencer:", err);
+      toast.error("Erro ao excluir influenciador.", {
+        description: err.message,
+      });
+    }
+  }, [deleteInfluencer, supabase, fetchInfluencers]);
 
   const handleCloseForm = useCallback(() => {
     setShowNewForm(false);
@@ -493,19 +614,43 @@ export default function InfluenciadoresPage() {
     }));
   };
 
-  const markAsPaid = (id: number) => {
-    setCommissions((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: "pago" as CommissionStatus,
-              paidDate: new Date().toISOString().split("T")[0],
-            }
-          : c
-      )
-    );
+  const markAsPaid = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("commissions")
+        .update({ status: "paid" })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setCommissions((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status: "pago" as CommissionStatus,
+                paidDate: new Date().toISOString().split("T")[0],
+              }
+            : c
+        )
+      );
+      toast.success("Comissão marcada como paga!");
+    } catch (err: any) {
+      console.error("Error updating commission:", err);
+      toast.error("Erro ao atualizar comissão.", {
+        description: err.message,
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <span className="ml-3 text-muted-foreground">Carregando dados...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -1534,16 +1679,10 @@ export default function InfluenciadoresPage() {
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => {
-                    toast.success(
-                      editInfluencer
-                        ? `Influenciador "${form.name}" atualizado com sucesso!`
-                        : `Influenciador "${form.name}" cadastrado com sucesso!`
-                    );
-                    handleCloseForm();
-                  }}
-                  disabled={!form.personType}
+                  onClick={handleSaveInfluencer}
+                  disabled={!form.personType || saving}
                 >
+                  {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
                   {editInfluencer ? "Salvar Alterações" : "Cadastrar"}
                 </Button>
               </div>

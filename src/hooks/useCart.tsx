@@ -1,10 +1,25 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  type ReactNode,
+} from "react";
 import type { CartItem, Product } from "@/types";
 import { usePaymentConfig } from "@/hooks/usePaymentConfig";
+import { getInfluencerTracking } from "@/lib/influencer-tracking";
 
-/* ─────────── Cart Context Type ─────────── */
+/* ─────────── Types ─────────── */
+
+export interface AppliedCoupon {
+  code: string;
+  type: "percentual" | "fixo";
+  value: number;
+  fromInfluencer?: boolean;
+}
 
 interface CartContextType {
   items: CartItem[];
@@ -16,6 +31,11 @@ interface CartContextType {
   subtotal: number;
   discount: number;
   discountAmount: number;
+  appliedCoupon: AppliedCoupon | null;
+  couponDiscount: number;
+  applyCouponCode: (code: string, fromInfluencer?: boolean) => Promise<boolean>;
+  removeCoupon: () => void;
+  influencerSlug: string | null;
   total: number;
   pixTotal: number;
 }
@@ -45,16 +65,62 @@ function saveCart(items: CartItem[]) {
   }
 }
 
+/* ─────────── Coupon validation helper ─────────── */
+
+async function validateCoupon(
+  code: string
+): Promise<{
+  valid: boolean;
+  code?: string;
+  discount_type?: string;
+  discount_value?: number;
+  reason?: string;
+}> {
+  try {
+    const res = await fetch("/api/coupons/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    return await res.json();
+  } catch {
+    return { valid: false, reason: "Erro de conexao" };
+  }
+}
+
 /* ─────────── Provider ─────────── */
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(
+    null
+  );
+  const [influencerSlug, setInfluencerSlug] = useState<string | null>(null);
 
   // Hydrate from localStorage on mount
   useEffect(() => {
     setItems(loadCart());
     setHydrated(true);
+
+    // Check for influencer tracking and auto-apply coupon
+    const tracking = getInfluencerTracking();
+    if (tracking) {
+      setInfluencerSlug(tracking.slug);
+      if (tracking.couponCode) {
+        // Auto-apply influencer coupon (fire and forget)
+        validateCoupon(tracking.couponCode).then((data) => {
+          if (data.valid) {
+            setAppliedCoupon({
+              code: data.code!,
+              type: data.discount_type === "fixo" ? "fixo" : "percentual",
+              value: data.discount_value!,
+              fromInfluencer: true,
+            });
+          }
+        });
+      }
+    }
   }, []);
 
   // Persist to localStorage on change (after hydration)
@@ -63,6 +129,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
       saveCart(items);
     }
   }, [items, hydrated]);
+
+  const applyCouponCode = useCallback(
+    async (code: string, fromInfluencer = false): Promise<boolean> => {
+      const data = await validateCoupon(code);
+      if (data.valid) {
+        setAppliedCoupon({
+          code: data.code!,
+          type: data.discount_type === "fixo" ? "fixo" : "percentual",
+          value: data.discount_value!,
+          fromInfluencer,
+        });
+        return true;
+      }
+      return false;
+    },
+    []
+  );
+
+  const removeCoupon = useCallback(() => {
+    setAppliedCoupon(null);
+  }, []);
 
   const addItem = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {
@@ -115,7 +202,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const discount = getDiscount(dogbookQty);
   const discountAmount = subtotal * discount;
-  const total = subtotal - discountAmount;
+
+  // Calculate coupon discount (applied after volume discount)
+  let couponDiscount = 0;
+  if (appliedCoupon) {
+    const afterVolumeDiscount = subtotal - discountAmount;
+    if (appliedCoupon.type === "fixo") {
+      couponDiscount = Math.min(appliedCoupon.value, afterVolumeDiscount);
+    } else {
+      couponDiscount = afterVolumeDiscount * (appliedCoupon.value / 100);
+    }
+  }
+
+  const total = Math.max(subtotal - discountAmount - couponDiscount, 0);
   const paymentCfg = usePaymentConfig();
   const pixTotal = total * (1 - paymentCfg.pixDiscountPct / 100);
 
@@ -131,6 +230,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         subtotal,
         discount,
         discountAmount,
+        appliedCoupon,
+        couponDiscount,
+        applyCouponCode,
+        removeCoupon,
+        influencerSlug,
         total,
         pixTotal,
       }}
