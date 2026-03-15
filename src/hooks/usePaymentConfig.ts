@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { PAYMENT_CONFIG } from "@/lib/pricing-config";
 
 /**
- * localStorage-based persistence for payment configuration.
+ * Supabase-backed persistence for payment configuration.
  *
- * Until Supabase persistence is wired up, admin saves to localStorage
- * and public pages read from it so changes reflect immediately
- * (within the same browser).
+ * Admin saves → POST /api/settings → Supabase `site_settings` table.
+ * Public pages → GET /api/settings → reads from Supabase (same DB for everyone).
+ *
+ * This guarantees that ALL visitors see the admin-configured values,
+ * regardless of browser, device, or deployment cache.
  */
-
-const STORAGE_KEY = "pam_payment_config";
 
 export interface PaymentConfigData {
   maxInstallments: number;
@@ -19,55 +19,91 @@ export interface PaymentConfigData {
   boletoDiscountPct: number;
 }
 
-/** Read persisted config (sync, for initial render) */
-function readPersistedConfig(): PaymentConfigData {
-  if (typeof window === "undefined") return PAYMENT_CONFIG;
+/** In-memory cache shared across all hook instances in the same page load */
+let cachedConfig: PaymentConfigData | null = null;
+let fetchPromise: Promise<PaymentConfigData> | null = null;
+
+/** Fetch payment config from the API (Supabase-backed) */
+async function fetchPaymentConfig(): Promise<PaymentConfigData> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<PaymentConfigData>;
+    const res = await fetch("/api/settings?key=payment_config", {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.value) {
+      const val = data.value as Partial<PaymentConfigData>;
       return {
-        maxInstallments: parsed.maxInstallments ?? PAYMENT_CONFIG.maxInstallments,
-        pixDiscountPct: parsed.pixDiscountPct ?? PAYMENT_CONFIG.pixDiscountPct,
-        boletoDiscountPct: parsed.boletoDiscountPct ?? PAYMENT_CONFIG.boletoDiscountPct,
+        maxInstallments: val.maxInstallments ?? PAYMENT_CONFIG.maxInstallments,
+        pixDiscountPct: val.pixDiscountPct ?? PAYMENT_CONFIG.pixDiscountPct,
+        boletoDiscountPct: val.boletoDiscountPct ?? PAYMENT_CONFIG.boletoDiscountPct,
       };
     }
-  } catch {
-    // corrupted – fall back to defaults
+  } catch (err) {
+    console.warn("[usePaymentConfig] Failed to fetch from API, using defaults:", err);
   }
   return PAYMENT_CONFIG;
 }
 
-/** Write config to localStorage */
-export function persistPaymentConfig(cfg: PaymentConfigData): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-  // Dispatch a custom event so other tabs/components re-read
-  window.dispatchEvent(new Event("pam_payment_config_updated"));
+/** Save payment config to the API (Supabase-backed) */
+export async function persistPaymentConfig(cfg: PaymentConfigData): Promise<boolean> {
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "payment_config", value: cfg }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // Update the in-memory cache immediately
+    cachedConfig = cfg;
+    // Notify other components in the same tab
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("pam_payment_config_updated"));
+    }
+    return true;
+  } catch (err) {
+    console.error("[persistPaymentConfig] Failed to save:", err);
+    return false;
+  }
 }
 
 /**
- * React hook that returns the current payment config.
- * - On first render, reads from localStorage (falls back to hardcoded).
- * - Listens for cross-tab `storage` events and custom in-tab events
- *   so the value is always fresh.
+ * React hook that returns the current payment config from Supabase.
+ *
+ * - Starts with hardcoded defaults (for SSR / initial render)
+ * - On mount, fetches the real values from /api/settings (Supabase)
+ * - Deduplicates concurrent fetches across multiple components
+ * - Listens for in-tab updates (after admin save)
  */
 export function usePaymentConfig(): PaymentConfigData {
-  const [config, setConfig] = useState<PaymentConfigData>(PAYMENT_CONFIG);
+  const [config, setConfig] = useState<PaymentConfigData>(
+    cachedConfig ?? PAYMENT_CONFIG
+  );
 
   useEffect(() => {
-    // Read from localStorage on mount (after hydration, window is available)
-    const persisted = readPersistedConfig();
-    setConfig(persisted);
+    // If already cached from a previous fetch in this page load, use it
+    if (cachedConfig) {
+      setConfig(cachedConfig);
+    }
 
-    const refresh = () => setConfig(readPersistedConfig());
-    // Listen for changes from other tabs
-    window.addEventListener("storage", refresh);
-    // Listen for changes within the same tab (admin save)
-    window.addEventListener("pam_payment_config_updated", refresh);
+    // Deduplicate: if a fetch is already in flight, reuse it
+    if (!fetchPromise) {
+      fetchPromise = fetchPaymentConfig().then((cfg) => {
+        cachedConfig = cfg;
+        fetchPromise = null;
+        return cfg;
+      });
+    }
+
+    fetchPromise.then((cfg) => setConfig(cfg));
+
+    // Listen for updates from admin save (same tab)
+    const onUpdate = () => {
+      if (cachedConfig) setConfig(cachedConfig);
+    };
+    window.addEventListener("pam_payment_config_updated", onUpdate);
     return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("pam_payment_config_updated", refresh);
+      window.removeEventListener("pam_payment_config_updated", onUpdate);
     };
   }, []);
 

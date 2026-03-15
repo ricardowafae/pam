@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { PRICING, PAYMENT_CONFIG, formatBRL as formatBRLShared, FIXED_COUPONS, REDEMPTION_SETTINGS, type FixedCouponConfig } from "@/lib/pricing-config";
 import { persistPaymentConfig } from "@/hooks/usePaymentConfig";
@@ -274,23 +274,27 @@ export default function PrecosPage() {
   const [redemptionSettings, setRedemptionSettings] = useState(REDEMPTION_SETTINGS);
   const [savedRedemptionSettings, setSavedRedemptionSettings] = useState(REDEMPTION_SETTINGS);
 
-  /* ─── Payment state (reads persisted values from localStorage on mount) ─── */
-  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(() => {
-    if (typeof window === "undefined") return initialPayment;
-    try {
-      const raw = localStorage.getItem("pam_payment_config");
-      if (raw) {
-        const p = JSON.parse(raw);
-        return {
-          maxInstallments: String(p.maxInstallments ?? PAYMENT_CONFIG.maxInstallments),
-          pixDiscount: String(p.pixDiscountPct ?? PAYMENT_CONFIG.pixDiscountPct),
-          boletoDiscount: String(p.boletoDiscountPct ?? PAYMENT_CONFIG.boletoDiscountPct),
-        };
-      }
-    } catch { /* fall through */ }
-    return initialPayment;
-  });
-  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(() => paymentConfig);
+  /* ─── Payment state (fetches from Supabase on mount) ─── */
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(initialPayment);
+  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(initialPayment);
+
+  // Load saved payment config from Supabase on mount
+  useEffect(() => {
+    fetch("/api/settings?key=payment_config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.value) {
+          const loaded: PaymentConfig = {
+            maxInstallments: String(data.value.maxInstallments ?? PAYMENT_CONFIG.maxInstallments),
+            pixDiscount: String(data.value.pixDiscountPct ?? PAYMENT_CONFIG.pixDiscountPct),
+            boletoDiscount: String(data.value.boletoDiscountPct ?? PAYMENT_CONFIG.boletoDiscountPct),
+          };
+          setPaymentConfig(loaded);
+          setSavedPaymentConfig(loaded);
+        }
+      })
+      .catch(() => { /* use defaults */ });
+  }, []);
 
   const hasChanges = useMemo(() => {
     return JSON.stringify(products) !== JSON.stringify(savedProducts) ||
@@ -303,19 +307,20 @@ export default function PrecosPage() {
   const handleSaveAll = useCallback(async () => {
     setSaving(true);
     try {
-      // Simulate API save (replace with Supabase call when table exists)
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Save payment config to Supabase via API
+      const saved = await persistPaymentConfig({
+        maxInstallments: parseInt(paymentConfig.maxInstallments) || PAYMENT_CONFIG.maxInstallments,
+        pixDiscountPct: parseFloat(paymentConfig.pixDiscount) || PAYMENT_CONFIG.pixDiscountPct,
+        boletoDiscountPct: parseFloat(paymentConfig.boletoDiscount) || PAYMENT_CONFIG.boletoDiscountPct,
+      });
+      if (!saved) {
+        throw new Error("Falha ao salvar no banco de dados");
+      }
       setSavedProducts(JSON.parse(JSON.stringify(products)));
       setSavedGiftCards(JSON.parse(JSON.stringify(giftCards)));
       setSavedCoupons(JSON.parse(JSON.stringify(fixedCoupons)));
       setSavedRedemptionSettings(JSON.parse(JSON.stringify(redemptionSettings)));
       setSavedPaymentConfig(JSON.parse(JSON.stringify(paymentConfig)));
-      // Persist payment config to localStorage so public pages pick it up
-      persistPaymentConfig({
-        maxInstallments: parseInt(paymentConfig.maxInstallments) || PAYMENT_CONFIG.maxInstallments,
-        pixDiscountPct: parseFloat(paymentConfig.pixDiscount) || PAYMENT_CONFIG.pixDiscountPct,
-        boletoDiscountPct: parseFloat(paymentConfig.boletoDiscount) || PAYMENT_CONFIG.boletoDiscountPct,
-      });
       toast.success("Modificações salvas com sucesso!", {
         description: "Preços, formas de pagamento, cupons e condições foram atualizados em todo o site.",
       });
