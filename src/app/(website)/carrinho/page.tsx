@@ -24,27 +24,24 @@ import { Label } from "@/components/ui/label";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-
-/* ---------- mock cart data (will come from useCart context later) ---------- */
-const mockCartItems = [
-  {
-    id: "dogbook-1",
-    name: "Dogbook",
-    slug: "dogbook",
-    price: 490,
-    quantity: 1,
-    image: "/images/dogbook-cover-closed.jpg",
-    maxInstallments: 10,
-  },
-];
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
 
 type PersonType = "pf" | "pj";
 
 export default function CarrinhoPage() {
   const router = useRouter();
-
-  /* --- cart state (mock) --- */
-  const [items, setItems] = useState(mockCartItems);
+  const {
+    items,
+    updateQuantity,
+    removeItem,
+    subtotal,
+    discount,
+    discountAmount,
+    total,
+    pixTotal,
+    totalItems,
+  } = useCart();
 
   /* --- form state --- */
   const [personType, setPersonType] = useState<PersonType>("pf");
@@ -90,8 +87,7 @@ export default function CarrinhoPage() {
   /* --- validation --- */
   const [submitted, setSubmitted] = useState(false);
 
-  /** Returns validation message component for a required field */
-  function fieldStatus(value: string, label?: string) {
+  function fieldStatus(value: string) {
     if (!submitted) return null;
     const filled = value.trim().length > 0;
     return (
@@ -105,16 +101,23 @@ export default function CarrinhoPage() {
             Preenchido
           </>
         ) : (
-          `Preenchimento obrigatório`
+          "Preenchimento obrigatório"
         )}
       </p>
     );
   }
 
+  function handleApplyVale() {
+    if (!valeCode.trim()) {
+      toast.error("Digite o código do vale presente.");
+      return;
+    }
+    toast.info("Funcionalidade de vale presente em breve!");
+  }
+
   function handleContinue() {
     setSubmitted(true);
 
-    // Check required fields
     const requiredPersonal = personType === "pf"
       ? [name, email, phone, cpf]
       : [name, razaoSocial, email, phone, cnpj];
@@ -123,7 +126,7 @@ export default function CarrinhoPage() {
 
     const hasEmpty = allRequired.some((v) => v.trim().length === 0);
     if (hasEmpty) {
-      // Scroll to first empty field
+      toast.error("Preencha todos os campos obrigatórios.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -132,39 +135,8 @@ export default function CarrinhoPage() {
     router.push("/pagamento");
   }
 
-  /* --- helpers --- */
-  const updateQty = (id: string, delta: number) => {
-    setItems((prev) =>
-      prev
-        .map((item) =>
-          item.id === id
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
-  };
-
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const dogbookQty = items
-    .filter((i) => i.slug === "dogbook")
-    .reduce((s, i) => s + i.quantity, 0);
-
-  const getDiscount = (qty: number) => {
-    if (qty >= 4) return 0.1;
-    if (qty >= 2) return 0.05;
-    return 0;
-  };
-
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discountRate = getDiscount(dogbookQty);
-  const discountAmount = subtotal * discountRate;
-  const total = subtotal - discountAmount;
-  const pixTotal = total * 0.95;
-  const maxInstallments = items[0]?.maxInstallments ?? 10;
+  /* --- derived values --- */
+  const maxInstallments = 10;
   const installmentValue = total / maxInstallments;
 
   /* --- empty cart --- */
@@ -494,11 +466,11 @@ export default function CarrinhoPage() {
               {/* Cart items */}
               <div className="space-y-4">
                 {items.map((item) => (
-                  <div key={item.id} className="flex gap-3">
+                  <div key={item.product.id} className="flex gap-3">
                     <div className="shrink-0 overflow-hidden rounded-lg bg-secondary/30">
                       <Image
-                        src={item.image}
-                        alt={item.name}
+                        src={item.product.image_url || "/images/dogbook-cover-closed.jpg"}
+                        alt={item.product.name}
                         width={64}
                         height={64}
                         className="size-16 object-cover"
@@ -506,12 +478,12 @@ export default function CarrinhoPage() {
                     </div>
                     <div className="flex flex-1 flex-col justify-center">
                       <p className="text-sm font-medium text-foreground">
-                        {item.name}
+                        {item.product.name}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => updateQty(item.id, -1)}
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                           className="flex size-6 items-center justify-center rounded border border-border text-muted-foreground hover:bg-secondary transition-colors"
                         >
                           <Minus className="size-3" />
@@ -521,14 +493,14 @@ export default function CarrinhoPage() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => updateQty(item.id, 1)}
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                           className="flex size-6 items-center justify-center rounded border border-border text-muted-foreground hover:bg-secondary transition-colors"
                         >
                           <Plus className="size-3" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.product.id)}
                           className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
                         >
                           <Trash2 className="size-3.5" />
@@ -536,7 +508,7 @@ export default function CarrinhoPage() {
                       </div>
                     </div>
                     <p className="text-sm font-semibold text-foreground whitespace-nowrap">
-                      R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}
+                      R$ {(item.product.base_price * item.quantity).toFixed(2).replace(".", ",")}
                     </p>
                   </div>
                 ))}
@@ -561,6 +533,7 @@ export default function CarrinhoPage() {
                     variant="outline"
                     size="sm"
                     className="h-9 px-4 text-xs"
+                    onClick={handleApplyVale}
                   >
                     Aplicar
                   </Button>
@@ -578,10 +551,10 @@ export default function CarrinhoPage() {
                   </span>
                 </div>
 
-                {discountRate > 0 && (
+                {discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>
-                      Desconto ({(discountRate * 100).toFixed(0)}%)
+                      Desconto ({(discount * 100).toFixed(0)}%)
                     </span>
                     <span className="font-medium">
                       -R$ {discountAmount.toFixed(2).replace(".", ",")}

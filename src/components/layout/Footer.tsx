@@ -52,18 +52,16 @@ export default function Footer() {
               >
                 <Instagram className="h-4 w-4" />
               </a>
-              {/* TikTok placeholder */}
-              <a
-                href="#"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full bg-primary/10 p-2 text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                aria-label="TikTok"
+              {/* TikTok - em breve */}
+              <span
+                className="rounded-full bg-primary/10 p-2 text-primary/40 cursor-default"
+                aria-label="TikTok (em breve)"
+                title="Em breve"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.75a8.18 8.18 0 004.77 1.52V6.81a4.84 4.84 0 01-1-.12z" />
                 </svg>
-              </a>
+              </span>
             </div>
           </div>
 

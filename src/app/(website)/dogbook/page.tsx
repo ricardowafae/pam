@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -24,6 +25,9 @@ import {
   Plus,
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
+import type { Product } from "@/types";
 
 /* ─────────── Data ─────────── */
 
@@ -111,10 +115,38 @@ const MAX_INSTALLMENTS = 10;
 
 /* ─────────── Component ─────────── */
 
+const DOGBOOK_PRODUCT: Product = {
+  id: "dogbook-1",
+  name: "Dogbook",
+  slug: "dogbook",
+  category: "dogbook",
+  description: "Fotolivro artesanal premium",
+  base_price: PRICE,
+  max_installments: MAX_INSTALLMENTS,
+  pix_discount_pct: 5,
+  image_url: "/images/dogbook-cover-closed.jpg",
+  active: true,
+  sort_order: 1,
+  created_at: "",
+  updated_at: "",
+};
+
 export default function DogbookPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedTheme, setSelectedTheme] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const { addItem } = useCart();
+  const router = useRouter();
+
+  function handleAddToCart() {
+    addItem(DOGBOOK_PRODUCT, quantity);
+    toast.success(`${quantity} Dogbook${quantity > 1 ? "s" : ""} adicionado${quantity > 1 ? "s" : ""} ao carrinho!`);
+  }
+
+  function handleBuyNow() {
+    addItem(DOGBOOK_PRODUCT, quantity);
+    router.push("/carrinho");
+  }
 
   const discount = useMemo(() => {
     if (quantity >= 4) return 0.1;
@@ -300,7 +332,7 @@ export default function DogbookPage() {
 
             {/* CTA Buttons */}
             <div className="grid grid-cols-2 gap-3">
-              <Button size="lg" className="gap-2 text-sm uppercase tracking-wide font-semibold">
+              <Button size="lg" className="gap-2 text-sm uppercase tracking-wide font-semibold" onClick={handleBuyNow}>
                 <ShoppingBag className="size-4" />
                 Comprar Agora
               </Button>
@@ -308,6 +340,7 @@ export default function DogbookPage() {
                 size="lg"
                 variant="outline"
                 className="gap-2 text-sm uppercase tracking-wide font-semibold"
+                onClick={handleAddToCart}
               >
                 <Heart className="size-4" />
                 Adicionar ao Carrinho
@@ -531,7 +564,7 @@ export default function DogbookPage() {
                 </div>
 
                 {/* CTA */}
-                <Button className="w-full gap-2 uppercase tracking-wide font-semibold">
+                <Button className="w-full gap-2 uppercase tracking-wide font-semibold" onClick={handleBuyNow}>
                   <ShoppingBag className="size-4" />
                   Comprar Dogbook
                 </Button>
@@ -681,6 +714,7 @@ export default function DogbookPage() {
           <Button
             size="lg"
             className="gap-2 uppercase tracking-wide font-semibold px-10"
+            onClick={handleBuyNow}
           >
             <ShoppingBag className="size-4" />
             Comprar Dogbook

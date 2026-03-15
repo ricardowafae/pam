@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -15,6 +16,9 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import type { SessionData } from "./session-data";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
+import type { Product } from "@/types";
 
 export type { SessionData };
 export { SESSIONS } from "./session-data";
@@ -39,6 +43,35 @@ interface Props {
 }
 
 export default function SessionPageContent({ session }: Props) {
+  const { addItem } = useCart();
+  const router = useRouter();
+
+  const sessionProduct: Product = {
+    id: `sessao-${session.slug}`,
+    name: session.title,
+    slug: `sessao-${session.slug}`,
+    category: "sessao",
+    description: session.description,
+    base_price: session.price,
+    max_installments: session.installments,
+    pix_discount_pct: 5,
+    image_url: session.image,
+    active: true,
+    sort_order: 0,
+    created_at: "",
+    updated_at: "",
+  };
+
+  function handleAddToCart() {
+    addItem(sessionProduct, 1);
+    toast.success(`${session.title} adicionada ao carrinho!`);
+  }
+
+  function handleBuyNow() {
+    addItem(sessionProduct, 1);
+    router.push("/carrinho");
+  }
+
   const installmentValue = (session.price / session.installments)
     .toFixed(2)
     .replace(".", ",");
@@ -177,6 +210,7 @@ export default function SessionPageContent({ session }: Props) {
               <Button
                 size="lg"
                 className="gap-2 text-sm uppercase tracking-wide font-semibold"
+                onClick={handleBuyNow}
               >
                 <ShoppingCart className="size-4" />
                 Comprar
@@ -185,6 +219,7 @@ export default function SessionPageContent({ session }: Props) {
                 size="lg"
                 variant="outline"
                 className="gap-2 text-sm uppercase tracking-wide font-semibold"
+                onClick={handleAddToCart}
               >
                 <Heart className="size-4" />
                 Adicionar ao Carrinho
