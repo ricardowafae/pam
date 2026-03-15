@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { useCepLookup } from "@/hooks/useCepLookup";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Card,
   CardContent,
@@ -288,9 +297,12 @@ function formatDate(date: string): string {
 /* ────────────────────── Form Default State ────────────────────── */
 
 const emptyForm = {
+  personType: "PF" as "PF" | "PJ",
   name: "",
   email: "",
   phone: "",
+  cpf: "",
+  rg: "",
   valorPocket: "150.00",
   valorEstudio: "300.00",
   valorCompleta: "500.00",
@@ -394,6 +406,9 @@ export default function FotografosPage() {
     )
   );
 
+  const [editPhotographer, setEditPhotographer] = useState<Photographer | null>(null);
+  const [deletePhotographer, setDeletePhotographer] = useState<Photographer | null>(null);
+
   const markAsPaid = (id: number) => {
     setCommissions((prev) =>
       prev.map((c) =>
@@ -408,6 +423,49 @@ export default function FotografosPage() {
     );
   };
 
+  const handleEditPhotographer = useCallback((ph: Photographer) => {
+    setForm({
+      ...emptyForm,
+      personType: "PF",
+      name: ph.name,
+      email: ph.email,
+      phone: ph.phone,
+      instagram: ph.instagram,
+      cidade: ph.city,
+      estado: ph.state,
+      ativo: ph.status === "ativo",
+    });
+    setEditPhotographer(ph);
+    setShowNewForm(true);
+  }, []);
+
+  const handleCopyInviteLink = useCallback(() => {
+    const url = `${window.location.origin}/convite/fotografo`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Link copiado!", { description: url });
+    });
+  }, []);
+
+  const handleCopyPhotographerLink = useCallback((ph: Photographer) => {
+    const slug = ph.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const url = `${window.location.origin}/fotografo/${slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Link copiado!", { description: url });
+    });
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!deletePhotographer) return;
+    toast.success(`Fotógrafo "${deletePhotographer.name}" excluído com sucesso.`);
+    setDeletePhotographer(null);
+  }, [deletePhotographer]);
+
+  const handleCloseForm = useCallback(() => {
+    setShowNewForm(false);
+    setEditPhotographer(null);
+    setForm(emptyForm);
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* ─── Header ─── */}
@@ -421,14 +479,15 @@ export default function FotografosPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleCopyInviteLink}>
             <Link2 className="size-4" />
-            Gerar Link de Convite
+            Copiar Link de Convite Fotógrafo
           </Button>
           <Button
             className="gap-2"
             onClick={() => {
               setForm(emptyForm);
+              setEditPhotographer(null);
               setShowNewForm(true);
             }}
           >
@@ -577,6 +636,8 @@ export default function FotografosPage() {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Editar"
+                              onClick={() => handleEditPhotographer(ph)}
                             >
                               <Edit className="size-3.5" />
                             </Button>
@@ -584,13 +645,17 @@ export default function FotografosPage() {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Visualizar"
+                              onClick={() => handleEditPhotographer(ph)}
                             >
-                              <XCircle className="size-3.5" />
+                              <Eye className="size-3.5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Copiar link"
+                              onClick={() => handleCopyPhotographerLink(ph)}
                             >
                               <Link2 className="size-3.5" />
                             </Button>
@@ -598,6 +663,8 @@ export default function FotografosPage() {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Excluir"
+                              onClick={() => setDeletePhotographer(ph)}
                             >
                               <Trash2 className="size-3.5 text-destructive" />
                             </Button>
@@ -888,6 +955,30 @@ export default function FotografosPage() {
       </Tabs>
 
       {/* ════════════════════ Novo Fotografo Modal ════════════════════ */}
+      {/* ─── Delete Confirmation Dialog ─── */}
+      <Dialog open={!!deletePhotographer} onOpenChange={(open) => !open && setDeletePhotographer(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5" />
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o fotógrafo{" "}
+              <strong>{deletePhotographer?.name}</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeletePhotographer(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {showNewForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <Card className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
@@ -895,23 +986,50 @@ export default function FotografosPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="font-serif text-foreground">
-                    Novo Fotografo
+                    {editPhotographer ? "Editar Fotógrafo" : "Novo Fotografo"}
                   </CardTitle>
                   <CardDescription>
-                    Cadastre um novo fotografo parceiro
+                    {editPhotographer
+                      ? `Editando dados de ${editPhotographer.name}`
+                      : "Cadastre um novo fotografo parceiro"}
                   </CardDescription>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-8"
-                  onClick={() => setShowNewForm(false)}
+                  onClick={handleCloseForm}
                 >
                   <X className="size-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* ─── Tipo de Pessoa ─── */}
+              <div>
+                <Label className="mb-2 block text-sm font-semibold">Tipo de Cadastro *</Label>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant={form.personType === "PF" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => updateForm("personType", "PF")}
+                  >
+                    Pessoa Física (PF)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={form.personType === "PJ" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => updateForm("personType", "PJ")}
+                  >
+                    Pessoa Jurídica (PJ)
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* ─── Dados Basicos ─── */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -941,6 +1059,28 @@ export default function FotografosPage() {
                     className="mt-1"
                   />
                 </div>
+                {form.personType === "PF" && (
+                  <>
+                    <div>
+                      <Label>CPF *</Label>
+                      <Input
+                        value={form.cpf}
+                        onChange={(e) => updateForm("cpf", e.target.value)}
+                        placeholder="000.000.000-00"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>RG</Label>
+                      <Input
+                        value={form.rg}
+                        onChange={(e) => updateForm("rg", e.target.value)}
+                        placeholder="00.000.000-0"
+                        className="mt-1"
+                      />
+                    </div>
+                  </>
+                )}
                 <div>
                   <Label>Valor - Sessao Pocket (R$)</Label>
                   <Input
@@ -1086,48 +1226,50 @@ export default function FotografosPage() {
 
               <Separator />
 
-              {/* ─── Pessoa Juridica (PJ) ─── */}
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <Building2 className="size-4 text-primary/60" />
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Pessoa Juridica (PJ)
-                  </h3>
+              {/* ─── Pessoa Juridica (PJ) — only when PJ selected ─── */}
+              {form.personType === "PJ" && (
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <Building2 className="size-4 text-primary/60" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Pessoa Jurídica (PJ)
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label>Razão Social *</Label>
+                      <Input
+                        value={form.razaoSocial}
+                        onChange={(e) =>
+                          updateForm("razaoSocial", e.target.value)
+                        }
+                        placeholder="Razão Social da empresa"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Nome Fantasia</Label>
+                      <Input
+                        value={form.nomeFantasia}
+                        onChange={(e) =>
+                          updateForm("nomeFantasia", e.target.value)
+                        }
+                        placeholder="Nome Fantasia"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>CNPJ *</Label>
+                      <Input
+                        value={form.cnpj}
+                        onChange={(e) => updateForm("cnpj", e.target.value)}
+                        placeholder="00.000.000/0000-00"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>Razao Social</Label>
-                    <Input
-                      value={form.razaoSocial}
-                      onChange={(e) =>
-                        updateForm("razaoSocial", e.target.value)
-                      }
-                      placeholder="Razao Social da empresa"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Nome Fantasia</Label>
-                    <Input
-                      value={form.nomeFantasia}
-                      onChange={(e) =>
-                        updateForm("nomeFantasia", e.target.value)
-                      }
-                      placeholder="Nome Fantasia"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label>CNPJ</Label>
-                    <Input
-                      value={form.cnpj}
-                      onChange={(e) => updateForm("cnpj", e.target.value)}
-                      placeholder="00.000.000/0000-00"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </div>
+              )}
 
               <Separator />
 
@@ -1251,12 +1393,19 @@ export default function FotografosPage() {
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => setShowNewForm(false)}
+                  onClick={handleCloseForm}
                 >
                   Cancelar
                 </Button>
-                <Button onClick={() => setShowNewForm(false)}>
-                  Cadastrar
+                <Button onClick={() => {
+                  if (editPhotographer) {
+                    toast.success(`Fotógrafo "${form.name}" atualizado com sucesso!`);
+                  } else {
+                    toast.success(`Fotógrafo "${form.name}" cadastrado com sucesso!`);
+                  }
+                  handleCloseForm();
+                }}>
+                  {editPhotographer ? "Salvar Alterações" : "Cadastrar"}
                 </Button>
               </div>
             </CardContent>

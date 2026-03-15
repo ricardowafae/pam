@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { PRICING, PAYMENT_CONFIG, formatBRL as formatBRLShared, FIXED_COUPONS, REDEMPTION_SETTINGS, type FixedCouponConfig } from "@/lib/pricing-config";
 import {
   Card,
   CardContent,
@@ -25,6 +26,21 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Save,
   CreditCard,
   QrCode,
@@ -43,6 +59,7 @@ import {
   Fingerprint,
   Layers,
   Ban,
+  Pencil,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -77,10 +94,13 @@ interface ProductConfig {
   name: string;
   price: string;
   active: boolean;
-  maxInstallments: string;
-  pixDiscount: string;
   influencerDiscount: string;
   discountTiers: [DiscountTier, DiscountTier, DiscountTier];
+}
+
+interface PaymentConfig {
+  maxInstallments: string;
+  pixDiscount: string;
 }
 
 /* ────────────────────── Helpers ────────────────────── */
@@ -99,60 +119,53 @@ const initialProducts: ProductConfig[] = [
   {
     id: 1,
     name: "Dogbook",
-    price: "490,00",
+    price: formatBRL(PRICING.dogbook.price),
     active: true,
-    maxInstallments: "10",
-    pixDiscount: "5",
-    influencerDiscount: "10",
-    discountTiers: [
-      { minQty: "2", discountPct: "5" },
-      { minQty: "3", discountPct: "8" },
-      { minQty: "4", discountPct: "10" },
-    ],
+    influencerDiscount: String(PRICING.dogbook.influencerDiscountPct),
+    discountTiers: PRICING.dogbook.discountTiers.map((t) => ({
+      minQty: String(t.minQty),
+      discountPct: String(t.discountPct),
+    })) as [DiscountTier, DiscountTier, DiscountTier],
   },
   {
     id: 2,
     name: "Sessão Pocket",
-    price: "900,00",
+    price: formatBRL(PRICING.pocket.price),
     active: true,
-    maxInstallments: "10",
-    pixDiscount: "5",
-    influencerDiscount: "10",
-    discountTiers: [
-      { minQty: "2", discountPct: "5" },
-      { minQty: "3", discountPct: "8" },
-      { minQty: "4", discountPct: "10" },
-    ],
+    influencerDiscount: String(PRICING.pocket.influencerDiscountPct),
+    discountTiers: PRICING.pocket.discountTiers.map((t) => ({
+      minQty: String(t.minQty),
+      discountPct: String(t.discountPct),
+    })) as [DiscountTier, DiscountTier, DiscountTier],
   },
   {
     id: 3,
     name: "Sessão Estúdio",
-    price: "3.700,00",
+    price: formatBRL(PRICING.estudio.price),
     active: true,
-    maxInstallments: "10",
-    pixDiscount: "5",
-    influencerDiscount: "10",
-    discountTiers: [
-      { minQty: "2", discountPct: "5" },
-      { minQty: "3", discountPct: "8" },
-      { minQty: "4", discountPct: "10" },
-    ],
+    influencerDiscount: String(PRICING.estudio.influencerDiscountPct),
+    discountTiers: PRICING.estudio.discountTiers.map((t) => ({
+      minQty: String(t.minQty),
+      discountPct: String(t.discountPct),
+    })) as [DiscountTier, DiscountTier, DiscountTier],
   },
   {
     id: 4,
     name: "Sessão Completa",
-    price: "4.900,00",
+    price: formatBRL(PRICING.completa.price),
     active: true,
-    maxInstallments: "10",
-    pixDiscount: "5",
-    influencerDiscount: "10",
-    discountTiers: [
-      { minQty: "2", discountPct: "5" },
-      { minQty: "3", discountPct: "8" },
-      { minQty: "4", discountPct: "10" },
-    ],
+    influencerDiscount: String(PRICING.completa.influencerDiscountPct),
+    discountTiers: PRICING.completa.discountTiers.map((t) => ({
+      minQty: String(t.minQty),
+      discountPct: String(t.discountPct),
+    })) as [DiscountTier, DiscountTier, DiscountTier],
   },
 ];
+
+const initialPayment: PaymentConfig = {
+  maxInstallments: String(PAYMENT_CONFIG.maxInstallments),
+  pixDiscount: String(PAYMENT_CONFIG.pixDiscountPct),
+};
 
 const initialGiftCards: GiftCardConfig[] = [
   {
@@ -244,10 +257,30 @@ export default function PrecosPage() {
   const [savedProducts, setSavedProducts] = useState<ProductConfig[]>(initialProducts);
   const [savedGiftCards, setSavedGiftCards] = useState<GiftCardConfig[]>(initialGiftCards);
 
+  /* ─── Coupons state ─── */
+  const [fixedCoupons, setFixedCoupons] = useState<FixedCouponConfig[]>(FIXED_COUPONS);
+  const [savedCoupons, setSavedCoupons] = useState<FixedCouponConfig[]>(FIXED_COUPONS);
+  const [editCoupon, setEditCoupon] = useState<FixedCouponConfig | null>(null);
+  const [editCouponForm, setEditCouponForm] = useState({
+    code: "",
+    discountValue: "",
+    type: "fixed" as "fixed" | "percentage",
+    active: true,
+  });
+  const [redemptionSettings, setRedemptionSettings] = useState(REDEMPTION_SETTINGS);
+  const [savedRedemptionSettings, setSavedRedemptionSettings] = useState(REDEMPTION_SETTINGS);
+
+  /* ─── Payment state ─── */
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(initialPayment);
+  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(initialPayment);
+
   const hasChanges = useMemo(() => {
     return JSON.stringify(products) !== JSON.stringify(savedProducts) ||
-           JSON.stringify(giftCards) !== JSON.stringify(savedGiftCards);
-  }, [products, giftCards, savedProducts, savedGiftCards]);
+           JSON.stringify(giftCards) !== JSON.stringify(savedGiftCards) ||
+           JSON.stringify(fixedCoupons) !== JSON.stringify(savedCoupons) ||
+           JSON.stringify(redemptionSettings) !== JSON.stringify(savedRedemptionSettings) ||
+           JSON.stringify(paymentConfig) !== JSON.stringify(savedPaymentConfig);
+  }, [products, giftCards, savedProducts, savedGiftCards, fixedCoupons, savedCoupons, redemptionSettings, savedRedemptionSettings, paymentConfig, savedPaymentConfig]);
 
   const handleSaveAll = useCallback(async () => {
     setSaving(true);
@@ -256,15 +289,18 @@ export default function PrecosPage() {
       await new Promise((resolve) => setTimeout(resolve, 800));
       setSavedProducts(JSON.parse(JSON.stringify(products)));
       setSavedGiftCards(JSON.parse(JSON.stringify(giftCards)));
+      setSavedCoupons(JSON.parse(JSON.stringify(fixedCoupons)));
+      setSavedRedemptionSettings(JSON.parse(JSON.stringify(redemptionSettings)));
+      setSavedPaymentConfig(JSON.parse(JSON.stringify(paymentConfig)));
       toast.success("Modificações salvas com sucesso!", {
-        description: "Preços e condições de pagamento foram atualizados.",
+        description: "Preços, formas de pagamento, cupons e condições foram atualizados em todo o site.",
       });
     } catch {
       toast.error("Erro ao salvar modificações. Tente novamente.");
     } finally {
       setSaving(false);
     }
-  }, [products, giftCards]);
+  }, [products, giftCards, fixedCoupons, redemptionSettings]);
 
   const handleSaveProduct = useCallback(async (productName: string) => {
     setSaving(true);
@@ -291,6 +327,49 @@ export default function PrecosPage() {
       setSaving(false);
     }
   }, [giftCards]);
+
+  /* ─── Coupon handlers ─── */
+  const handleOpenEditCoupon = useCallback((coupon: FixedCouponConfig) => {
+    setEditCouponForm({
+      code: coupon.code,
+      discountValue: String(coupon.discountValue),
+      type: coupon.type,
+      active: coupon.active,
+    });
+    setEditCoupon(coupon);
+  }, []);
+
+  const handleSaveEditCoupon = useCallback(() => {
+    if (!editCoupon) return;
+    const value = parseFloat(editCouponForm.discountValue.replace(",", "."));
+    if (isNaN(value) || value <= 0) {
+      toast.error("Valor do desconto inválido.");
+      return;
+    }
+    setFixedCoupons((prev) =>
+      prev.map((c) =>
+        c.code === editCoupon.code
+          ? {
+              ...c,
+              code: editCouponForm.code.toUpperCase().replace(/\s/g, ""),
+              discountValue: value,
+              type: editCouponForm.type,
+              active: editCouponForm.active,
+            }
+          : c
+      )
+    );
+    toast.success(`Cupom "${editCouponForm.code}" atualizado!`, {
+      description: "Clique em \"Salvar Modificações\" para aplicar as alterações em todo o site.",
+    });
+    setEditCoupon(null);
+  }, [editCoupon, editCouponForm]);
+
+  const handleToggleCouponActive = useCallback((code: string, active: boolean) => {
+    setFixedCoupons((prev) =>
+      prev.map((c) => (c.code === code ? { ...c, active } : c))
+    );
+  }, []);
 
   const toggleGiftExpanded = (id: number) => {
     setExpandedGiftIds((prev) => {
@@ -439,6 +518,7 @@ export default function PrecosPage() {
       <Tabs defaultValue="produtos">
         <TabsList>
           <TabsTrigger value="produtos">Produtos e Serviços</TabsTrigger>
+          <TabsTrigger value="pagamento">Formas de Pagamento</TabsTrigger>
           <TabsTrigger value="cupons-resgate">Cupons de Resgate</TabsTrigger>
           <TabsTrigger value="vale-presentes">Vale Presentes</TabsTrigger>
         </TabsList>
@@ -450,9 +530,9 @@ export default function PrecosPage() {
               const isExpanded = expandedIds.has(product.id);
               const basePrice = parsePrice(product.price);
               const installmentValue =
-                basePrice / (parseInt(product.maxInstallments) || 1);
+                basePrice / (parseInt(paymentConfig.maxInstallments) || 1);
               const pixValue =
-                basePrice * (1 - parseFloat(product.pixDiscount || "0") / 100);
+                basePrice * (1 - parseFloat(paymentConfig.pixDiscount || "0") / 100);
               const activeTiers = product.discountTiers.filter(
                 (t) => t.minQty && t.discountPct
               );
@@ -500,33 +580,13 @@ export default function PrecosPage() {
                     {!isExpanded && (
                       <>
                         {/* Desktop: horizontal grid */}
-                        <div className="mt-3 hidden grid-cols-5 gap-4 border-t border-border pt-3 sm:grid">
+                        <div className="mt-3 hidden grid-cols-3 gap-4 border-t border-border pt-3 sm:grid">
                           <div>
                             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               Preço
                             </p>
                             <p className="mt-0.5 text-sm font-semibold text-foreground">
                               R$ {product.price}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                              Cartão
-                            </p>
-                            <p className="mt-0.5 text-sm text-foreground">
-                              {product.maxInstallments}x de R${" "}
-                              {formatBRL(installmentValue)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                              PIX
-                            </p>
-                            <p className="mt-0.5 text-sm text-green-700">
-                              R$ {formatBRL(pixValue)}{" "}
-                              <span className="text-[10px] text-muted-foreground">
-                                (-{product.pixDiscount}%)
-                              </span>
                             </p>
                           </div>
                           <div>
@@ -561,23 +621,6 @@ export default function PrecosPage() {
                             </p>
                             <p className="text-sm font-semibold text-foreground">
                               R$ {product.price}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              Cartão
-                            </p>
-                            <p className="text-sm text-foreground">
-                              {product.maxInstallments}x R${" "}
-                              {formatBRL(installmentValue)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              PIX
-                            </p>
-                            <p className="text-sm text-green-700">
-                              R$ {formatBRL(pixValue)}
                             </p>
                           </div>
                           <div>
@@ -637,103 +680,6 @@ export default function PrecosPage() {
                             className="mt-1 w-48"
                             placeholder="0,00"
                           />
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      {/* ─── (ii) Condições de Pagamento ─── */}
-                      <div>
-                        <div className="mb-3 flex items-center gap-2">
-                          <CreditCard className="size-4 text-primary/60" />
-                          <h3 className="text-sm font-semibold text-foreground">
-                            Condições de Pagamento
-                          </h3>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          {/* Cartão */}
-                          <div className="rounded-lg border border-border p-4">
-                            <div className="mb-3 flex items-center gap-2">
-                              <CreditCard className="size-4 text-blue-500" />
-                              <span className="text-sm font-medium text-foreground">
-                                Cartão de Crédito
-                              </span>
-                            </div>
-                            <Label
-                              htmlFor={`installments-${product.id}`}
-                              className="text-xs text-muted-foreground"
-                            >
-                              Parcelamento máximo
-                            </Label>
-                            <div className="mt-1 flex items-center gap-2">
-                              <Input
-                                id={`installments-${product.id}`}
-                                type="number"
-                                min="1"
-                                max="24"
-                                value={product.maxInstallments}
-                                onChange={(e) =>
-                                  updateProduct(
-                                    product.id,
-                                    "maxInstallments",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-20"
-                              />
-                              <span className="text-sm text-muted-foreground">
-                                x sem juros
-                              </span>
-                            </div>
-                            {basePrice > 0 && product.maxInstallments && (
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                Até {product.maxInstallments}x de R${" "}
-                                {formatBRL(installmentValue)}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* PIX */}
-                          <div className="rounded-lg border border-border p-4">
-                            <div className="mb-3 flex items-center gap-2">
-                              <QrCode className="size-4 text-green-600" />
-                              <span className="text-sm font-medium text-foreground">
-                                PIX
-                              </span>
-                            </div>
-                            <Label
-                              htmlFor={`pix-${product.id}`}
-                              className="text-xs text-muted-foreground"
-                            >
-                              Desconto PIX (%)
-                            </Label>
-                            <div className="mt-1 flex items-center gap-2">
-                              <Input
-                                id={`pix-${product.id}`}
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={product.pixDiscount}
-                                onChange={(e) =>
-                                  updateProduct(
-                                    product.id,
-                                    "pixDiscount",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-20"
-                              />
-                              <span className="text-sm text-muted-foreground">
-                                % de desconto
-                              </span>
-                            </div>
-                            {basePrice > 0 && product.pixDiscount && (
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                Preço PIX: R$ {formatBRL(pixValue)}
-                              </p>
-                            )}
-                          </div>
                         </div>
                       </div>
 
@@ -899,6 +845,178 @@ export default function PrecosPage() {
           </div>
         </TabsContent>
 
+        {/* ════════════════════ Formas de Pagamento Tab ════════════════════ */}
+        <TabsContent value="pagamento">
+          <div className="mt-4 space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Formas de Pagamento
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Configurações globais de pagamento aplicadas a todo o carrinho de compras.
+              </p>
+            </div>
+
+            {/* Cartão de Crédito */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <CreditCard className="size-4 text-blue-500" />
+                  Cartão de Crédito
+                </CardTitle>
+                <CardDescription>
+                  Configure o parcelamento máximo aplicado a todos os produtos e serviços.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="global-installments" className="text-xs text-muted-foreground">
+                    Parcelamento máximo
+                  </Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      id="global-installments"
+                      type="number"
+                      min="1"
+                      max="24"
+                      value={paymentConfig.maxInstallments}
+                      onChange={(e) =>
+                        setPaymentConfig((prev) => ({
+                          ...prev,
+                          maxInstallments: e.target.value,
+                        }))
+                      }
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      x sem juros
+                    </span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Preview per product */}
+                <div>
+                  <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Preview por Produto
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {products.map((product) => {
+                      const basePrice = parsePrice(product.price);
+                      const installments = parseInt(paymentConfig.maxInstallments) || 1;
+                      const installmentVal = basePrice / installments;
+                      return (
+                        <div
+                          key={product.id}
+                          className="rounded-lg border border-border p-3"
+                        >
+                          <p className="text-xs font-medium text-foreground">
+                            {product.name}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Até {paymentConfig.maxInstallments}x de{" "}
+                            <span className="font-semibold text-foreground">
+                              R$ {formatBRL(installmentVal)}
+                            </span>
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* PIX */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <QrCode className="size-4 text-green-600" />
+                  PIX
+                </CardTitle>
+                <CardDescription>
+                  Configure o desconto para pagamentos via PIX aplicado a todos os produtos e serviços.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="global-pix" className="text-xs text-muted-foreground">
+                    Desconto PIX (%)
+                  </Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      id="global-pix"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={paymentConfig.pixDiscount}
+                      onChange={(e) =>
+                        setPaymentConfig((prev) => ({
+                          ...prev,
+                          pixDiscount: e.target.value,
+                        }))
+                      }
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      % de desconto
+                    </span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Preview per product */}
+                <div>
+                  <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Preview por Produto
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {products.map((product) => {
+                      const basePrice = parsePrice(product.price);
+                      const pixPct = parseFloat(paymentConfig.pixDiscount || "0");
+                      const pixVal = basePrice * (1 - pixPct / 100);
+                      return (
+                        <div
+                          key={product.id}
+                          className="rounded-lg border border-border p-3"
+                        >
+                          <p className="text-xs font-medium text-foreground">
+                            {product.name}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            <span className="line-through">
+                              R$ {formatBRL(basePrice)}
+                            </span>{" "}
+                            →{" "}
+                            <span className="font-semibold text-green-600">
+                              R$ {formatBRL(pixVal)}
+                            </span>
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Save button */}
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveAll}
+                disabled={saving || !hasChanges}
+                className="bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
+                size="lg"
+              >
+                <Save className="size-4" />
+                {saving ? "Salvando..." : "Salvar Formas de Pagamento"}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
         {/* ════════════════════ Cupons de Resgate Tab ════════════════════ */}
         <TabsContent value="cupons-resgate">
           <div className="mt-4 space-y-6">
@@ -937,90 +1055,58 @@ export default function PrecosPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell>
-                        <code className="rounded bg-muted px-2 py-0.5 text-sm font-mono font-medium">
-                          PAM10OFF
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-green-600">
-                        R$ 10,00 OFF
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
-                          Valor Fixo
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-green-50 text-green-700 text-[10px]">
-                          Ativo
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center text-sm text-muted-foreground">
-                        23
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Switch defaultChecked />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <code className="rounded bg-muted px-2 py-0.5 text-sm font-mono font-medium">
-                          PAM20OFF
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-green-600">
-                        R$ 20,00 OFF
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
-                          Valor Fixo
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-green-50 text-green-700 text-[10px]">
-                          Ativo
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center text-sm text-muted-foreground">
-                        15
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Switch defaultChecked />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <code className="rounded bg-muted px-2 py-0.5 text-sm font-mono font-medium">
-                          PAM50OFF
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-green-600">
-                        R$ 50,00 OFF
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
-                          Valor Fixo
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-green-50 text-green-700 text-[10px]">
-                          Ativo
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center text-sm text-muted-foreground">
-                        8
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Switch defaultChecked />
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    {fixedCoupons.map((coupon) => (
+                      <TableRow key={coupon.code}>
+                        <TableCell>
+                          <code className="rounded bg-muted px-2 py-0.5 text-sm font-mono font-medium">
+                            {coupon.code}
+                          </code>
+                        </TableCell>
+                        <TableCell className="text-sm font-medium text-green-600">
+                          {coupon.type === "fixed"
+                            ? `R$ ${formatBRLShared(coupon.discountValue)} OFF`
+                            : `${coupon.discountValue}% OFF`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px]">
+                            {coupon.type === "fixed" ? "Valor Fixo" : "Percentual"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            className={
+                              coupon.active
+                                ? "bg-green-50 text-green-700 text-[10px]"
+                                : "bg-gray-100 text-gray-500 text-[10px]"
+                            }
+                          >
+                            {coupon.active ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground">
+                          {coupon.usageCount}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              title="Editar cupom"
+                              onClick={() => handleOpenEditCoupon(coupon)}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Switch
+                              checked={coupon.active}
+                              onCheckedChange={(checked) =>
+                                handleToggleCouponActive(coupon.code, !!checked)
+                              }
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -1068,7 +1154,12 @@ export default function PrecosPage() {
                       Cada lead so pode receber um cupom de resgate
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={redemptionSettings.uniquePerLead}
+                    onCheckedChange={(checked) =>
+                      setRedemptionSettings((prev) => ({ ...prev, uniquePerLead: !!checked }))
+                    }
+                  />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -1080,7 +1171,13 @@ export default function PrecosPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      defaultValue="7"
+                      value={String(redemptionSettings.validityDays)}
+                      onChange={(e) =>
+                        setRedemptionSettings((prev) => ({
+                          ...prev,
+                          validityDays: parseInt(e.target.value) || 0,
+                        }))
+                      }
                       className="h-8 w-16 text-center text-sm"
                     />
                     <span className="text-xs text-muted-foreground">dias</span>
@@ -1094,7 +1191,15 @@ export default function PrecosPage() {
                       Permitir usar cupom junto com desconto PIX ou progressivo
                     </p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={redemptionSettings.cumulativeWithOtherDiscounts}
+                    onCheckedChange={(checked) =>
+                      setRedemptionSettings((prev) => ({
+                        ...prev,
+                        cumulativeWithOtherDiscounts: !!checked,
+                      }))
+                    }
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -1537,6 +1642,112 @@ export default function PrecosPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ════════════════════ Edit Coupon Dialog ════════════════════ */}
+      <Dialog
+        open={!!editCoupon}
+        onOpenChange={(open) => !open && setEditCoupon(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-foreground">
+              Editar Cupom de Desconto
+            </DialogTitle>
+            <DialogDescription>
+              Altere as informações do cupom. Após salvar, clique em &quot;Salvar
+              Modificações&quot; para aplicar em todo o site.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Código */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Código do Cupom</Label>
+              <Input
+                value={editCouponForm.code}
+                onChange={(e) =>
+                  setEditCouponForm((prev) => ({
+                    ...prev,
+                    code: e.target.value.toUpperCase().replace(/\s/g, ""),
+                  }))
+                }
+                placeholder="Ex: PAM10OFF"
+                className="font-mono"
+              />
+            </div>
+
+            {/* Tipo */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Tipo de Desconto</Label>
+              <Select
+                value={editCouponForm.type}
+                onValueChange={(val) =>
+                  setEditCouponForm((prev) => ({
+                    ...prev,
+                    type: val as "fixed" | "percentage",
+                  }))
+                }
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Valor Fixo (R$)</SelectItem>
+                  <SelectItem value="percentage">Percentual (%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Valor */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">
+                {editCouponForm.type === "fixed"
+                  ? "Valor do Desconto (R$)"
+                  : "Percentual de Desconto (%)"}
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  {editCouponForm.type === "fixed" ? "R$" : "%"}
+                </span>
+                <Input
+                  value={editCouponForm.discountValue}
+                  onChange={(e) =>
+                    setEditCouponForm((prev) => ({
+                      ...prev,
+                      discountValue: e.target.value,
+                    }))
+                  }
+                  className="pl-10"
+                  placeholder={editCouponForm.type === "fixed" ? "10,00" : "10"}
+                />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+              <span className="text-sm font-medium text-foreground">
+                Cupom ativo
+              </span>
+              <Switch
+                checked={editCouponForm.active}
+                onCheckedChange={(checked) =>
+                  setEditCouponForm((prev) => ({ ...prev, active: !!checked }))
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditCoupon(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEditCoupon}>
+              <Save className="mr-2 size-4" />
+              Salvar Cupom
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

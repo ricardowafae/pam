@@ -110,8 +110,10 @@ const PERSONALITY_TRAITS = [
   "Patinhas velozes",
 ];
 
-const PRICE = 490;
-const MAX_INSTALLMENTS = 10;
+import { PRICING, PAYMENT_CONFIG } from "@/lib/pricing-config";
+
+const PRICE = PRICING.dogbook.price;
+const MAX_INSTALLMENTS = PAYMENT_CONFIG.maxInstallments;
 
 /* ─────────── Component ─────────── */
 
@@ -123,7 +125,7 @@ const DOGBOOK_PRODUCT: Product = {
   description: "Fotolivro artesanal premium",
   base_price: PRICE,
   max_installments: MAX_INSTALLMENTS,
-  pix_discount_pct: 5,
+  pix_discount_pct: PAYMENT_CONFIG.pixDiscountPct,
   image_url: "/images/dogbook-cover-closed.jpg",
   active: true,
   sort_order: 1,

@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { PAYMENT_CONFIG } from "@/lib/pricing-config";
 import { useCart } from "@/hooks/useCart";
 import { toast } from "sonner";
 
@@ -136,7 +137,7 @@ export default function CarrinhoPage() {
   }
 
   /* --- derived values --- */
-  const maxInstallments = 10;
+  const maxInstallments = PAYMENT_CONFIG.maxInstallments;
   const installmentValue = total / maxInstallments;
 
   /* --- empty cart --- */
@@ -578,7 +579,7 @@ export default function CarrinhoPage() {
                     {installmentValue.toFixed(2).replace(".", ",")}
                   </p>
                   <p className="mt-0.5 text-xs text-green-600 font-medium">
-                    R$ {pixTotal.toFixed(2).replace(".", ",")} no PIX (5% desc.)
+                    R$ {pixTotal.toFixed(2).replace(".", ",")} no PIX ({PAYMENT_CONFIG.pixDiscountPct}% desc.)
                   </p>
                 </div>
               </div>

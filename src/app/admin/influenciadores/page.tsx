@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -20,6 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
@@ -307,7 +316,9 @@ function formatDate(date: string): string {
 /* ────────────────────── Form Default State ────────────────────── */
 
 const emptyForm = {
+  personType: "" as "" | "PF" | "PJ",
   name: "",
+  cpf: "",
   slug: "",
   email: "",
   phone: "",
@@ -343,6 +354,9 @@ export default function InfluenciadoresPage() {
   const [commissionInfluencerFilter, setCommissionInfluencerFilter] = useState("todos");
   const [expandedCommissionId, setExpandedCommissionId] = useState<number | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [editInfluencer, setEditInfluencer] = useState<Influencer | null>(null);
+  const [deleteInfluencer, setDeleteInfluencer] = useState<Influencer | null>(null);
 
   /* ─── KPIs (filtered by date range) ─── */
   const commissionsInRange = commissions.filter((c) => isInRange(c.dueDate, dateRange));
@@ -384,6 +398,43 @@ export default function InfluenciadoresPage() {
   const updateForm = (field: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  /* ─── Action handlers ─── */
+  const handleEditInfluencer = useCallback((inf: Influencer) => {
+    setForm({
+      ...emptyForm,
+      personType: "PF",
+      name: inf.name,
+      email: inf.email,
+      phone: inf.phone,
+      instagram: inf.instagram,
+      slug: inf.slug.replace("/p/", ""),
+      ativo: inf.status === "ativo",
+    });
+    setEditInfluencer(inf);
+    setShowNewForm(true);
+  }, []);
+
+  const handleCopyLink = useCallback((slug: string) => {
+    const url = `${window.location.origin}${slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Link copiado!", {
+        description: url,
+      });
+    });
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!deleteInfluencer) return;
+    toast.success(`Influenciador "${deleteInfluencer.name}" excluído com sucesso.`);
+    setDeleteInfluencer(null);
+  }, [deleteInfluencer]);
+
+  const handleCloseForm = useCallback(() => {
+    setShowNewForm(false);
+    setEditInfluencer(null);
+    setForm(emptyForm);
+  }, []);
 
   const addSeasonalCoupon = () => {
     setForm((prev) => ({
@@ -442,9 +493,22 @@ export default function InfluenciadoresPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Link2 className="size-4" />
-            Gerar Link de Convite
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              const link = `${window.location.origin}/convite/influenciador`;
+              navigator.clipboard.writeText(link);
+              setLinkCopied(true);
+              setTimeout(() => setLinkCopied(false), 2500);
+            }}
+          >
+            {linkCopied ? (
+              <CheckCircle2 className="size-4 text-green-600" />
+            ) : (
+              <Copy className="size-4" />
+            )}
+            {linkCopied ? "Link Copiado!" : "Copiar Link de Convite Influenciador"}
           </Button>
           <Button
             className="gap-2"
@@ -636,6 +700,8 @@ export default function InfluenciadoresPage() {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Editar influenciador"
+                              onClick={() => handleEditInfluencer(inf)}
                             >
                               <Edit className="size-3.5" />
                             </Button>
@@ -643,6 +709,8 @@ export default function InfluenciadoresPage() {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Copiar link do influenciador"
+                              onClick={() => handleCopyLink(inf.slug)}
                             >
                               <Link2 className="size-3.5" />
                             </Button>
@@ -650,6 +718,8 @@ export default function InfluenciadoresPage() {
                               variant="ghost"
                               size="icon"
                               className="size-7"
+                              title="Excluir influenciador"
+                              onClick={() => setDeleteInfluencer(inf)}
                             >
                               <Trash2 className="size-3.5 text-destructive" />
                             </Button>
@@ -947,123 +1017,166 @@ export default function InfluenciadoresPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="font-serif text-foreground">
-                    Novo Influenciador
+                    {editInfluencer ? "Editar Influenciador" : "Novo Influenciador"}
                   </CardTitle>
                   <CardDescription>
-                    Cadastre um novo parceiro influenciador
+                    {editInfluencer
+                      ? `Editando dados de ${editInfluencer.name}`
+                      : "Cadastre um novo parceiro influenciador"}
                   </CardDescription>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-8"
-                  onClick={() => setShowNewForm(false)}
+                  onClick={handleCloseForm}
                 >
                   <X className="size-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* ─── Dados Basicos ─── */}
+              {/* ─── Tipo de Pessoa ─── */}
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Dados Basicos
+                  Tipo de Cadastro *
                 </p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => updateForm("personType", "PF")}
+                    className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                      form.personType === "PF"
+                        ? "border-[#8b5e5e] bg-[#8b5e5e]/5"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <Users className={`size-6 ${form.personType === "PF" ? "text-[#8b5e5e]" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${form.personType === "PF" ? "text-[#8b5e5e]" : "text-foreground"}`}>
+                      Pessoa Fisica
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">CPF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateForm("personType", "PJ")}
+                    className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                      form.personType === "PJ"
+                        ? "border-[#8b5e5e] bg-[#8b5e5e]/5"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <Building2 className={`size-6 ${form.personType === "PJ" ? "text-[#8b5e5e]" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${form.personType === "PJ" ? "text-[#8b5e5e]" : "text-foreground"}`}>
+                      Pessoa Juridica
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">CNPJ</span>
+                  </button>
+                </div>
+              </div>
+
+              {form.personType && (
+                <>
+                  <Separator />
+
+                  {/* ─── Dados Basicos ─── */}
                   <div>
-                    <Label>Nome *</Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) => updateForm("name", e.target.value)}
-                      placeholder="Nome completo"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Slug da URL *</Label>
-                    <div className="mt-1 flex items-center gap-1">
-                      <span className="text-sm text-muted-foreground">/p/</span>
-                      <Input
-                        value={form.slug}
-                        onChange={(e) => updateForm("slug", e.target.value)}
-                        placeholder="nome-influenciador"
-                      />
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {form.personType === "PF" ? "Dados Pessoais" : "Dados da Empresa"}
+                    </p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {form.personType === "PF" ? (
+                        <>
+                          <div>
+                            <Label>Nome Completo *</Label>
+                            <Input
+                              value={form.name}
+                              onChange={(e) => updateForm("name", e.target.value)}
+                              placeholder="Nome completo"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label>CPF *</Label>
+                            <Input
+                              value={form.cpf}
+                              onChange={(e) => updateForm("cpf", e.target.value)}
+                              placeholder="000.000.000-00"
+                              className="mt-1"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <Label>CNPJ *</Label>
+                            <Input
+                              value={form.cnpj}
+                              onChange={(e) => updateForm("cnpj", e.target.value)}
+                              placeholder="00.000.000/0000-00"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label>Razao Social *</Label>
+                            <Input
+                              value={form.razaoSocial}
+                              onChange={(e) => updateForm("razaoSocial", e.target.value)}
+                              placeholder="Razao Social da empresa"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label>Nome Fantasia</Label>
+                            <Input
+                              value={form.nomeFantasia}
+                              onChange={(e) => updateForm("nomeFantasia", e.target.value)}
+                              placeholder="Nome Fantasia"
+                              className="mt-1"
+                            />
+                          </div>
+                        </>
+                      )}
+                      <div>
+                        <Label>Slug da URL *</Label>
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="text-sm text-muted-foreground">/p/</span>
+                          <Input
+                            value={form.slug}
+                            onChange={(e) => updateForm("slug", e.target.value)}
+                            placeholder="nome-influenciador"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Email *</Label>
+                        <Input
+                          value={form.email}
+                          onChange={(e) => updateForm("email", e.target.value)}
+                          placeholder="email@exemplo.com"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>Telefone</Label>
+                        <Input
+                          value={form.phone}
+                          onChange={(e) => updateForm("phone", e.target.value)}
+                          placeholder="(11) 99999-9999"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label>Instagram</Label>
+                        <Input
+                          value={form.instagram}
+                          onChange={(e) => updateForm("instagram", e.target.value)}
+                          placeholder="@usuario"
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <Label>Email *</Label>
-                    <Input
-                      value={form.email}
-                      onChange={(e) => updateForm("email", e.target.value)}
-                      placeholder="email@exemplo.com"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Telefone</Label>
-                    <Input
-                      value={form.phone}
-                      onChange={(e) => updateForm("phone", e.target.value)}
-                      placeholder="(11) 99999-9999"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label>Instagram</Label>
-                    <Input
-                      value={form.instagram}
-                      onChange={(e) => updateForm("instagram", e.target.value)}
-                      placeholder="@usuario"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* ─── Pessoa Juridica (PJ) ─── */}
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <Building2 className="size-4 text-primary/60" />
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Pessoa Juridica (PJ)
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>Razao Social</Label>
-                    <Input
-                      value={form.razaoSocial}
-                      onChange={(e) =>
-                        updateForm("razaoSocial", e.target.value)
-                      }
-                      placeholder="Razao Social da empresa"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Nome Fantasia</Label>
-                    <Input
-                      value={form.nomeFantasia}
-                      onChange={(e) =>
-                        updateForm("nomeFantasia", e.target.value)
-                      }
-                      placeholder="Nome Fantasia"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label>CNPJ</Label>
-                    <Input
-                      value={form.cnpj}
-                      onChange={(e) => updateForm("cnpj", e.target.value)}
-                      placeholder="00.000.000/0000-00"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </div>
 
               <Separator />
 
@@ -1348,23 +1461,81 @@ export default function InfluenciadoresPage() {
                   }
                 />
               </div>
+                </>
+              )}
 
               {/* ─── Buttons ─── */}
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => setShowNewForm(false)}
+                  onClick={handleCloseForm}
                 >
                   Cancelar
                 </Button>
-                <Button onClick={() => setShowNewForm(false)}>
-                  Cadastrar
+                <Button
+                  onClick={() => {
+                    toast.success(
+                      editInfluencer
+                        ? `Influenciador "${form.name}" atualizado com sucesso!`
+                        : `Influenciador "${form.name}" cadastrado com sucesso!`
+                    );
+                    handleCloseForm();
+                  }}
+                  disabled={!form.personType}
+                >
+                  {editInfluencer ? "Salvar Alterações" : "Cadastrar"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
+
+      {/* ════════════════════ Delete Confirmation Dialog ════════════════════ */}
+      <Dialog
+        open={!!deleteInfluencer}
+        onOpenChange={(open) => !open && setDeleteInfluencer(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-foreground">
+              Excluir Influenciador
+            </DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+              <div className="space-y-1 text-sm">
+                <p className="font-medium text-destructive">
+                  Tem certeza que deseja excluir o influenciador{" "}
+                  <span className="font-bold">{deleteInfluencer?.name}</span>?
+                </p>
+                <p className="text-muted-foreground">
+                  Todos os dados de vendas, comissões e cupons vinculados a este
+                  influenciador serão removidos permanentemente.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteInfluencer(null)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              <Trash2 className="mr-2 size-4" />
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

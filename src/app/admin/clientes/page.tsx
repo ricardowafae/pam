@@ -706,29 +706,29 @@ function ClientHistoryPanel({ client }: { client: Client }) {
   return (
     <div className="space-y-5">
       {/* ── Client Header ── */}
-      <div className="flex items-start gap-4">
-        <div className="flex size-16 items-center justify-center rounded-full bg-[#8b5e5e]/10 text-lg font-bold text-[#8b5e5e]">
+      <div className="flex items-start gap-5">
+        <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-[#8b5e5e]/10 text-lg font-bold text-[#8b5e5e]">
           {getInitials(client.name)}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-foreground">{client.name}</h3>
+            <h3 className="text-xl font-semibold text-foreground">{client.name}</h3>
             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColor(client.status)}`}>
               {statusLabel(client.status)}
             </span>
           </div>
-          <div className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Mail className="size-3" /> {client.email}
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Mail className="size-3 shrink-0" /> <span className="truncate">{client.email}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Phone className="size-3" /> {client.phone}
+            <div className="flex items-center gap-1.5">
+              <Phone className="size-3 shrink-0" /> {client.phone}
             </div>
-            <div className="flex items-center gap-1">
-              <MapPin className="size-3" /> {client.fullAddress}
+            <div className="flex items-center gap-1.5 sm:col-span-2">
+              <MapPin className="size-3 shrink-0" /> {client.fullAddress}
             </div>
           </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <Badge variant="outline" className="text-[10px]">
               {client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}
             </Badge>
@@ -740,7 +740,7 @@ function ClientHistoryPanel({ client }: { client: Client }) {
             </span>
           </div>
           {client.tags.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
+            <div className="mt-2 flex flex-wrap gap-1">
               {client.tags.map((tag) => (
                 <span key={tag} className="inline-flex rounded-full bg-[#8b5e5e]/10 px-2 py-0.5 text-[9px] font-medium text-[#8b5e5e]">
                   {tag}
@@ -776,54 +776,62 @@ function ClientHistoryPanel({ client }: { client: Client }) {
       {/* ── Tab: Resumo ── */}
       {activeTab === "resumo" && (
         <div className="space-y-5">
-          {/* KPIs */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* KPIs - 2 rows with wider card layout */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
             <div className="rounded-lg border bg-background p-3 text-center">
               <ShoppingBag className="mx-auto size-4 text-primary/60" />
-              <p className="mt-1 text-lg font-bold text-foreground">{stats.totalPurchases}</p>
-              <p className="text-[9px] uppercase text-muted-foreground">Compras</p>
+              <p className="mt-1 text-xl font-bold text-foreground">{stats.totalPurchases}</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Compras</p>
             </div>
             <div className="rounded-lg border bg-background p-3 text-center">
               <BookOpen className="mx-auto size-4 text-primary/60" />
-              <p className="mt-1 text-lg font-bold text-foreground">{stats.totalDogbooks}</p>
-              <p className="text-[9px] uppercase text-muted-foreground">Dogbooks</p>
+              <p className="mt-1 text-xl font-bold text-foreground">{stats.totalDogbooks}</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Dogbooks</p>
             </div>
             <div className="rounded-lg border bg-background p-3 text-center">
               <Camera className="mx-auto size-4 text-primary/60" />
-              <p className="mt-1 text-lg font-bold text-foreground">{stats.totalSessions}</p>
-              <p className="text-[9px] uppercase text-muted-foreground">Sessoes</p>
+              <p className="mt-1 text-xl font-bold text-foreground">{stats.totalSessions}</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Sessoes</p>
             </div>
             <div className="rounded-lg border bg-background p-3 text-center">
               <DollarSign className="mx-auto size-4 text-green-600" />
-              <p className="mt-1 text-sm font-bold text-green-600">{stats.totalSpent}</p>
-              <p className="text-[9px] uppercase text-muted-foreground">Total Gasto</p>
+              <p className="mt-1 text-base font-bold text-green-600">{stats.totalSpent}</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Total Gasto</p>
             </div>
             <div className="rounded-lg border bg-background p-3 text-center">
               <CheckCircle className="mx-auto size-4 text-green-600" />
-              <p className="mt-1 text-lg font-bold text-green-600">{stats.delivered}</p>
-              <p className="text-[9px] uppercase text-muted-foreground">Entregues</p>
+              <p className="mt-1 text-xl font-bold text-green-600">{stats.delivered}</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Entregues</p>
             </div>
             <div className="rounded-lg border bg-background p-3 text-center">
               <Clock className="mx-auto size-4 text-amber-600" />
-              <p className="mt-1 text-lg font-bold text-amber-600">{stats.pending}</p>
-              <p className="text-[9px] uppercase text-muted-foreground">Pendentes</p>
+              <p className="mt-1 text-xl font-bold text-amber-600">{stats.pending}</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Pendentes</p>
             </div>
           </div>
 
           {/* Engagement */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg border p-3">
-              <p className="text-[9px] uppercase text-muted-foreground">Ultima Atividade</p>
-              <p className="mt-0.5 text-xs font-medium">{formatDate(client.lastActivity)}</p>
-              <p className="text-[9px] text-muted-foreground">ha {daysSince(client.lastActivity)} dias</p>
+              <p className="text-[10px] uppercase text-muted-foreground">Ultima Atividade</p>
+              <p className="mt-0.5 text-sm font-medium">{formatDate(client.lastActivity)}</p>
+              <p className="text-[10px] text-muted-foreground">ha {daysSince(client.lastActivity)} dias</p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-[9px] uppercase text-muted-foreground">Ticket Medio</p>
-              <p className="mt-0.5 text-xs font-medium">
+              <p className="text-[10px] uppercase text-muted-foreground">Ticket Medio</p>
+              <p className="mt-0.5 text-sm font-medium">
                 {stats.totalPurchases > 0
                   ? formatCurrency(stats.totalSpentNum / stats.totalPurchases)
                   : "R$ 0,00"}
               </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-[10px] uppercase text-muted-foreground">Origem</p>
+              <p className="mt-0.5 text-sm font-medium">{client.source}</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-[10px] uppercase text-muted-foreground">Tipo</p>
+              <p className="mt-0.5 text-sm font-medium">{client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}</p>
             </div>
           </div>
 
@@ -1013,6 +1021,8 @@ export default function ClientesPage() {
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
+  const [deleteClient, setDeleteClient] = useState<Client | null>(null);
+  const [editClient, setEditClient] = useState<Client | null>(null);
 
   // New client form state
   const [clientType, setClientType] = useState<ClientType>("pf");
@@ -1688,7 +1698,7 @@ export default function ClientesPage() {
                             <SheetTrigger className="inline-flex size-7 items-center justify-center rounded-md text-[#8b5e5e] hover:bg-muted" title="Investigar cliente">
                               <FileSearch className="size-3.5" />
                             </SheetTrigger>
-                            <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+                            <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
                               <SheetHeader>
                                 <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
                                   <FileSearch className="size-4" />
@@ -1707,6 +1717,7 @@ export default function ClientesPage() {
                             size="icon"
                             className="size-7 text-[#8b5e5e]"
                             title="Editar cliente"
+                            onClick={() => setEditClient(client)}
                           >
                             <Pencil className="size-3.5" />
                           </Button>
@@ -1716,7 +1727,15 @@ export default function ClientesPage() {
                             variant="ghost"
                             size="icon"
                             className="size-7 text-green-600"
-                            title="WhatsApp"
+                            title="Enviar mensagem via WhatsApp"
+                            onClick={() => {
+                              const phone = client.phone.replace(/\D/g, "");
+                              const fullPhone = phone.startsWith("55") ? phone : `55${phone}`;
+                              const message = encodeURIComponent(
+                                `Ola ${client.name.split(" ")[0]}, tudo bem? Aqui e a equipe Patas, Amor e Memorias! 🐾`
+                              );
+                              window.open(`https://wa.me/${fullPhone}?text=${message}`, "_blank");
+                            }}
                           >
                             <MessageSquare className="size-3.5" />
                           </Button>
@@ -1727,6 +1746,7 @@ export default function ClientesPage() {
                             size="icon"
                             className="size-7 text-red-500"
                             title="Excluir cliente"
+                            onClick={() => setDeleteClient(client)}
                           >
                             <Trash2 className="size-3.5" />
                           </Button>
@@ -1756,6 +1776,162 @@ export default function ClientesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ════════════════════ Delete Confirmation Modal ════════════════════ */}
+      <Dialog open={!!deleteClient} onOpenChange={(open) => !open && setDeleteClient(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="size-5" />
+              Confirmar Exclusao
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Tem certeza que deseja excluir o cliente{" "}
+              <span className="font-semibold text-foreground">{deleteClient?.name}</span>?
+              Esta acao nao podera ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteClient && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+              <p className="text-xs text-red-700">
+                Ao excluir este cliente, todos os dados associados serao removidos permanentemente,
+                incluindo historico de compras, pets cadastrados e interacoes.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteClient(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                // TODO: API call to delete client
+                setDeleteClient(null);
+              }}
+            >
+              <Trash2 className="mr-2 size-4" />
+              Excluir Cliente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════════════════ Edit Client Modal ════════════════════ */}
+      <Dialog open={!!editClient} onOpenChange={(open) => !open && setEditClient(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#8b5e5e]">
+              <Pencil className="size-4" />
+              Editar Cliente
+            </DialogTitle>
+            <DialogDescription>
+              Edite as informacoes de {editClient?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {editClient && (
+            <div className="space-y-5">
+              {/* Personal Info */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Dados Pessoais
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Nome Completo *</Label>
+                    <Input defaultValue={editClient.name} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>E-mail *</Label>
+                    <Input defaultValue={editClient.email} type="email" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Telefone *</Label>
+                    <Input defaultValue={editClient.phone} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>{editClient.clientType === "pf" ? "CPF" : "CNPJ"}</Label>
+                    <Input defaultValue={editClient.cpfCnpj} className="mt-1" disabled />
+                  </div>
+                  {editClient.clientType === "pj" && (
+                    <>
+                      <div>
+                        <Label>Razao Social</Label>
+                        <Input defaultValue={editClient.razaoSocial || ""} className="mt-1" />
+                      </div>
+                      <div>
+                        <Label>Nome Fantasia</Label>
+                        <Input defaultValue={editClient.nomeFantasia || ""} className="mt-1" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Endereco
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label>Endereco Completo</Label>
+                    <Input defaultValue={editClient.fullAddress} className="mt-1" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Status
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(["ativo", "novo", "inativo"] as const).map((s) => (
+                    <button
+                      key={s}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        editClient.status === s
+                          ? "border-[#8b5e5e] bg-[#8b5e5e] text-white"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {s === "ativo" ? "Ativo" : s === "novo" ? "Novo" : "Inativo"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Observacoes
+                </p>
+                <textarea
+                  defaultValue={editClient.notes || ""}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  rows={3}
+                  placeholder="Observacoes sobre o cliente..."
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditClient(null)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-[#8b5e5e] text-white hover:bg-[#7a5050]"
+              onClick={() => {
+                // TODO: API call to save client
+                setEditClient(null);
+              }}
+            >
+              Salvar Alteracoes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

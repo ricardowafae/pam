@@ -1,3 +1,5 @@
+import { PRICING, PAYMENT_CONFIG, getPixPrice } from "@/lib/pricing-config";
+
 /* ─────────── Types ─────────── */
 
 export interface SessionData {
@@ -25,9 +27,9 @@ export const SESSIONS: SessionData[] = [
     title: "Experiência Pocket",
     description:
       "Sessão rápida e acessível no estúdio para capturar momentos especiais do seu pet com iluminação profissional.",
-    price: 900,
-    installments: 10,
-    pixPrice: 855,
+    price: PRICING.pocket.price,
+    installments: PAYMENT_CONFIG.maxInstallments,
+    pixPrice: getPixPrice(PRICING.pocket.price, PAYMENT_CONFIG.pixDiscountPct),
     image: "/images/session-pocket.jpg",
     duration: "1 hora",
     photosCount: "5 fotos editadas",
@@ -45,9 +47,9 @@ export const SESSIONS: SessionData[] = [
     title: "Sessão Estúdio",
     description:
       "Sessão completa no estúdio com cenários temáticos exclusivos, iluminação profissional e muita diversão para capturar a essência do seu pet.",
-    price: 3700,
-    installments: 10,
-    pixPrice: 3515,
+    price: PRICING.estudio.price,
+    installments: PAYMENT_CONFIG.maxInstallments,
+    pixPrice: getPixPrice(PRICING.estudio.price, PAYMENT_CONFIG.pixDiscountPct),
     image: "/images/session-estudio.jpg",
     duration: "3 horas",
     photosCount: "20 fotos editadas",
@@ -67,9 +69,9 @@ export const SESSIONS: SessionData[] = [
     title: "Sessão Ar-livre + Estúdio",
     description:
       "O melhor dos dois mundos! Combine fotos no estúdio em Pinheiros - SP, com sessão ao ar-livre em parques ou praças de São Paulo para momentos ainda mais especiais.",
-    price: 4900,
-    installments: 10,
-    pixPrice: 4655,
+    price: PRICING.completa.price,
+    installments: PAYMENT_CONFIG.maxInstallments,
+    pixPrice: getPixPrice(PRICING.completa.price, PAYMENT_CONFIG.pixDiscountPct),
     image: "/images/session-completa.jpg",
     duration: "5 horas",
     photosCount: "40 fotos editadas",

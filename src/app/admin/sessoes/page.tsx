@@ -26,6 +26,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import {
   Eye,
   Package,
   Truck,
@@ -42,6 +50,10 @@ import {
   AlertCircle,
   Calendar,
   MapPin,
+  User,
+  Mail,
+  CreditCard,
+  Tag,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -312,6 +324,7 @@ export default function SessoesPage() {
   const [qtyFilter, setQtyFilter] = useState<"todos" | "1" | "2+">("todos");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
+  const [viewOrder, setViewOrder] = useState<SessionOrder | null>(null);
 
   /** Change the stage of an individual sub-order (session item) */
   const changeItemStage = (orderId: string, subId: string, newStage: SessionStage) => {
@@ -624,7 +637,11 @@ export default function SessoesPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="size-7"
-                                onClick={(e) => e.stopPropagation()}
+                                title="Ver detalhes do pedido"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewOrder(order);
+                                }}
                               >
                                 <Eye className="size-3.5" />
                               </Button>
@@ -699,6 +716,11 @@ export default function SessoesPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="size-6"
+                                    title="Ver detalhes do pedido"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewOrder(order);
+                                    }}
                                   >
                                     <Eye className="size-3" />
                                   </Button>
@@ -890,6 +912,165 @@ export default function SessoesPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ════════════════════ Order Detail Sheet ════════════════════ */}
+      <Sheet open={!!viewOrder} onOpenChange={(open) => !open && setViewOrder(null)}>
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="font-serif text-foreground">
+              Detalhes do Pedido {viewOrder?.id}
+            </SheetTitle>
+            <SheetDescription>
+              Informações completas da compra e sessões
+            </SheetDescription>
+          </SheetHeader>
+
+          {viewOrder && (
+            <div className="mt-6 space-y-6">
+              {/* ─── Cliente ─── */}
+              <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <User className="size-3.5" />
+                  Cliente
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Nome</p>
+                    <p className="mt-0.5 text-sm font-medium text-foreground">{viewOrder.client}</p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">E-mail</p>
+                    <p className="mt-0.5 text-sm text-foreground">{viewOrder.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* ─── Resumo do Pedido ─── */}
+              <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <ShoppingBag className="size-3.5" />
+                  Resumo do Pedido
+                </h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Data da Compra</p>
+                    <p className="mt-0.5 text-sm font-medium text-foreground">{formatDate(viewOrder.orderDate)}</p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Total</p>
+                    <p className="mt-0.5 text-sm font-bold text-foreground">{viewOrder.total}</p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Pagamento</p>
+                    <Badge
+                      variant={viewOrder.payment === "Pago" ? "default" : "secondary"}
+                      className="mt-0.5"
+                    >
+                      {viewOrder.payment}
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Qtd. Sessões</p>
+                    <p className="mt-0.5 text-sm font-medium text-foreground">{viewOrder.items.length}</p>
+                  </div>
+                </div>
+
+                {(viewOrder.influencer !== "-" || viewOrder.coupon !== "-") && (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {viewOrder.influencer !== "-" && (
+                      <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+                        <Tag className="size-3.5 text-blue-600" />
+                        <div>
+                          <p className="text-[10px] font-medium uppercase text-blue-600">Influenciador</p>
+                          <p className="text-sm font-medium text-blue-800">{viewOrder.influencer}</p>
+                        </div>
+                      </div>
+                    )}
+                    {viewOrder.coupon !== "-" && (
+                      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50/50 p-3">
+                        <CreditCard className="size-3.5 text-green-600" />
+                        <div>
+                          <p className="text-[10px] font-medium uppercase text-green-600">Cupom</p>
+                          <p className="font-mono text-sm font-medium text-green-800">{viewOrder.coupon}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* ─── Sessões Individuais ─── */}
+              <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Camera className="size-3.5" />
+                  Sessões ({viewOrder.items.length})
+                </h3>
+                <div className="space-y-3">
+                  {viewOrder.items.map((item) => (
+                    <div
+                      key={item.subId}
+                      className="rounded-lg border border-border p-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-medium text-primary">
+                            {item.subId}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${sessionTypeBadgeColor(item.type)}`}
+                          >
+                            {item.type}
+                          </span>
+                        </div>
+                        <Badge
+                          variant={
+                            item.stage === "Entregue"
+                              ? "default"
+                              : item.stage === "Aguardando Pagamento"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                          className="text-[10px]"
+                        >
+                          {item.stage}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        <div>
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Pet</p>
+                          <p className="text-sm text-foreground">{item.petName}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Data & Hora</p>
+                          <p className="text-sm text-foreground">
+                            {formatDate(item.date)} às {item.time}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Fotógrafo</p>
+                          <p className="text-sm text-foreground">{item.photographer}</p>
+                        </div>
+                        <div className="sm:col-span-3">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Local</p>
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <MapPin className="size-3 text-muted-foreground" />
+                            <p className="text-sm text-foreground">{item.location}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

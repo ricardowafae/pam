@@ -203,70 +203,7 @@ function aggregateMonthly(filtered: typeof allDailyMetrics) {
   return Object.values(buckets);
 }
 
-/* ─── Conversion Funnel ─── */
-const funnelData = [
-  { name: "Visitantes", value: 3842, fill: "#8b5e5e" },
-  { name: "Visualizaram produto", value: 1920, fill: "#9a6f6f" },
-  { name: "Adicionaram ao carrinho", value: 580, fill: "#a98282" },
-  { name: "Iniciaram checkout", value: 290, fill: "#b89494" },
-  { name: "Pagamento iniciado", value: 210, fill: "#c7a7a7" },
-  { name: "Compraram", value: 162, fill: "#d6b9b9" },
-];
-
-/* ─── Sales by Product (detailed) ─── */
-const salesByProduct = [
-  { product: "Dogbook Verao", category: "Dogbook", units: 42, revenue: 20580, avgTicket: 490, growth: "+15%", positive: true, margin: 72 },
-  { product: "Dogbook Natal", category: "Dogbook", units: 55, revenue: 26950, avgTicket: 490, growth: "+22%", positive: true, margin: 72 },
-  { product: "Dogbook Inverno", category: "Dogbook", units: 38, revenue: 18620, avgTicket: 490, growth: "+8%", positive: true, margin: 72 },
-  { product: "Dogbook Caoniversario", category: "Dogbook", units: 20, revenue: 9800, avgTicket: 490, growth: "+35%", positive: true, margin: 72 },
-  { product: "Dogbook Ano Novo", category: "Dogbook", units: 15, revenue: 7350, avgTicket: 490, growth: "-5%", positive: false, margin: 72 },
-  { product: "Sessao Pocket", category: "Sessao", units: 28, revenue: 25200, avgTicket: 900, growth: "+18%", positive: true, margin: 45 },
-  { product: "Sessao Estudio", category: "Sessao", units: 12, revenue: 44400, avgTicket: 3700, growth: "+28%", positive: true, margin: 52 },
-  { product: "Sessao Completa", category: "Sessao", units: 6, revenue: 29400, avgTicket: 4900, growth: "+10%", positive: true, margin: 48 },
-];
-
-/* ─── Payment Methods (Shopify style) ─── */
-const paymentMethods = [
-  { method: "Cartao de Credito", orders: 98, revenue: 92400, pct: 56 },
-  { method: "PIX", orders: 62, revenue: 54200, pct: 33 },
-  { method: "Vale Presente", orders: 12, revenue: 10800, pct: 6 },
-  { method: "Boleto", orders: 9, revenue: 7750, pct: 5 },
-];
-
-/* ─── Revenue by Category (pie) ─── */
-const revenueByCategoryPie = [
-  { name: "Dogbooks", value: 83300, fill: "#8b5e5e" },
-  { name: "Sessao Pocket", value: 25200, fill: "#a67c7c" },
-  { name: "Sessao Estudio", value: 44400, fill: "#c4a0a0" },
-  { name: "Sessao Completa", value: 29400, fill: "#d4b8b8" },
-];
-
-/* ─── Traffic Sources (GA4 style) ─── */
-const trafficSources = [
-  { source: "Google Organico", visitors: 1420, pct: 37.0, bounce: 35, conversions: 62, convRate: 4.4, revenue: 58200, cpa: 0, roas: "∞", icon: Search },
-  { source: "Instagram", visitors: 980, pct: 25.5, bounce: 28, conversions: 48, convRate: 4.9, revenue: 45800, cpa: 0, roas: "∞", icon: Instagram },
-  { source: "Direto", visitors: 620, pct: 16.1, bounce: 22, conversions: 28, convRate: 4.5, revenue: 24500, cpa: 0, roas: "∞", icon: Globe },
-  { source: "Google Ads", visitors: 410, pct: 10.7, bounce: 42, conversions: 15, convRate: 3.7, revenue: 14200, cpa: 85, roas: "9.5x", icon: MousePointerClick },
-  { source: "WhatsApp", visitors: 245, pct: 6.4, bounce: 18, conversions: 12, convRate: 4.9, revenue: 11800, cpa: 0, roas: "∞", icon: MessageCircle },
-  { source: "TikTok", visitors: 98, pct: 2.5, bounce: 45, conversions: 3, convRate: 3.1, revenue: 2900, cpa: 210, roas: "4.6x", icon: Globe },
-  { source: "Facebook", visitors: 69, pct: 1.8, bounce: 40, conversions: 2, convRate: 2.9, revenue: 1800, cpa: 180, roas: "3.6x", icon: Globe },
-];
-
-/* ─── Visitors by Day ─── */
-const visitorsByDay = [
-  { day: "01", v: 120 }, { day: "02", v: 135 }, { day: "03", v: 98 },
-  { day: "04", v: 142 }, { day: "05", v: 165 }, { day: "06", v: 178 },
-  { day: "07", v: 155 }, { day: "08", v: 132 }, { day: "09", v: 148 },
-  { day: "10", v: 190 }, { day: "11", v: 175 }, { day: "12", v: 160 },
-  { day: "13", v: 145 }, { day: "14", v: 198 }, { day: "15", v: 210 },
-  { day: "16", v: 185 }, { day: "17", v: 170 }, { day: "18", v: 155 },
-  { day: "19", v: 142 }, { day: "20", v: 225 }, { day: "21", v: 238 },
-  { day: "22", v: 195 }, { day: "23", v: 180 }, { day: "24", v: 165 },
-  { day: "25", v: 205 }, { day: "26", v: 215 }, { day: "27", v: 190 },
-  { day: "28", v: 175 }, { day: "29", v: 248 }, { day: "30", v: 260 },
-];
-
-/* ─── Visitors by Hour (donut) ─── */
+/* ─── Visitors by Hour base distribution (shape stays the same, values scale) ─── */
 const HOUR_COLORS = [
   "#5c3d2e", "#6b4c3d", "#7a5b4c", "#8b6a5b", "#9c7a6b",
   "#ad8a7b", "#b89485", "#c4a090", "#d0ac9b", "#dbb8a6",
@@ -275,122 +212,371 @@ const HOUR_COLORS = [
   "#684410", "#583400", "#4a2800", "#3c1c00",
 ];
 
-const visitorsByHour = [
-  { hour: "00h", v: 8, fill: HOUR_COLORS[0] },
-  { hour: "01h", v: 4, fill: HOUR_COLORS[1] },
-  { hour: "02h", v: 2, fill: HOUR_COLORS[2] },
-  { hour: "03h", v: 1, fill: HOUR_COLORS[3] },
-  { hour: "04h", v: 3, fill: HOUR_COLORS[4] },
-  { hour: "05h", v: 6, fill: HOUR_COLORS[5] },
-  { hour: "06h", v: 15, fill: HOUR_COLORS[6] },
-  { hour: "07h", v: 35, fill: HOUR_COLORS[7] },
-  { hour: "08h", v: 78, fill: HOUR_COLORS[8] },
-  { hour: "09h", v: 120, fill: HOUR_COLORS[9] },
-  { hour: "10h", v: 145, fill: HOUR_COLORS[10] },
-  { hour: "11h", v: 168, fill: HOUR_COLORS[11] },
-  { hour: "12h", v: 132, fill: HOUR_COLORS[12] },
-  { hour: "13h", v: 155, fill: HOUR_COLORS[13] },
-  { hour: "14h", v: 178, fill: HOUR_COLORS[14] },
-  { hour: "15h", v: 165, fill: HOUR_COLORS[15] },
-  { hour: "16h", v: 148, fill: HOUR_COLORS[16] },
-  { hour: "17h", v: 130, fill: HOUR_COLORS[17] },
-  { hour: "18h", v: 110, fill: HOUR_COLORS[18] },
-  { hour: "19h", v: 145, fill: HOUR_COLORS[19] },
-  { hour: "20h", v: 190, fill: HOUR_COLORS[20] },
-  { hour: "21h", v: 175, fill: HOUR_COLORS[21] },
-  { hour: "22h", v: 95, fill: HOUR_COLORS[22] },
-  { hour: "23h", v: 42, fill: HOUR_COLORS[23] },
+const hourDistribution = [8, 4, 2, 1, 3, 6, 15, 35, 78, 120, 145, 168, 132, 155, 178, 165, 148, 130, 110, 145, 190, 175, 95, 42];
+const hourTotal = hourDistribution.reduce((s, v) => s + v, 0);
+
+/* ─── Base proportions for secondary data (used by generator functions) ─── */
+const productDefs = [
+  { product: "Dogbook Verao", category: "Dogbook", revPct: 0.112, avgTicket: 490, margin: 72, baseGrowth: 15 },
+  { product: "Dogbook Natal", category: "Dogbook", revPct: 0.147, avgTicket: 490, margin: 72, baseGrowth: 22 },
+  { product: "Dogbook Inverno", category: "Dogbook", revPct: 0.101, avgTicket: 490, margin: 72, baseGrowth: 8 },
+  { product: "Dogbook Caoniversario", category: "Dogbook", revPct: 0.053, avgTicket: 490, margin: 72, baseGrowth: 35 },
+  { product: "Dogbook Ano Novo", category: "Dogbook", revPct: 0.040, avgTicket: 490, margin: 72, baseGrowth: -5 },
+  { product: "Sessao Pocket", category: "Sessao", revPct: 0.137, avgTicket: 900, margin: 45, baseGrowth: 18 },
+  { product: "Sessao Estudio", category: "Sessao", revPct: 0.242, avgTicket: 3700, margin: 52, baseGrowth: 28 },
+  { product: "Sessao Completa", category: "Sessao", revPct: 0.160, avgTicket: 4900, margin: 48, baseGrowth: 10 },
 ];
 
-/* ─── Devices ─── */
-const deviceData = [
-  { name: "Mobile", value: 62, fill: "#8b5e5e" },
-  { name: "Desktop", value: 31, fill: "#c4a0a0" },
-  { name: "Tablet", value: 7, fill: "#e8d4d4" },
+const trafficSourceDefs = [
+  { source: "Google Organico", pctOfVisitors: 0.37, bounce: 35, convRate: 4.4, pctOfRevenue: 0.352, cpaBase: 0, icon: Search },
+  { source: "Instagram", pctOfVisitors: 0.255, bounce: 28, convRate: 4.9, pctOfRevenue: 0.277, cpaBase: 0, icon: Instagram },
+  { source: "Direto", pctOfVisitors: 0.161, bounce: 22, convRate: 4.5, pctOfRevenue: 0.148, cpaBase: 0, icon: Globe },
+  { source: "Google Ads", pctOfVisitors: 0.107, bounce: 42, convRate: 3.7, pctOfRevenue: 0.086, cpaBase: 85, icon: MousePointerClick },
+  { source: "WhatsApp", pctOfVisitors: 0.064, bounce: 18, convRate: 4.9, pctOfRevenue: 0.071, cpaBase: 0, icon: MessageCircle },
+  { source: "TikTok", pctOfVisitors: 0.025, bounce: 45, convRate: 3.1, pctOfRevenue: 0.018, cpaBase: 210, icon: Globe },
+  { source: "Facebook", pctOfVisitors: 0.018, bounce: 40, convRate: 2.9, pctOfRevenue: 0.011, cpaBase: 180, icon: Globe },
 ];
 
-/* ─── Geography (Polar Analytics style) ─── */
-const geoData = [
-  { city: "Sao Paulo", state: "SP", visitors: 1820, orders: 82, revenue: 78400 },
-  { city: "Rio de Janeiro", state: "RJ", visitors: 620, orders: 28, revenue: 24500 },
-  { city: "Belo Horizonte", state: "MG", visitors: 380, orders: 18, revenue: 15200 },
-  { city: "Curitiba", state: "PR", visitors: 290, orders: 14, revenue: 12800 },
-  { city: "Campinas", state: "SP", visitors: 210, orders: 12, revenue: 10400 },
-  { city: "Brasilia", state: "DF", visitors: 185, orders: 8, revenue: 7600 },
-  { city: "Porto Alegre", state: "RS", visitors: 160, orders: 7, revenue: 5900 },
-  { city: "Florianopolis", state: "SC", visitors: 95, orders: 5, revenue: 4800 },
+const geoDefs = [
+  { city: "Sao Paulo", state: "SP", pctV: 0.474, pctO: 0.478 },
+  { city: "Rio de Janeiro", state: "RJ", pctV: 0.161, pctO: 0.163 },
+  { city: "Belo Horizonte", state: "MG", pctV: 0.099, pctO: 0.105 },
+  { city: "Curitiba", state: "PR", pctV: 0.075, pctO: 0.082 },
+  { city: "Campinas", state: "SP", pctV: 0.055, pctO: 0.070 },
+  { city: "Brasilia", state: "DF", pctV: 0.048, pctO: 0.047 },
+  { city: "Porto Alegre", state: "RS", pctV: 0.042, pctO: 0.041 },
+  { city: "Florianopolis", state: "SC", pctV: 0.025, pctO: 0.029 },
 ];
 
-/* ─── Customer Analytics (Lifetimely + Polar style) ─── */
-const customerKpis = [
-  { label: "Clientes Unicos", value: "142", change: "+10%", positive: true, icon: Users },
-  { label: "Novos Clientes", value: "108", change: "+14%", positive: true, icon: UserCheck },
-  { label: "Clientes Recorrentes", value: "34", change: "+6%", positive: true, icon: Repeat },
-  { label: "Taxa de Recompra", value: "24%", change: "+3%", positive: true, icon: Heart },
-  { label: "LTV Medio", value: "R$ 2.180", change: "+12%", positive: true, icon: Star },
-  { label: "Tempo ate 2a Compra", value: "42 dias", change: "-8%", positive: true, icon: CalendarDays },
+const marketingChannelDefs = [
+  { channel: "Google Ads", spendPct: 0.309, revPct: 0.353 },
+  { channel: "Instagram Ads", spendPct: 0.371, revPct: 0.318 },
+  { channel: "TikTok Ads", spendPct: 0.130, revPct: 0.072 },
+  { channel: "Facebook Ads", spendPct: 0.103, revPct: 0.045 },
+  { channel: "Influenciadores", spendPct: 0.087, revPct: 0.204 },
 ];
 
-const customerCohorts = [
-  { cohort: "Jan/2026", customers: 32, month1: "68%", month2: "42%", month3: "-", ltv: "R$ 1.420" },
-  { cohort: "Fev/2026", customers: 38, month1: "72%", month2: "38%", month3: "-", ltv: "R$ 1.580" },
-  { cohort: "Mar/2026", customers: 45, month1: "75%", month2: "-", month3: "-", ltv: "R$ 980" },
+const couponDefs = [
+  { code: "CAMILA10", usesPct: 0.42, discountRate: 0.10 },
+  { code: "DOG15", usesPct: 0.26, discountRate: 0.15 },
+  { code: "VIDA5", usesPct: 0.16, discountRate: 0.05 },
+  { code: "VOLTA10", usesPct: 0.11, discountRate: 0.10 },
+  { code: "RESGATE20", usesPct: 0.05, discountRate: 0.20 },
 ];
 
-const newVsReturning = [
-  { month: "Out", novos: 22, recorrentes: 6 },
-  { month: "Nov", novos: 27, recorrentes: 8 },
-  { month: "Dez", novos: 38, recorrentes: 14 },
-  { month: "Jan", novos: 30, recorrentes: 11 },
-  { month: "Fev", novos: 32, recorrentes: 12 },
-  { month: "Mar", novos: 40, recorrentes: 16 },
+const topPageDefs = [
+  { page: "/", viewsPct: 0.392, avgTime: "1m 12s", bounce: 32, exitRate: 18 },
+  { page: "/dogbook", viewsPct: 0.196, avgTime: "3m 45s", bounce: 22, exitRate: 12 },
+  { page: "/sessoes", viewsPct: 0.120, avgTime: "2m 58s", bounce: 25, exitRate: 15 },
+  { page: "/sessoes/pocket", viewsPct: 0.069, avgTime: "2m 30s", bounce: 28, exitRate: 20 },
+  { page: "/carrinho", viewsPct: 0.059, avgTime: "3m 15s", bounce: 45, exitRate: 38 },
+  { page: "/vale-presente", viewsPct: 0.043, avgTime: "1m 50s", bounce: 35, exitRate: 25 },
+  { page: "/faq", viewsPct: 0.039, avgTime: "4m 10s", bounce: 15, exitRate: 8 },
+  { page: "/depoimentos", viewsPct: 0.032, avgTime: "2m 22s", bounce: 18, exitRate: 10 },
+  { page: "/sessoes/estudio", viewsPct: 0.029, avgTime: "3m 05s", bounce: 20, exitRate: 14 },
+  { page: "/sessoes/completa", viewsPct: 0.019, avgTime: "4m 20s", bounce: 15, exitRate: 10 },
 ];
 
-/* ─── Top Pages ─── */
-const topPages = [
-  { page: "/", views: 3842, avgTime: "1m 12s", bounce: 32, exitRate: 18 },
-  { page: "/dogbook", views: 1920, avgTime: "3m 45s", bounce: 22, exitRate: 12 },
-  { page: "/sessoes", views: 1180, avgTime: "2m 58s", bounce: 25, exitRate: 15 },
-  { page: "/sessoes/pocket", views: 680, avgTime: "2m 30s", bounce: 28, exitRate: 20 },
-  { page: "/carrinho", views: 580, avgTime: "3m 15s", bounce: 45, exitRate: 38 },
-  { page: "/vale-presente", views: 420, avgTime: "1m 50s", bounce: 35, exitRate: 25 },
-  { page: "/faq", views: 380, avgTime: "4m 10s", bounce: 15, exitRate: 8 },
-  { page: "/depoimentos", views: 310, avgTime: "2m 22s", bounce: 18, exitRate: 10 },
-  { page: "/sessoes/estudio", views: 280, avgTime: "3m 05s", bounce: 20, exitRate: 14 },
-  { page: "/sessoes/completa", views: 190, avgTime: "4m 20s", bounce: 15, exitRate: 10 },
-];
+/* ─── Generator functions — derive all data from filteredDaily ─── */
 
-/* ─── Marketing ROI (Triple Whale style) ─── */
-const marketingKpis = [
-  { label: "Investimento Total", value: "R$ 4.850", change: "+5%", positive: false },
-  { label: "ROAS Geral", value: "34x", change: "+22%", positive: true },
-  { label: "CPA Medio", value: "R$ 24", change: "-12%", positive: true },
-  { label: "Receita Paga", value: "R$ 18.900", change: "+28%", positive: true },
-  { label: "Receita Organica", value: "R$ 146.250", change: "+16%", positive: true },
-  { label: "% Receita Organica", value: "89%", change: "+2%", positive: true },
-];
+function generateSalesByProduct(filtered: typeof allDailyMetrics) {
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  return productDefs.map((p) => {
+    const revenue = Math.round(totalRev * p.revPct);
+    const units = Math.max(1, Math.round(revenue / p.avgTicket));
+    const rng = seededRandom(p.product.length * 100 + filtered.length);
+    const growthVariation = rng() * 10 - 5;
+    const growth = Math.round(p.baseGrowth + growthVariation);
+    return {
+      product: p.product, category: p.category, units, revenue,
+      avgTicket: p.avgTicket, growth: `${growth >= 0 ? "+" : ""}${growth}%`,
+      positive: growth >= 0, margin: p.margin,
+    };
+  });
+}
 
-const marketingByChannel = [
-  { channel: "Google Ads", spend: 1500, revenue: 14200, roas: 9.5, orders: 15, cpa: 100 },
-  { channel: "Instagram Ads", spend: 1800, revenue: 12800, roas: 7.1, orders: 12, cpa: 150 },
-  { channel: "TikTok Ads", spend: 630, revenue: 2900, roas: 4.6, orders: 3, cpa: 210 },
-  { channel: "Facebook Ads", spend: 500, revenue: 1800, roas: 3.6, orders: 2, cpa: 250 },
-  { channel: "Influenciadores", spend: 420, revenue: 8200, roas: 19.5, orders: 9, cpa: 47 },
-];
+function generateFunnelData(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  return [
+    { name: "Visitantes", value: totalVisitors, fill: "#8b5e5e" },
+    { name: "Visualizaram produto", value: Math.round(totalVisitors * 0.50), fill: "#9a6f6f" },
+    { name: "Adicionaram ao carrinho", value: Math.round(totalVisitors * 0.151), fill: "#a98282" },
+    { name: "Iniciaram checkout", value: Math.round(totalVisitors * 0.075), fill: "#b89494" },
+    { name: "Pagamento iniciado", value: Math.round(totalVisitors * 0.055), fill: "#c7a7a7" },
+    { name: "Compraram", value: Math.round(totalVisitors * 0.042), fill: "#d6b9b9" },
+  ];
+}
 
-/* ─── Coupon Analytics ─── */
-const couponData = [
-  { code: "CAMILA10", uses: 8, revenue: 6280, discount: 628 },
-  { code: "DOG15", uses: 5, revenue: 4900, discount: 735 },
-  { code: "VIDA5", uses: 3, revenue: 2150, discount: 108 },
-  { code: "VOLTA10", uses: 2, revenue: 1800, discount: 180 },
-  { code: "RESGATE20", uses: 1, revenue: 4900, discount: 980 },
-];
+function generatePaymentMethods(filtered: typeof allDailyMetrics) {
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  return [
+    { method: "Cartao de Credito", orders: Math.round(totalOrders * 0.54), revenue: Math.round(totalRev * 0.56), pct: 56 },
+    { method: "PIX", orders: Math.round(totalOrders * 0.34), revenue: Math.round(totalRev * 0.33), pct: 33 },
+    { method: "Vale Presente", orders: Math.round(totalOrders * 0.07), revenue: Math.round(totalRev * 0.06), pct: 6 },
+    { method: "Boleto", orders: Math.round(totalOrders * 0.05), revenue: Math.round(totalRev * 0.05), pct: 5 },
+  ];
+}
 
-/* ─── Refund data ─── */
-const refundRate = 1.8;
-const totalRefunds = 3;
-const refundValue = 2870;
+function generateRevenueByCategoryPie(filtered: typeof allDailyMetrics) {
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  return [
+    { name: "Dogbooks", value: Math.round(totalRev * 0.453), fill: "#8b5e5e" },
+    { name: "Sessao Pocket", value: Math.round(totalRev * 0.137), fill: "#a67c7c" },
+    { name: "Sessao Estudio", value: Math.round(totalRev * 0.242), fill: "#c4a0a0" },
+    { name: "Sessao Completa", value: Math.round(totalRev * 0.160), fill: "#d4b8b8" },
+  ];
+}
+
+function generateTrafficSources(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  return trafficSourceDefs.map((t) => {
+    const visitors = Math.round(totalVisitors * t.pctOfVisitors);
+    const conversions = Math.round(visitors * t.convRate / 100);
+    const revenue = Math.round(totalRev * t.pctOfRevenue);
+    const cpa = t.cpaBase > 0 ? Math.round(t.cpaBase * (filtered.length / 30)) : 0;
+    const spend = cpa > 0 ? cpa * conversions : 0;
+    return {
+      source: t.source, visitors, pct: +(t.pctOfVisitors * 100).toFixed(1),
+      bounce: t.bounce, conversions, convRate: t.convRate, revenue,
+      cpa: t.cpaBase, roas: spend > 0 ? `${(revenue / spend).toFixed(1)}x` : "∞" as string,
+      icon: t.icon,
+    };
+  });
+}
+
+function generateVisitorsByHour(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  return hourDistribution.map((base, i) => ({
+    hour: `${String(i).padStart(2, "0")}h`,
+    v: Math.round((base / hourTotal) * totalVisitors),
+    fill: HOUR_COLORS[i],
+  }));
+}
+
+function generateDeviceData(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  return [
+    { name: "Mobile", value: Math.round(totalVisitors * 0.62), pct: 62, fill: "#8b5e5e" },
+    { name: "Desktop", value: Math.round(totalVisitors * 0.31), pct: 31, fill: "#c4a0a0" },
+    { name: "Tablet", value: Math.round(totalVisitors * 0.07), pct: 7, fill: "#e8d4d4" },
+  ];
+}
+
+function generateGeoData(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  return geoDefs.map((g) => ({
+    city: g.city, state: g.state,
+    visitors: Math.round(totalVisitors * g.pctV),
+    orders: Math.round(totalOrders * g.pctO),
+    revenue: Math.round(totalRev * g.pctO),
+  }));
+}
+
+function generateCustomerKpis(filtered: typeof allDailyMetrics, prevFiltered: typeof allDailyMetrics) {
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const prevOrders = prevFiltered.reduce((s, d) => s + d.orders, 0);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  const prevRev = prevFiltered.reduce((s, d) => s + d.revenue, 0);
+
+  const uniqueCustomers = Math.round(totalOrders * 0.78);
+  const newCustomers = Math.round(uniqueCustomers * 0.76);
+  const returningCustomers = uniqueCustomers - newCustomers;
+  const recompraRate = uniqueCustomers > 0 ? Math.round((returningCustomers / uniqueCustomers) * 100) : 0;
+  const ltv = uniqueCustomers > 0 ? Math.round(totalRev / uniqueCustomers) : 0;
+
+  const prevUnique = Math.round(prevOrders * 0.78);
+  const prevNew = Math.round(prevUnique * 0.76);
+  const prevReturning = prevUnique - prevNew;
+  const prevRecompra = prevUnique > 0 ? Math.round((prevReturning / prevUnique) * 100) : 0;
+  const prevLtv = prevUnique > 0 ? Math.round(prevRev / prevUnique) : 0;
+
+  const pct = (c: number, p: number) => {
+    if (p === 0) return "+100%";
+    const ch = ((c - p) / p) * 100;
+    return `${ch >= 0 ? "+" : ""}${ch.toFixed(0)}%`;
+  };
+
+  return [
+    { label: "Clientes Unicos", value: String(uniqueCustomers), change: pct(uniqueCustomers, prevUnique), positive: uniqueCustomers >= prevUnique, icon: Users },
+    { label: "Novos Clientes", value: String(newCustomers), change: pct(newCustomers, prevNew), positive: newCustomers >= prevNew, icon: UserCheck },
+    { label: "Clientes Recorrentes", value: String(returningCustomers), change: pct(returningCustomers, prevReturning), positive: returningCustomers >= prevReturning, icon: Repeat },
+    { label: "Taxa de Recompra", value: `${recompraRate}%`, change: pct(recompraRate, prevRecompra), positive: recompraRate >= prevRecompra, icon: Heart },
+    { label: "LTV Medio", value: `R$ ${ltv.toLocaleString("pt-BR")}`, change: pct(ltv, prevLtv), positive: ltv >= prevLtv, icon: Star },
+    { label: "Tempo ate 2a Compra", value: "42 dias", change: "-8%", positive: true, icon: CalendarDays },
+  ];
+}
+
+function generateNewVsReturning(filtered: typeof allDailyMetrics) {
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const buckets: Record<string, { month: string; novos: number; recorrentes: number }> = {};
+  for (const d of filtered) {
+    const key = `${d.date.getFullYear()}-${d.date.getMonth()}`;
+    if (!buckets[key]) {
+      buckets[key] = { month: monthNames[d.date.getMonth()], novos: 0, recorrentes: 0 };
+    }
+    buckets[key].novos += Math.round(d.orders * 0.76);
+    buckets[key].recorrentes += Math.round(d.orders * 0.24);
+  }
+  return Object.values(buckets);
+}
+
+function generateCohorts(filtered: typeof allDailyMetrics) {
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const buckets: Record<string, { month: string; year: number; orders: number; revenue: number }> = {};
+  for (const d of filtered) {
+    const key = `${d.date.getFullYear()}-${d.date.getMonth()}`;
+    if (!buckets[key]) {
+      buckets[key] = { month: monthNames[d.date.getMonth()], year: d.date.getFullYear(), orders: 0, revenue: 0 };
+    }
+    buckets[key].orders += d.orders;
+    buckets[key].revenue += d.revenue;
+  }
+  const months = Object.values(buckets);
+  return months.slice(-3).map((m, idx) => {
+    const customers = Math.round(m.orders * 0.78);
+    const monthsAgo = months.length - (months.length - 3 + idx) - 1;
+    return {
+      cohort: `${m.month}/${m.year}`,
+      customers,
+      month1: `${68 + Math.round(Math.random() * 10)}%`,
+      month2: monthsAgo >= 1 ? `${38 + Math.round(Math.random() * 8)}%` : "-",
+      month3: monthsAgo >= 2 ? `${22 + Math.round(Math.random() * 8)}%` : "-",
+      ltv: `R$ ${Math.round(m.revenue / customers).toLocaleString("pt-BR")}`,
+    };
+  });
+}
+
+function generateTopPages(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  // Pages get ~2.5x the visitor count in total views (multiple pages per session)
+  const totalPageViews = Math.round(totalVisitors * 2.5);
+  return topPageDefs.map((p) => ({
+    ...p, views: Math.round(totalPageViews * p.viewsPct),
+  }));
+}
+
+function generateBehaviorKpis(filtered: typeof allDailyMetrics, prevFiltered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  const prevVisitors = prevFiltered.reduce((s, d) => s + d.visitors, 0);
+  const pagesPerSession = 3.2;
+  const rng = seededRandom(filtered.length * 7);
+  const bounceRate = Math.round(36 + rng() * 6);
+  const newPct = Math.round(66 + rng() * 6);
+  const scrollPct = Math.round(68 + rng() * 10);
+  const duration = `${Math.round(2 + rng())}m ${Math.round(10 + rng() * 50)}s`;
+
+  return [
+    { label: "Pag / Sessao", value: pagesPerSession.toFixed(1), change: "+0.3", positive: true },
+    { label: "Duracao Media", value: duration, change: "+12s", positive: true },
+    { label: "Taxa Rejeicao", value: `${bounceRate}%`, change: `${bounceRate < 38 ? "-" : "+"}3%`, positive: bounceRate < 38 },
+    { label: "% Novos", value: `${newPct}%`, change: "+5%", positive: true },
+    { label: "% Retornantes", value: `${100 - newPct}%`, change: "-5%", positive: false },
+    { label: "Scroll Medio", value: `${scrollPct}%`, change: "+8%", positive: true },
+  ];
+}
+
+function generateMarketingKpis(filtered: typeof allDailyMetrics, prevFiltered: typeof allDailyMetrics) {
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  const totalAdSpend = filtered.reduce((s, d) => s + d.adSpend, 0);
+  const prevRev = prevFiltered.reduce((s, d) => s + d.revenue, 0);
+  const prevAdSpend = prevFiltered.reduce((s, d) => s + d.adSpend, 0);
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const paidOrders = Math.round(totalOrders * 0.22);
+  const paidRevenue = Math.round(totalRev * 0.115);
+  const organicRevenue = totalRev - paidRevenue;
+  const cpa = paidOrders > 0 ? Math.round(totalAdSpend / paidOrders) : 0;
+  const roas = totalAdSpend > 0 ? (totalRev / totalAdSpend).toFixed(0) : "0";
+  const organicPct = totalRev > 0 ? Math.round((organicRevenue / totalRev) * 100) : 0;
+
+  const prevPaidRev = Math.round(prevRev * 0.115);
+  const prevOrgRev = prevRev - prevPaidRev;
+  const prevPaidOrders = Math.round(prevFiltered.reduce((s, d) => s + d.orders, 0) * 0.22);
+  const prevCpa = prevPaidOrders > 0 ? Math.round(prevAdSpend / prevPaidOrders) : 0;
+
+  const pct = (c: number, p: number) => {
+    if (p === 0) return "+100%";
+    const ch = ((c - p) / p) * 100;
+    return `${ch >= 0 ? "+" : ""}${ch.toFixed(0)}%`;
+  };
+
+  return {
+    kpis: [
+      { label: "Investimento Total", value: `R$ ${totalAdSpend.toLocaleString("pt-BR")}`, change: pct(totalAdSpend, prevAdSpend), positive: totalAdSpend <= prevAdSpend },
+      { label: "ROAS Geral", value: `${roas}x`, change: pct(+roas, prevAdSpend > 0 ? +(prevRev / prevAdSpend).toFixed(0) : 0), positive: true },
+      { label: "CPA Medio", value: `R$ ${cpa}`, change: pct(cpa, prevCpa), positive: cpa <= prevCpa },
+      { label: "Receita Paga", value: `R$ ${paidRevenue.toLocaleString("pt-BR")}`, change: pct(paidRevenue, prevPaidRev), positive: paidRevenue >= prevPaidRev },
+      { label: "Receita Organica", value: `R$ ${organicRevenue.toLocaleString("pt-BR")}`, change: pct(organicRevenue, prevOrgRev), positive: organicRevenue >= prevOrgRev },
+      { label: "% Receita Organica", value: `${organicPct}%`, change: "+2%", positive: true },
+    ],
+    paidRevenue,
+    organicRevenue,
+    totalAdSpend,
+  };
+}
+
+function generateMarketingByChannel(filtered: typeof allDailyMetrics) {
+  const totalAdSpend = filtered.reduce((s, d) => s + d.adSpend, 0);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  const paidRevenue = Math.round(totalRev * 0.115);
+  return marketingChannelDefs.map((m) => {
+    const spend = Math.round(totalAdSpend * m.spendPct);
+    const revenue = Math.round(paidRevenue * m.revPct / marketingChannelDefs.reduce((s, d) => s + d.revPct, 0));
+    const orders = Math.max(1, Math.round(revenue / 950));
+    const cpa = orders > 0 ? Math.round(spend / orders) : 0;
+    const roas = spend > 0 ? +((revenue / spend).toFixed(1)) : 0;
+    return { channel: m.channel, spend, revenue, roas, orders, cpa };
+  });
+}
+
+function generateCouponData(filtered: typeof allDailyMetrics) {
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const couponOrders = Math.round(totalOrders * 0.10);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  return couponDefs.map((c) => {
+    const uses = Math.max(1, Math.round(couponOrders * c.usesPct));
+    const avgOrderValue = totalOrders > 0 ? totalRev / totalOrders : 800;
+    const revenue = Math.round(uses * avgOrderValue);
+    const discount = Math.round(revenue * c.discountRate);
+    return { code: c.code, uses, revenue, discount };
+  });
+}
+
+function generateRefundData(filtered: typeof allDailyMetrics) {
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  const rate = 1.8;
+  const refunds = Math.max(0, Math.round(totalOrders * rate / 100));
+  const value = Math.round(totalRev * rate / 100);
+  return { rate, refunds, value };
+}
+
+function generateCustomerSegments(filtered: typeof allDailyMetrics) {
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const uniqueCustomers = Math.round(totalOrders * 0.78);
+  return [
+    { segment: "Champions", desc: "Alta frequencia + alto valor", count: Math.round(uniqueCustomers * 0.08), pct: 8, color: "bg-green-100 text-green-700" },
+    { segment: "Leais", desc: "Compras regulares", count: Math.round(uniqueCustomers * 0.15), pct: 15, color: "bg-blue-100 text-blue-700" },
+    { segment: "Potencial Alto", desc: "1 compra de alto valor", count: Math.round(uniqueCustomers * 0.20), pct: 20, color: "bg-purple-100 text-purple-700" },
+    { segment: "Novos", desc: "Primeira compra recente", count: Math.round(uniqueCustomers * 0.32), pct: 32, color: "bg-amber-100 text-amber-700" },
+    { segment: "Em Risco", desc: "Nao compra ha 60+ dias", count: Math.round(uniqueCustomers * 0.13), pct: 13, color: "bg-orange-100 text-orange-700" },
+    { segment: "Inativos", desc: "Nao compra ha 90+ dias", count: Math.round(uniqueCustomers * 0.12), pct: 12, color: "bg-red-100 text-red-700" },
+  ];
+}
+
+function generateUserJourney(filtered: typeof allDailyMetrics) {
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  return [
+    { page: "Home", pct: "100%", value: totalVisitors },
+    { page: "/dogbook", pct: "50%", value: Math.round(totalVisitors * 0.50) },
+    { page: "/carrinho", pct: "15%", value: Math.round(totalVisitors * 0.15) },
+    { page: "Checkout", pct: "7.5%", value: Math.round(totalVisitors * 0.075) },
+    { page: "Compra", pct: "4.2%", value: Math.round(totalVisitors * 0.042) },
+  ];
+}
 
 /* ─── Helper ─── */
 const COLORS = ["#8b5e5e", "#a67c7c", "#c4a0a0", "#d4b8b8", "#e8d4d4", "#b89090", "#f0e6e6"];
@@ -449,6 +635,35 @@ export default function AnalyticsPage() {
     () => filteredDaily.map((d) => ({ day: d.day, v: d.visitors })),
     [filteredDaily]
   );
+
+  // Previous period for comparison
+  const prevFiltered = useMemo(() => {
+    const days = filteredDaily.length;
+    const endIdx = allDailyMetrics.indexOf(filteredDaily[0]);
+    const prevStart = Math.max(0, endIdx - days);
+    return allDailyMetrics.slice(prevStart, endIdx);
+  }, [filteredDaily]);
+
+  // All data derived from filtered daily — responds to date range
+  const salesByProduct = useMemo(() => generateSalesByProduct(filteredDaily), [filteredDaily]);
+  const funnelData = useMemo(() => generateFunnelData(filteredDaily), [filteredDaily]);
+  const paymentMethods = useMemo(() => generatePaymentMethods(filteredDaily), [filteredDaily]);
+  const revenueByCategoryPie = useMemo(() => generateRevenueByCategoryPie(filteredDaily), [filteredDaily]);
+  const trafficSources = useMemo(() => generateTrafficSources(filteredDaily), [filteredDaily]);
+  const visitorsByHourData = useMemo(() => generateVisitorsByHour(filteredDaily), [filteredDaily]);
+  const deviceData = useMemo(() => generateDeviceData(filteredDaily), [filteredDaily]);
+  const geoData = useMemo(() => generateGeoData(filteredDaily), [filteredDaily]);
+  const customerKpis = useMemo(() => generateCustomerKpis(filteredDaily, prevFiltered), [filteredDaily, prevFiltered]);
+  const newVsReturning = useMemo(() => generateNewVsReturning(filteredDaily), [filteredDaily]);
+  const customerCohorts = useMemo(() => generateCohorts(filteredDaily), [filteredDaily]);
+  const customerSegments = useMemo(() => generateCustomerSegments(filteredDaily), [filteredDaily]);
+  const topPages = useMemo(() => generateTopPages(filteredDaily), [filteredDaily]);
+  const behaviorKpis = useMemo(() => generateBehaviorKpis(filteredDaily, prevFiltered), [filteredDaily, prevFiltered]);
+  const userJourney = useMemo(() => generateUserJourney(filteredDaily), [filteredDaily]);
+  const marketingData = useMemo(() => generateMarketingKpis(filteredDaily, prevFiltered), [filteredDaily, prevFiltered]);
+  const marketingByChannel = useMemo(() => generateMarketingByChannel(filteredDaily), [filteredDaily]);
+  const couponData = useMemo(() => generateCouponData(filteredDaily), [filteredDaily]);
+  const refundData = useMemo(() => generateRefundData(filteredDaily), [filteredDaily]);
 
   const totalRevenue = salesByProduct.reduce((s, p) => s + p.revenue, 0);
   const totalUnits = salesByProduct.reduce((s, p) => s + p.units, 0);
@@ -538,7 +753,7 @@ export default function AnalyticsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Funil de Conversao</CardTitle>
-                  <CardDescription>Visitante → Compra ({((162 / 3842) * 100).toFixed(1)}% taxa geral)</CardDescription>
+                  <CardDescription>Visitante → Compra ({funnelData[0].value > 0 ? ((funnelData[5].value / funnelData[0].value) * 100).toFixed(1) : "0"}% taxa geral)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px]">
@@ -556,16 +771,31 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Secondary KPIs row */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-              <MiniKpi label="Abandono Carrinho" value="62%" change="+2%" positive={false} />
-              <MiniKpi label="Taxa Rejeicao" value="38%" change="-3%" positive={true} />
-              <MiniKpi label="Duracao Media" value="2m 34s" change="+5%" positive={true} />
-              <MiniKpi label="Pag / Sessao" value="3.2" change="+0.3" positive={true} />
-              <MiniKpi label="CAC" value="R$ 24" change="-12%" positive={true} />
-              <MiniKpi label="LTV" value="R$ 2.180" change="+12%" positive={true} />
-              <MiniKpi label="LTV / CAC" value="91x" change="+28%" positive={true} />
-              <MiniKpi label="Taxa Recompra" value="24%" change="+3%" positive={true} />
-            </div>
+            {(() => {
+              const totalOrders = filteredDaily.reduce((s, d) => s + d.orders, 0);
+              const totalVisitors = filteredDaily.reduce((s, d) => s + d.visitors, 0);
+              const totalAdSpend = filteredDaily.reduce((s, d) => s + d.adSpend, 0);
+              const uniqueCustomers = Math.round(totalOrders * 0.78);
+              const returningCustomers = Math.round(uniqueCustomers * 0.24);
+              const cac = uniqueCustomers > 0 ? Math.round(totalAdSpend / uniqueCustomers) : 0;
+              const ltv = customerKpis.find((k) => k.label === "LTV Medio")?.value || "R$ 0";
+              const ltvNum = parseInt(ltv.replace(/\D/g, ""), 10) || 0;
+              const ltvCacRatio = cac > 0 ? Math.round(ltvNum / cac) : 0;
+              const recompra = uniqueCustomers > 0 ? Math.round((returningCustomers / uniqueCustomers) * 100) : 0;
+              const abandonRate = Math.round((1 - (funnelData[5].value / Math.max(1, funnelData[2].value))) * 100);
+              return (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+                  <MiniKpi label="Abandono Carrinho" value={`${abandonRate}%`} change="+2%" positive={false} />
+                  <MiniKpi label="Taxa Rejeicao" value={behaviorKpis[2].value} change={behaviorKpis[2].change} positive={behaviorKpis[2].positive} />
+                  <MiniKpi label="Duracao Media" value={behaviorKpis[1].value} change={behaviorKpis[1].change} positive={behaviorKpis[1].positive} />
+                  <MiniKpi label="Pag / Sessao" value={behaviorKpis[0].value} change={behaviorKpis[0].change} positive={behaviorKpis[0].positive} />
+                  <MiniKpi label="CAC" value={`R$ ${cac}`} change="-12%" positive={true} />
+                  <MiniKpi label="LTV" value={ltv} change="+12%" positive={true} />
+                  <MiniKpi label="LTV / CAC" value={`${ltvCacRatio}x`} change="+28%" positive={true} />
+                  <MiniKpi label="Taxa Recompra" value={`${recompra}%`} change="+3%" positive={true} />
+                </div>
+              );
+            })()}
 
             {/* Revenue by category pie + Top Products */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -751,12 +981,12 @@ export default function AnalyticsPage() {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="rounded-lg bg-red-50 p-3 text-center">
                       <p className="text-[10px] font-medium uppercase text-red-600">Reembolsos</p>
-                      <p className="text-lg font-bold text-red-600">{totalRefunds}</p>
-                      <p className="text-[10px] text-red-500">R$ {refundValue.toLocaleString("pt-BR")}</p>
+                      <p className="text-lg font-bold text-red-600">{refundData.refunds}</p>
+                      <p className="text-[10px] text-red-500">R$ {refundData.value.toLocaleString("pt-BR")}</p>
                     </div>
                     <div className="rounded-lg bg-amber-50 p-3 text-center">
                       <p className="text-[10px] font-medium uppercase text-amber-600">Taxa Reemb.</p>
-                      <p className="text-lg font-bold text-amber-600">{refundRate}%</p>
+                      <p className="text-lg font-bold text-amber-600">{refundData.rate}%</p>
                     </div>
                     <div className="rounded-lg bg-blue-50 p-3 text-center">
                       <p className="text-[10px] font-medium uppercase text-blue-600">Desconto Med.</p>
@@ -812,17 +1042,17 @@ export default function AnalyticsPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={deviceData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value"
-                          label={({ name, value }) => `${name} ${value}%`}>
+                          label={({ name, percent }) => `${name} ${Math.round((percent ?? 0) * 100)}%`}>
                           {deviceData.map((e, i) => <Cell key={i} fill={e.fill} />)}
                         </Pie>
-                        <Tooltip formatter={(value) => `${value}%`} />
+                        <Tooltip formatter={(value) => `${Number(value).toLocaleString("pt-BR")} visitantes`} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="mt-2 flex justify-center gap-3">
-                    <div className="flex items-center gap-1 text-[10px]"><Smartphone className="size-3 text-[#8b5e5e]" /> Mobile 62%</div>
-                    <div className="flex items-center gap-1 text-[10px]"><Monitor className="size-3 text-[#c4a0a0]" /> Desktop 31%</div>
-                    <div className="flex items-center gap-1 text-[10px]"><Tablet className="size-3 text-[#e8d4d4]" /> Tablet 7%</div>
+                    <div className="flex items-center gap-1 text-[10px]"><Smartphone className="size-3 text-[#8b5e5e]" /> Mobile {deviceData[0].pct}%</div>
+                    <div className="flex items-center gap-1 text-[10px]"><Monitor className="size-3 text-[#c4a0a0]" /> Desktop {deviceData[1].pct}%</div>
+                    <div className="flex items-center gap-1 text-[10px]"><Tablet className="size-3 text-[#e8d4d4]" /> Tablet {deviceData[2].pct}%</div>
                   </div>
                 </CardContent>
               </Card>
@@ -838,7 +1068,7 @@ export default function AnalyticsPage() {
                 <div className="h-[480px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={visitorsByHour}
+                      data={visitorsByHourData}
                       layout="vertical"
                       margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                     >
@@ -1013,14 +1243,7 @@ export default function AnalyticsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {[
-                      { segment: "Champions", desc: "Alta frequencia + alto valor", count: 12, pct: 8, color: "bg-green-100 text-green-700" },
-                      { segment: "Leais", desc: "Compras regulares", count: 22, pct: 15, color: "bg-blue-100 text-blue-700" },
-                      { segment: "Potencial Alto", desc: "1 compra de alto valor", count: 28, pct: 20, color: "bg-purple-100 text-purple-700" },
-                      { segment: "Novos", desc: "Primeira compra recente", count: 45, pct: 32, color: "bg-amber-100 text-amber-700" },
-                      { segment: "Em Risco", desc: "Nao compra ha 60+ dias", count: 18, pct: 13, color: "bg-orange-100 text-orange-700" },
-                      { segment: "Inativos", desc: "Nao compra ha 90+ dias", count: 17, pct: 12, color: "bg-red-100 text-red-700" },
-                    ].map((s) => (
+                    {customerSegments.map((s) => (
                       <div key={s.segment} className="flex items-center gap-3">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${s.color}`}>{s.segment}</span>
                         <div className="flex-1">
@@ -1045,12 +1268,9 @@ export default function AnalyticsPage() {
         <TabsContent value="comportamento">
           <div className="mt-4 space-y-6">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-              <MiniKpi label="Pag / Sessao" value="3.2" change="+0.3" positive={true} />
-              <MiniKpi label="Duracao Media" value="2m 34s" change="+12s" positive={true} />
-              <MiniKpi label="Taxa Rejeicao" value="38%" change="-3%" positive={true} />
-              <MiniKpi label="% Novos" value="68%" change="+5%" positive={true} />
-              <MiniKpi label="% Retornantes" value="32%" change="-5%" positive={false} />
-              <MiniKpi label="Scroll Medio" value="72%" change="+8%" positive={true} />
+              {behaviorKpis.map((k) => (
+                <MiniKpi key={k.label} {...k} />
+              ))}
             </div>
 
             <Card>
@@ -1096,13 +1316,7 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {[
-                    { page: "Home", pct: "100%" },
-                    { page: "/dogbook", pct: "50%" },
-                    { page: "/carrinho", pct: "15%" },
-                    { page: "Checkout", pct: "7.5%" },
-                    { page: "Compra", pct: "4.2%" },
-                  ].map((step, i) => (
+                  {userJourney.map((step, i) => (
                     <div key={step.page} className="flex items-center gap-2">
                       <div className="rounded-lg border bg-background px-3 py-2 text-center">
                         <p className="font-medium text-foreground">{step.page}</p>
@@ -1121,7 +1335,7 @@ export default function AnalyticsPage() {
         <TabsContent value="marketing">
           <div className="mt-4 space-y-6">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              {marketingKpis.map((k) => (
+              {marketingData.kpis.map((k) => (
                 <MiniKpi key={k.label} {...k} />
               ))}
             </div>
@@ -1187,8 +1401,8 @@ export default function AnalyticsPage() {
                       <PieChart>
                         <Pie
                           data={[
-                            { name: "Organica", value: 146250 },
-                            { name: "Paga", value: 18900 },
+                            { name: "Organica", value: marketingData.organicRevenue },
+                            { name: "Paga", value: marketingData.paidRevenue },
                           ]}
                           cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value"
                           label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>

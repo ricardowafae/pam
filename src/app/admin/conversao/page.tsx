@@ -123,13 +123,15 @@ interface Lead {
   recovered: boolean;
 }
 
-/* ────────────────────── Standard Coupons ────────────────────── */
+/* ────────────────────── Standard Coupons (from centralized config) ────────────────────── */
 
-const standardCoupons = [
-  { code: "PAM10OFF", value: "R$ 10", label: "R$ 10 OFF" },
-  { code: "PAM20OFF", value: "R$ 20", label: "R$ 20 OFF" },
-  { code: "PAM50OFF", value: "R$ 50", label: "R$ 50 OFF" },
-];
+import { FIXED_COUPONS, formatBRL } from "@/lib/pricing-config";
+
+const standardCoupons = FIXED_COUPONS.filter((c) => c.active).map((c) => ({
+  code: c.code,
+  value: c.type === "fixed" ? `R$ ${formatBRL(c.discountValue)}` : `${c.discountValue}%`,
+  label: c.type === "fixed" ? `R$ ${formatBRL(c.discountValue)} OFF` : `${c.discountValue}% OFF`,
+}));
 
 /* ────────────────────── Mock Data ────────────────────── */
 

@@ -113,84 +113,52 @@ const INSPIRATION_CARDS = [
   },
 ];
 
-const PRODUCTS: ProductCard[] = [
-  {
-    id: "dogbook",
-    title: "Dogbook",
-    description:
-      "O álbum personalizado que eterniza os momentos mais especiais do pet em páginas de pura arte.",
-    image: "/images/dogbook-cover-closed.jpg",
-    options: [
-      { label: "R$ 50,00", value: 50 },
-      { label: "R$ 100,00", value: 100 },
-      { label: "R$ 200,00", value: 200 },
-      { label: "100% OFF", value: 490, isFullDiscount: true, fullPrice: 490 },
-    ],
-    discounts: [
-      { min: 5, off: 10, label: "5+ unid. → 10% OFF" },
-      { min: 10, off: 15, label: "10+ unid. → 15% OFF" },
-      { min: 25, off: 17.5, label: "25+ unid. → 17.5% OFF" },
-      { min: 50, off: 20, label: "50+ unid. → 20% OFF" },
-    ],
-  },
-  {
-    id: "pocket",
-    title: "Sessão Pocket",
-    description:
-      "Uma sessão fotográfica rápida e encantadora, perfeita para capturar a essência do pet.",
-    image: "/images/session-pocket.jpg",
-    options: [
-      { label: "R$ 100,00", value: 100 },
-      { label: "R$ 200,00", value: 200 },
-      { label: "R$ 300,00", value: 300 },
-      { label: "100% OFF", value: 900, isFullDiscount: true, fullPrice: 900 },
-    ],
-    discounts: [
-      { min: 5, off: 10, label: "5+ unid. → 10% OFF" },
-      { min: 10, off: 15, label: "10+ unid. → 15% OFF" },
-      { min: 25, off: 17.5, label: "25+ unid. → 17.5% OFF" },
-      { min: 50, off: 20, label: "50+ unid. → 20% OFF" },
-    ],
-  },
-  {
-    id: "estudio",
-    title: "Sessão Estúdio",
-    description:
-      "Sessão em estúdio profissional com cenários e iluminação controlada para fotos deslumbrantes.",
-    image: "/images/session-estudio.jpg",
-    options: [
-      { label: "R$ 200,00", value: 200 },
-      { label: "R$ 500,00", value: 500 },
-      { label: "R$ 900,00", value: 900 },
-      { label: "100% OFF", value: 3700, isFullDiscount: true, fullPrice: 3700 },
-    ],
-    discounts: [
-      { min: 5, off: 10, label: "5+ unid. → 10% OFF" },
-      { min: 10, off: 15, label: "10+ unid. → 15% OFF" },
-      { min: 25, off: 20, label: "25+ unid. → 20% OFF" },
-      { min: 50, off: 25, label: "50+ unid. → 25% OFF" },
-    ],
-  },
-  {
-    id: "completa",
-    title: "Sessão Completa",
-    description:
-      "A experiência completa: estúdio + externas, com produção artística e entrega premium.",
-    image: "/images/session-completa.jpg",
-    options: [
-      { label: "R$ 400,00", value: 400 },
-      { label: "R$ 800,00", value: 800 },
-      { label: "R$ 1200,00", value: 1200 },
-      { label: "100% OFF", value: 4900, isFullDiscount: true, fullPrice: 4900 },
-    ],
-    discounts: [
-      { min: 5, off: 10, label: "5+ unid. → 10% OFF" },
-      { min: 10, off: 15, label: "10+ unid. → 15% OFF" },
-      { min: 25, off: 20, label: "25+ unid. → 20% OFF" },
-      { min: 50, off: 25, label: "50+ unid. → 25% OFF" },
-    ],
-  },
-];
+import { GIFT_CARDS, PRICING, PAYMENT_CONFIG } from "@/lib/pricing-config";
+
+const PRODUCT_IMAGES: Record<string, string> = {
+  dogbook: "/images/dogbook-cover-closed.jpg",
+  pocket: "/images/session-pocket.jpg",
+  estudio: "/images/session-estudio.jpg",
+  completa: "/images/session-completa.jpg",
+};
+
+const PRODUCT_DESCRIPTIONS: Record<string, string> = {
+  dogbook: "O álbum personalizado que eterniza os momentos mais especiais do pet em páginas de pura arte.",
+  pocket: "Uma sessão fotográfica rápida e encantadora, perfeita para capturar a essência do pet.",
+  estudio: "Sessão em estúdio profissional com cenários e iluminação controlada para fotos deslumbrantes.",
+  completa: "A experiência completa: estúdio + externas, com produção artística e entrega premium.",
+};
+
+const PRODUCT_TITLES: Record<string, string> = {
+  dogbook: "Dogbook",
+  pocket: "Sessão Pocket",
+  estudio: "Sessão Estúdio",
+  completa: "Sessão Completa",
+};
+
+const PRODUCTS: ProductCard[] = GIFT_CARDS.map((gc) => ({
+  id: gc.productSlug,
+  title: PRODUCT_TITLES[gc.productSlug] || gc.name,
+  description: PRODUCT_DESCRIPTIONS[gc.productSlug] || "",
+  image: PRODUCT_IMAGES[gc.productSlug] || "",
+  options: [
+    ...gc.couponOptions.map((o) => ({
+      label: `R$ ${o.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      value: o.value,
+    })),
+    {
+      label: "100% OFF",
+      value: gc.fullPrice,
+      isFullDiscount: true,
+      fullPrice: gc.fullPrice,
+    },
+  ],
+  discounts: gc.volumeDiscounts.map((d) => ({
+    min: d.minQty,
+    off: d.discountPct,
+    label: `${d.minQty}+ unid. → ${d.discountPct}% OFF`,
+  })),
+}));
 
 const RULES = [
   {
@@ -446,7 +414,7 @@ export default function ValePresentePage() {
             category: "vale_presente",
             description: `Vale presente de ${opt.label} para ${product.title}`,
             base_price: opt.value,
-            max_installments: 10,
+            max_installments: PAYMENT_CONFIG.maxInstallments,
             pix_discount_pct: 0,
             image_url: product.image,
             active: true,
