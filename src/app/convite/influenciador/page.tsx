@@ -61,9 +61,15 @@ export default function ConviteInfluenciadorPage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.name || !form.email || !form.phone || !form.instagram) {
+    if (form.personType === "PF" && (!form.name || !form.email || !form.phone || !form.instagram)) {
       toast.error(
         "Preencha os campos obrigatórios: Nome, Email, Telefone e Instagram."
+      );
+      return;
+    }
+    if (form.personType === "PJ" && (!form.email || !form.phone || !form.instagram)) {
+      toast.error(
+        "Preencha os campos obrigatórios: Email, Telefone e Instagram."
       );
       return;
     }
@@ -442,17 +448,68 @@ export default function ConviteInfluenciadorPage() {
 
                 <Separator />
 
-                {/* ─── Dados Pessoais ─── */}
+                {/* ─── PJ: Dados da Empresa (no topo) ─── */}
+                {form.personType === "PJ" && (
+                  <>
+                    <div>
+                      <div className="mb-3 flex items-center gap-2">
+                        <Building2 className="size-4 text-[#8b5e5e]" />
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Dados da Empresa
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <Label>Razão Social *</Label>
+                          <Input
+                            value={form.razaoSocial}
+                            onChange={(e) =>
+                              updateForm("razaoSocial", e.target.value)
+                            }
+                            placeholder="Razão Social da empresa"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label>Nome Fantasia</Label>
+                          <Input
+                            value={form.nomeFantasia}
+                            onChange={(e) =>
+                              updateForm("nomeFantasia", e.target.value)
+                            }
+                            placeholder="Nome Fantasia"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Label>CNPJ *</Label>
+                          <Input
+                            value={form.cnpj}
+                            onChange={(e) => updateForm("cnpj", e.target.value)}
+                            placeholder="00.000.000/0000-00"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* ─── Dados Pessoais / Contato ─── */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>Nome Completo *</Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) => updateForm("name", e.target.value)}
-                      placeholder="Seu nome completo"
-                      className="mt-1"
-                    />
-                  </div>
+                  {/* Nome Completo: apenas para PF */}
+                  {form.personType === "PF" && (
+                    <div>
+                      <Label>Nome Completo *</Label>
+                      <Input
+                        value={form.name}
+                        onChange={(e) => updateForm("name", e.target.value)}
+                        placeholder="Seu nome completo"
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
                   <div>
                     <Label>Email *</Label>
                     <Input
@@ -527,54 +584,6 @@ export default function ConviteInfluenciadorPage() {
                     />
                   </div>
                 </div>
-
-                {/* ─── PJ Fields ─── */}
-                {form.personType === "PJ" && (
-                  <>
-                    <Separator />
-                    <div>
-                      <div className="mb-3 flex items-center gap-2">
-                        <Building2 className="size-4 text-[#8b5e5e]" />
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Dados da Empresa
-                        </h3>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <Label>Razão Social *</Label>
-                          <Input
-                            value={form.razaoSocial}
-                            onChange={(e) =>
-                              updateForm("razaoSocial", e.target.value)
-                            }
-                            placeholder="Razão Social da empresa"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label>Nome Fantasia</Label>
-                          <Input
-                            value={form.nomeFantasia}
-                            onChange={(e) =>
-                              updateForm("nomeFantasia", e.target.value)
-                            }
-                            placeholder="Nome Fantasia"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <Label>CNPJ *</Label>
-                          <Input
-                            value={form.cnpj}
-                            onChange={(e) => updateForm("cnpj", e.target.value)}
-                            placeholder="00.000.000/0000-00"
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
 
                 <Separator />
 
