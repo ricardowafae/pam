@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const { data: coupon, error } = await supabaseAdmin
       .from("coupons")
-      .select("id, code, coupon_type, discount_value, usage_limit, usage_count, valid_from, valid_until, active, min_purchase, applicable_products")
+      .select("id, code, coupon_type, discount_value, max_uses, used_count, valid_from, valid_until, active, min_order_value")
       .eq("code", code.toUpperCase().trim())
       .eq("active", true)
       .single();
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
 
     // Check usage limit
     if (
-      coupon.usage_limit !== null &&
-      coupon.usage_count >= coupon.usage_limit
+      coupon.max_uses !== null &&
+      coupon.used_count >= coupon.max_uses
     ) {
       return NextResponse.json({
         valid: false,
@@ -69,8 +69,7 @@ export async function POST(req: NextRequest) {
       code: coupon.code,
       discount_type: coupon.coupon_type,
       discount_value: coupon.discount_value,
-      min_purchase: coupon.min_purchase,
-      applicable_products: coupon.applicable_products,
+      min_purchase: coupon.min_order_value,
     });
   } catch (error) {
     console.error("Coupon validation error:", error);
