@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -239,6 +240,57 @@ export default function PrecosPage() {
   const [expandedGiftIds, setExpandedGiftIds] = useState<Set<number>>(
     new Set()
   );
+  const [saving, setSaving] = useState(false);
+  const [savedProducts, setSavedProducts] = useState<ProductConfig[]>(initialProducts);
+  const [savedGiftCards, setSavedGiftCards] = useState<GiftCardConfig[]>(initialGiftCards);
+
+  const hasChanges = useMemo(() => {
+    return JSON.stringify(products) !== JSON.stringify(savedProducts) ||
+           JSON.stringify(giftCards) !== JSON.stringify(savedGiftCards);
+  }, [products, giftCards, savedProducts, savedGiftCards]);
+
+  const handleSaveAll = useCallback(async () => {
+    setSaving(true);
+    try {
+      // Simulate API save (replace with Supabase call when table exists)
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setSavedProducts(JSON.parse(JSON.stringify(products)));
+      setSavedGiftCards(JSON.parse(JSON.stringify(giftCards)));
+      toast.success("Modificações salvas com sucesso!", {
+        description: "Preços e condições de pagamento foram atualizados.",
+      });
+    } catch {
+      toast.error("Erro ao salvar modificações. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  }, [products, giftCards]);
+
+  const handleSaveProduct = useCallback(async (productName: string) => {
+    setSaving(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setSavedProducts(JSON.parse(JSON.stringify(products)));
+      toast.success(`${productName} salvo com sucesso!`);
+    } catch {
+      toast.error("Erro ao salvar. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  }, [products]);
+
+  const handleSaveGiftCard = useCallback(async (productName: string) => {
+    setSaving(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setSavedGiftCards(JSON.parse(JSON.stringify(giftCards)));
+      toast.success(`Vale Presente ${productName} salvo com sucesso!`);
+    } catch {
+      toast.error("Erro ao salvar. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  }, [giftCards]);
 
   const toggleGiftExpanded = (id: number) => {
     setExpandedGiftIds((prev) => {
@@ -364,13 +416,24 @@ export default function PrecosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-serif text-2xl font-bold text-foreground">
-          Produtos e Serviços
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Gerencie preços, condições de pagamento, descontos e vales
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-bold text-foreground">
+            Produtos e Serviços
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie preços, condições de pagamento, descontos e vales
+          </p>
+        </div>
+        <Button
+          onClick={handleSaveAll}
+          disabled={saving || !hasChanges}
+          className="shrink-0 bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
+          size="lg"
+        >
+          <Save className="size-4" />
+          {saving ? "Salvando..." : "Salvar Modificações"}
+        </Button>
       </div>
 
       <Tabs defaultValue="produtos">
@@ -819,9 +882,13 @@ export default function PrecosPage() {
 
                       {/* Save button per product */}
                       <div className="flex justify-end">
-                        <Button>
+                        <Button
+                          onClick={() => handleSaveProduct(product.name)}
+                          disabled={saving}
+                          className="bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
+                        >
                           <Save className="size-4" />
-                          Salvar {product.name}
+                          {saving ? "Salvando..." : `Salvar ${product.name}`}
                         </Button>
                       </div>
                     </CardContent>
@@ -1451,9 +1518,13 @@ export default function PrecosPage() {
 
                           {/* Save */}
                           <div className="flex justify-end">
-                            <Button>
+                            <Button
+                              onClick={() => handleSaveGiftCard(gc.productName)}
+                              disabled={saving}
+                              className="bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
+                            >
                               <Save className="size-4" />
-                              Salvar {gc.productName}
+                              {saving ? "Salvando..." : `Salvar ${gc.productName}`}
                             </Button>
                           </div>
                         </CardContent>
