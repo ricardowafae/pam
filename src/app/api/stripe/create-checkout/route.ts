@@ -225,11 +225,23 @@ export async function POST(req: NextRequest) {
     // Create Stripe Checkout Session
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
+    // Determine payment method types based on selection
+    // "cartao" → card only (with installments)
+    // "pix" → pix only
+    // "boleto" → boleto only (backend ready, not yet exposed in frontend)
+    let paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
+    if (paymentMethod === "pix") {
+      paymentMethodTypes = ["pix"];
+    } else if (paymentMethod === "boleto") {
+      paymentMethodTypes = ["boleto"];
+    } else {
+      paymentMethodTypes = ["card"];
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       ui_mode: "embedded",
       mode: "payment",
-      payment_method_types:
-        paymentMethod === "pix" ? ["boleto", "card"] : ["card"],
+      payment_method_types: paymentMethodTypes,
       line_items: lineItems,
       customer_email: customerEmail || undefined,
       metadata: {
@@ -248,7 +260,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Add installments for card payments
-    if (paymentMethod !== "pix") {
+    if (paymentMethod === "cartao" || !paymentMethod) {
       sessionParams.payment_method_options = {
         card: {
           installments: { enabled: true },

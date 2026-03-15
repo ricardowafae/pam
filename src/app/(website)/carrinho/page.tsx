@@ -67,6 +67,7 @@ export default function CarrinhoPage() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"cartao" | "pix">("cartao");
 
   /* --- form fields --- */
   const [name, setName] = useState("");
@@ -184,6 +185,7 @@ export default function CarrinhoPage() {
           customerPhone: phone,
           couponCode: appliedCoupon?.code || undefined,
           influencerSlug: influencerSlug || undefined,
+          paymentMethod,
         }),
       });
 
@@ -739,15 +741,58 @@ export default function CarrinhoPage() {
                 </span>
                 <div className="text-right">
                   <p className="font-serif text-xl font-bold text-foreground">
-                    R$ {total.toFixed(2).replace(".", ",")}
+                    R$ {(paymentMethod === "pix" ? pixTotal : total).toFixed(2).replace(".", ",")}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    ou {maxInstallments}x de R${" "}
-                    {installmentValue.toFixed(2).replace(".", ",")}
-                  </p>
-                  <p className="mt-0.5 text-xs text-green-600 font-medium">
-                    R$ {pixTotal.toFixed(2).replace(".", ",")} no PIX ({paymentCfg.pixDiscountPct}% desc.)
-                  </p>
+                  {paymentMethod === "cartao" && (
+                    <p className="text-xs text-muted-foreground">
+                      ou {maxInstallments}x de R${" "}
+                      {installmentValue.toFixed(2).replace(".", ",")}
+                    </p>
+                  )}
+                  {paymentMethod === "pix" && (
+                    <p className="mt-0.5 text-xs text-green-600 font-medium">
+                      {paymentCfg.pixDiscountPct}% de desconto no PIX
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <Separator className="my-3" />
+
+              {/* Payment Method Selector */}
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <CreditCard className="size-4 text-primary" />
+                  Forma de Pagamento
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("cartao")}
+                    className={cn(
+                      "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors",
+                      paymentMethod === "cartao"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                    )}
+                  >
+                    💳 Cartão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("pix")}
+                    className={cn(
+                      "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors",
+                      paymentMethod === "pix"
+                        ? "border-green-600 bg-green-50 text-green-700"
+                        : "border-border text-muted-foreground hover:border-green-400"
+                    )}
+                  >
+                    <span className="text-green-600">◉</span> PIX
+                    <span className="ml-1 text-[10px] text-green-600 font-semibold">
+                      -{paymentCfg.pixDiscountPct}%
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -778,7 +823,7 @@ export default function CarrinhoPage() {
                   Pagamento seguro via Stripe
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Aceito: Cartão de crédito e Boleto
+                  Aceito: Cartão de crédito e PIX
                 </p>
               </div>
 
