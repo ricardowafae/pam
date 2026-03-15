@@ -220,7 +220,7 @@ export default function SessoesOverviewPage() {
               <ol className="space-y-3">
                 {[
                   "Finalize sua compra pelo site",
-                  "Entraremos em contato para agendar",
+                  "Entre em sua área logada para agendar a sessão de fotos (entraremos em contato para confirmar)",
                   "Traga seu pet e divirta-se na sessão",
                   "Receba suas fotos editadas em alta resolução",
                 ].map((step, i) => (
