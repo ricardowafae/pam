@@ -53,9 +53,13 @@ export function persistPaymentConfig(cfg: PaymentConfigData): void {
  *   so the value is always fresh.
  */
 export function usePaymentConfig(): PaymentConfigData {
-  const [config, setConfig] = useState<PaymentConfigData>(readPersistedConfig);
+  const [config, setConfig] = useState<PaymentConfigData>(PAYMENT_CONFIG);
 
   useEffect(() => {
+    // Read from localStorage on mount (after hydration, window is available)
+    const persisted = readPersistedConfig();
+    setConfig(persisted);
+
     const refresh = () => setConfig(readPersistedConfig());
     // Listen for changes from other tabs
     window.addEventListener("storage", refresh);
