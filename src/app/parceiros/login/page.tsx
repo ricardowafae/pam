@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PawPrint, Lock } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 export default function ParceirosLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,10 +22,32 @@ export default function ParceirosLoginPage() {
     setError("");
 
     try {
-      // TODO: Implement Supabase auth
-      console.log("Partner login:", { email, password });
+      const supabase = createClient();
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      if (signInError) {
+        setError("Credenciais invalidas. Tente novamente.");
+        return;
+      }
+
+      const role = data.user?.user_metadata?.role;
+
+      if (role === "fotografo") {
+        router.push("/parceiros/fotografo");
+      } else if (role === "influenciador") {
+        router.push("/parceiros/influenciador");
+      } else {
+        setError(
+          "Acesso restrito. Esta area e exclusiva para fotografos e influenciadores."
+        );
+        await supabase.auth.signOut();
+      }
     } catch {
-      setError("Credenciais inválidas. Tente novamente.");
+      setError("Credenciais invalidas. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -39,7 +64,7 @@ export default function ParceirosLoginPage() {
             Portal de Parceiros
           </h1>
           <p className="text-sm text-[#8b5e5e]/60">
-            Acesse sua área de fotógrafo ou influenciador
+            Acesse sua area de fotografo ou influenciador
           </p>
         </div>
 
@@ -66,9 +91,17 @@ export default function ParceirosLoginPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-[#8b5e5e]">
-              Senha
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password" className="text-[#8b5e5e]">
+                Senha
+              </Label>
+              <Link
+                href="/parceiros/esqueci-senha"
+                className="text-xs text-[#8b5e5e]/60 underline underline-offset-4 hover:text-[#8b5e5e]"
+              >
+                Esqueceu a senha?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"

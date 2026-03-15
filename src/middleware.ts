@@ -62,11 +62,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect client portal routes (except login/cadastro)
+  // Protect client portal routes (except login/cadastro/esqueci-senha)
   if (
     pathname.startsWith("/portalcliente") &&
     !pathname.startsWith("/portalcliente/login") &&
-    !pathname.startsWith("/portalcliente/cadastro")
+    !pathname.startsWith("/portalcliente/cadastro") &&
+    !pathname.startsWith("/portalcliente/esqueci-senha")
   ) {
     if (!user) {
       return NextResponse.redirect(
@@ -75,8 +76,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect partner routes (except login)
-  if (pathname.startsWith("/parceiros") && !pathname.startsWith("/parceiros/login")) {
+  // Protect partner routes (except login/esqueci-senha)
+  if (
+    pathname.startsWith("/parceiros") &&
+    !pathname.startsWith("/parceiros/login") &&
+    !pathname.startsWith("/parceiros/esqueci-senha")
+  ) {
     if (!user) {
       return NextResponse.redirect(new URL("/parceiros/login", request.url));
     }
