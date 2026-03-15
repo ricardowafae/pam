@@ -632,6 +632,17 @@ export default function DogbookPage() {
               </div>
             ))}
           </div>
+
+          <div className="mt-10">
+            <Button
+              size="lg"
+              className="gap-2 uppercase tracking-wide font-semibold px-10"
+              onClick={handleBuyNow}
+            >
+              <ShoppingBag className="size-4" />
+              Comprar Dogbook
+            </Button>
+          </div>
         </div>
       </section>
 
