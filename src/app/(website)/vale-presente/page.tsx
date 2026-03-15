@@ -454,7 +454,7 @@ export default function ValePresentePage() {
   }, [allQuantities]);
 
   return (
-    <div className="pb-0">
+    <div className={grandTotal.qty > 0 ? "pb-24 lg:pb-0" : "pb-0"}>
       {/* ─── Back link ─── */}
       <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
         <Link
@@ -593,7 +593,7 @@ export default function ValePresentePage() {
           Section 4: Catálogo
           ═══════════════════════════════════════════════════ */}
       <section id="catalogo" className="py-12 md:py-16">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70 mb-2">
               Catálogo
@@ -607,55 +607,143 @@ export default function ValePresentePage() {
             </p>
           </div>
 
-          <div className="space-y-6">
-            {PRODUCTS.map((product, pIdx) => (
-              <ProductVoucherCard
-                key={product.id}
-                product={product}
-                quantities={allQuantities[pIdx]}
-                onQuantityChange={(optIdx, qty) =>
-                  handleQuantityChange(pIdx, optIdx, qty)
-                }
-              />
-            ))}
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+            {/* Left: Product cards */}
+            <div className="space-y-6">
+              {PRODUCTS.map((product, pIdx) => (
+                <ProductVoucherCard
+                  key={product.id}
+                  product={product}
+                  quantities={allQuantities[pIdx]}
+                  onQuantityChange={(optIdx, qty) =>
+                    handleQuantityChange(pIdx, optIdx, qty)
+                  }
+                />
+              ))}
+            </div>
 
-          {/* Grand Total */}
-          {grandTotal.qty > 0 && (
-            <div className="mt-8 rounded-2xl border-2 border-primary/30 bg-primary/5 p-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-serif text-lg font-bold text-foreground">
-                    Total da Compra
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {grandTotal.qty} vale{grandTotal.qty > 1 ? "s" : ""}{" "}
-                    presente{grandTotal.qty > 1 ? "s" : ""}
-                  </p>
-                </div>
-                <div className="text-right">
-                  {grandTotal.discount > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      <span className="line-through">
-                        {formatBRL(grandTotal.raw)}
-                      </span>{" "}
-                      <span className="font-semibold text-rose-500">
-                        -{formatBRL(grandTotal.discount)}
-                      </span>
-                    </p>
+            {/* Right: Sticky floating total panel */}
+            <div className="hidden lg:block">
+              <div className="sticky top-6">
+                <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-5 shadow-lg space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="size-5 text-primary" />
+                    <h3 className="font-serif text-lg font-bold text-foreground">
+                      Resumo
+                    </h3>
+                  </div>
+
+                  {grandTotal.qty > 0 ? (
+                    <>
+                      {/* Per-product breakdown */}
+                      <div className="space-y-2">
+                        {PRODUCTS.map((product, pIdx) => {
+                          const quantities = allQuantities[pIdx];
+                          const totalQty = quantities.reduce((a, b) => a + b, 0);
+                          if (totalQty === 0) return null;
+                          const subtotalRaw = product.options.reduce(
+                            (sum, opt, i) => sum + opt.value * quantities[i],
+                            0
+                          );
+                          const discountPct = getDiscountPct(totalQty, product.discounts);
+                          const discountAmt = Math.round(subtotalRaw * (discountPct / 100));
+                          const subtotalFinal = subtotalRaw - discountAmt;
+                          return (
+                            <div
+                              key={product.id}
+                              className="flex items-center justify-between text-sm"
+                            >
+                              <span className="text-muted-foreground">
+                                {product.title}{" "}
+                                <span className="text-xs">
+                                  ({totalQty}x)
+                                </span>
+                              </span>
+                              <span className="font-medium text-foreground">
+                                {formatBRL(subtotalFinal)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="border-t border-primary/20 pt-3 space-y-1">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>
+                            {grandTotal.qty} vale{grandTotal.qty > 1 ? "s" : ""}
+                          </span>
+                          {grandTotal.discount > 0 && (
+                            <span className="line-through text-xs">
+                              {formatBRL(grandTotal.raw)}
+                            </span>
+                          )}
+                        </div>
+                        {grandTotal.discount > 0 && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-rose-500 font-medium">
+                              Desconto
+                            </span>
+                            <span className="text-rose-500 font-semibold">
+                              -{formatBRL(grandTotal.discount)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="font-serif font-bold text-foreground">
+                            Total
+                          </span>
+                          <span className="text-2xl font-bold text-foreground">
+                            {formatBRL(grandTotal.final)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 uppercase tracking-wide text-sm font-semibold"
+                      >
+                        <ShoppingBag className="size-4" />
+                        Finalizar Compra
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <Gift className="size-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Selecione seus vales presentes ao lado
+                      </p>
+                    </div>
                   )}
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatBRL(grandTotal.final)}
-                  </p>
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
+            </div>
+          </div>
+
+          {/* Mobile: Fixed bottom bar (shows only on mobile when items selected) */}
+          {grandTotal.qty > 0 && (
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t-2 border-primary/30 bg-primary/5 backdrop-blur-md px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+              <div className="flex items-center justify-between gap-4 max-w-5xl mx-auto">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {grandTotal.qty} vale{grandTotal.qty > 1 ? "s" : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {grandTotal.discount > 0 && (
+                      <span className="text-xs text-muted-foreground line-through">
+                        {formatBRL(grandTotal.raw)}
+                      </span>
+                    )}
+                    <span className="text-xl font-bold text-foreground">
+                      {formatBRL(grandTotal.final)}
+                    </span>
+                  </div>
+                </div>
                 <Button
                   size="lg"
-                  className="gap-2 uppercase tracking-wide text-sm font-semibold px-8"
+                  className="gap-2 uppercase tracking-wide text-sm font-semibold shrink-0"
                 >
                   <ShoppingBag className="size-4" />
-                  Finalizar Compra
+                  Finalizar
                 </Button>
               </div>
             </div>
