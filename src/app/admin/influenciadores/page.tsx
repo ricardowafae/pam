@@ -237,6 +237,7 @@ export default function InfluenciadoresPage() {
   const [editInfluencer, setEditInfluencer] = useState<Influencer | null>(null);
   const [deleteInfluencer, setDeleteInfluencer] = useState<Influencer | null>(null);
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<{ email: string; name: string } | null>(null);
 
   /* ─── Fetch data from Supabase ─── */
   const fetchInfluencers = useCallback(async () => {
@@ -517,28 +518,19 @@ export default function InfluenciadoresPage() {
 
         if (infError) throw infError;
 
-        // Create linked coupon
+        // Create linked coupon (convention: code derived from slug)
         if (newInfluencer && form.cupomCodigo) {
-          const { data: couponData, error: couponError } = await supabase
+          const { error: couponError } = await supabase
             .from("coupons")
             .insert({
               code: form.cupomCodigo.toUpperCase(),
               coupon_type: "percentual",
               discount_value: parseFloat(form.cupomDesconto) || 10,
-              influencer_id: newInfluencer.id,
               active: true,
-            })
-            .select()
-            .single();
+            });
 
           if (couponError) {
             console.error("Error creating coupon:", couponError);
-          } else if (couponData) {
-            // Link coupon to influencer
-            await supabase
-              .from("influencers")
-              .update({ coupon_id: couponData.id })
-              .eq("id", newInfluencer.id);
           }
         }
 
@@ -894,7 +886,7 @@ export default function InfluenciadoresPage() {
                               className="size-7"
                               title="Resetar senha do influenciador"
                               disabled={resettingEmail === inf.email}
-                              onClick={() => handleResetPassword(inf.email, inf.name)}
+                              onClick={() => setResetTarget({ email: inf.email, name: inf.name })}
                             >
                               {resettingEmail === inf.email ? (
                                 <Loader2 className="size-3.5 animate-spin text-amber-600" />
@@ -1732,6 +1724,48 @@ export default function InfluenciadoresPage() {
             <Button variant="destructive" onClick={handleConfirmDelete}>
               <Trash2 className="mr-2 size-4" />
               Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Confirmation Dialog */}
+      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Resetar Senha</DialogTitle>
+            <DialogDescription>
+              Um email de redefinicao de senha sera enviado para{" "}
+              <strong>{resetTarget?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-3 rounded-lg bg-amber-50 p-4">
+            <KeyRound className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">
+                {resetTarget?.name} recebera um link para criar uma nova senha.
+              </p>
+              <p className="mt-1 text-xs text-amber-600">
+                O link expira em 24 horas.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={!!resettingEmail}
+              onClick={async () => {
+                if (resetTarget) {
+                  await handleResetPassword(resetTarget.email, resetTarget.name);
+                  setResetTarget(null);
+                }
+              }}
+            >
+              {resettingEmail ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Enviar Email de Reset
             </Button>
           </DialogFooter>
         </DialogContent>

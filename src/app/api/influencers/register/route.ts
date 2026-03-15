@@ -197,7 +197,6 @@ export async function POST(req: NextRequest) {
         code: couponCode,
         coupon_type: "percentual",
         discount_value: 10,
-        influencer_id: influencer.id,
         active: false,
       });
 

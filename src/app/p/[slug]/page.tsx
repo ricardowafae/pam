@@ -22,14 +22,13 @@ async function getInfluencerBySlug(slug: string) {
 
   if (!influencer) return null;
 
-  // Fetch linked coupon
+  // Fetch linked coupon by convention: code = slug without hyphens, uppercased
+  const expectedCode = slug.replace(/-/g, "").toUpperCase();
   const { data: coupon } = await supabaseAdmin
     .from("coupons")
     .select("code, discount_value, coupon_type")
-    .eq("influencer_id", influencer.id)
+    .eq("code", expectedCode)
     .eq("active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
     .single();
 
   return {

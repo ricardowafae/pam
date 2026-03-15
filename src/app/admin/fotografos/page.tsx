@@ -410,6 +410,7 @@ export default function FotografosPage() {
   const [editPhotographer, setEditPhotographer] = useState<Photographer | null>(null);
   const [deletePhotographer, setDeletePhotographer] = useState<Photographer | null>(null);
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<{ email: string; name: string } | null>(null);
 
   const handleResetPassword = async (email: string, name: string) => {
     setResettingEmail(email);
@@ -691,7 +692,7 @@ export default function FotografosPage() {
                               className="size-7"
                               title="Resetar senha do fotógrafo"
                               disabled={resettingEmail === ph.email}
-                              onClick={() => handleResetPassword(ph.email, ph.name)}
+                              onClick={() => setResetTarget({ email: ph.email, name: ph.name })}
                             >
                               {resettingEmail === ph.email ? (
                                 <Loader2 className="size-3.5 animate-spin text-amber-600" />
@@ -1470,6 +1471,48 @@ export default function FotografosPage() {
           </Card>
         </div>
       )}
+
+      {/* Reset Password Confirmation Dialog */}
+      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Resetar Senha</DialogTitle>
+            <DialogDescription>
+              Um email de redefinicao de senha sera enviado para{" "}
+              <strong>{resetTarget?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-3 rounded-lg bg-amber-50 p-4">
+            <KeyRound className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">
+                {resetTarget?.name} recebera um link para criar uma nova senha.
+              </p>
+              <p className="mt-1 text-xs text-amber-600">
+                O link expira em 24 horas.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={!!resettingEmail}
+              onClick={async () => {
+                if (resetTarget) {
+                  await handleResetPassword(resetTarget.email, resetTarget.name);
+                  setResetTarget(null);
+                }
+              }}
+            >
+              {resettingEmail ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Enviar Email de Reset
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

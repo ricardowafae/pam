@@ -1068,6 +1068,7 @@ export default function ClientesPage() {
   };
 
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<{ email: string; name: string } | null>(null);
 
   const handleResetPassword = async (email: string, name: string) => {
     setResettingEmail(email);
@@ -1726,15 +1727,17 @@ export default function ClientesPage() {
                             <SheetTrigger className="inline-flex size-7 items-center justify-center rounded-md text-[#8b5e5e] hover:bg-muted" title="Investigar cliente">
                               <FileSearch className="size-3.5" />
                             </SheetTrigger>
-                            <SheetContent className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-[70vw]">
-                              <SheetHeader>
-                                <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
-                                  <FileSearch className="size-4" />
-                                  Historico do Cliente
-                                </SheetTitle>
-                              </SheetHeader>
-                              <div className="mt-4">
-                                <ClientHistoryPanel client={client} />
+                            <SheetContent className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-[70vw] p-0">
+                              <div className="mx-auto w-[90%] py-6">
+                                <SheetHeader>
+                                  <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
+                                    <FileSearch className="size-4" />
+                                    Historico do Cliente
+                                  </SheetTitle>
+                                </SheetHeader>
+                                <div className="mt-4">
+                                  <ClientHistoryPanel client={client} />
+                                </div>
                               </div>
                             </SheetContent>
                           </Sheet>
@@ -1775,7 +1778,7 @@ export default function ClientesPage() {
                             className="size-7 text-amber-600"
                             title="Resetar senha do cliente"
                             disabled={resettingEmail === client.email}
-                            onClick={() => handleResetPassword(client.email, client.name)}
+                            onClick={() => setResetTarget({ email: client.email, name: client.name })}
                           >
                             {resettingEmail === client.email ? (
                               <Loader2 className="size-3.5 animate-spin" />
@@ -1972,6 +1975,48 @@ export default function ClientesPage() {
               }}
             >
               Salvar Alteracoes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Confirmation Dialog */}
+      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Resetar Senha</DialogTitle>
+            <DialogDescription>
+              Um email de redefinicao de senha sera enviado para{" "}
+              <strong>{resetTarget?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-3 rounded-lg bg-amber-50 p-4">
+            <KeyRound className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">
+                {resetTarget?.name} recebera um link para criar uma nova senha.
+              </p>
+              <p className="mt-1 text-xs text-amber-600">
+                O link expira em 24 horas.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={!!resettingEmail}
+              onClick={async () => {
+                if (resetTarget) {
+                  await handleResetPassword(resetTarget.email, resetTarget.name);
+                  setResetTarget(null);
+                }
+              }}
+            >
+              {resettingEmail ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Enviar Email de Reset
             </Button>
           </DialogFooter>
         </DialogContent>
