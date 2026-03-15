@@ -226,6 +226,7 @@ export async function POST(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      ui_mode: "embedded",
       mode: "payment",
       payment_method_types:
         paymentMethod === "pix" ? ["boleto", "card"] : ["card"],
@@ -237,14 +238,7 @@ export async function POST(req: NextRequest) {
         influencer_id: influencerId || "",
         coupon_code: couponCode || "",
       },
-      success_url: `${siteUrl}/pagamento/sucesso?order=${order.order_number}`,
-      cancel_url: `${siteUrl}/carrinho`,
-      payment_intent_data: {
-        metadata: {
-          order_id: order.id,
-          order_number: order.order_number,
-        },
-      },
+      return_url: `${siteUrl}/pagamento/sucesso?session_id={CHECKOUT_SESSION_ID}`,
       locale: "pt-BR",
     };
 
@@ -271,8 +265,7 @@ export async function POST(req: NextRequest) {
       .eq("id", order.id);
 
     return NextResponse.json({
-      sessionId: session.id,
-      url: session.url,
+      clientSecret: session.client_secret,
       orderNumber: order.order_number,
     });
   } catch (error) {

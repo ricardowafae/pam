@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -29,6 +29,15 @@ import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 import { useCart } from "@/hooks/useCart";
 import { clearInfluencerTracking } from "@/lib/influencer-tracking";
 import { toast } from "sonner";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  EmbeddedCheckoutProvider,
+  EmbeddedCheckout,
+} from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
 
 type PersonType = "pf" | "pj";
 
@@ -57,6 +66,7 @@ export default function CarrinhoPage() {
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   /* --- form fields --- */
   const [name, setName] = useState("");
@@ -179,12 +189,13 @@ export default function CarrinhoPage() {
 
       const data = await res.json();
 
-      if (data.url) {
-        // Clear tracking after successful checkout creation
+      if (data.clientSecret) {
+        // Clear influencer tracking — cart will be cleared on success page
         clearInfluencerTracking();
-        clearCart();
-        // Redirect to Stripe Checkout
-        window.location.href = data.url;
+        setClientSecret(data.clientSecret);
+        setCheckoutLoading(false);
+        // Scroll to top to show embedded checkout
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         toast.error(data.error || "Erro ao criar sessão de pagamento.");
         setCheckoutLoading(false);
@@ -199,6 +210,38 @@ export default function CarrinhoPage() {
   const paymentCfg = usePaymentConfig();
   const maxInstallments = paymentCfg.maxInstallments;
   const installmentValue = total / maxInstallments;
+
+  /* --- Embedded Checkout view --- */
+  if (clientSecret) {
+    return (
+      <div className="pb-16">
+        <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6 lg:px-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">
+              Pagamento
+            </h1>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setClientSecret(null)}
+              className="gap-1.5"
+            >
+              <ArrowLeft className="size-4" />
+              Voltar ao carrinho
+            </Button>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-card p-1 sm:p-2">
+            <EmbeddedCheckoutProvider
+              stripe={stripePromise}
+              options={{ clientSecret }}
+            >
+              <EmbeddedCheckout />
+            </EmbeddedCheckoutProvider>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* --- empty cart --- */
   if (items.length === 0) {
