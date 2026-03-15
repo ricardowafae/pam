@@ -666,6 +666,8 @@ export default function InfluenciadoresPage() {
                               variant="ghost"
                               size="icon"
                               className="size-5"
+                              title="Copiar URL completa"
+                              onClick={() => handleCopyLink(inf.slug)}
                             >
                               <Copy className="size-3" />
                             </Button>
@@ -1041,38 +1043,56 @@ export default function InfluenciadoresPage() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Tipo de Cadastro *
                 </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => updateForm("personType", "PF")}
-                    className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                      form.personType === "PF"
-                        ? "border-[#8b5e5e] bg-[#8b5e5e]/5"
-                        : "border-border hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <Users className={`size-6 ${form.personType === "PF" ? "text-[#8b5e5e]" : "text-muted-foreground"}`} />
-                    <span className={`text-sm font-medium ${form.personType === "PF" ? "text-[#8b5e5e]" : "text-foreground"}`}>
-                      Pessoa Fisica
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">CPF</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateForm("personType", "PJ")}
-                    className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                      form.personType === "PJ"
-                        ? "border-[#8b5e5e] bg-[#8b5e5e]/5"
-                        : "border-border hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <Building2 className={`size-6 ${form.personType === "PJ" ? "text-[#8b5e5e]" : "text-muted-foreground"}`} />
-                    <span className={`text-sm font-medium ${form.personType === "PJ" ? "text-[#8b5e5e]" : "text-foreground"}`}>
-                      Pessoa Juridica
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">CNPJ</span>
-                  </button>
-                </div>
+                {editInfluencer ? (
+                  <div className="flex items-center gap-3 rounded-lg border-2 border-[#8b5e5e] bg-[#8b5e5e]/5 p-4">
+                    {form.personType === "PF" ? (
+                      <Users className="size-6 text-[#8b5e5e]" />
+                    ) : (
+                      <Building2 className="size-6 text-[#8b5e5e]" />
+                    )}
+                    <div>
+                      <span className="text-sm font-medium text-[#8b5e5e]">
+                        {form.personType === "PF" ? "Pessoa Fisica" : "Pessoa Juridica"}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">
+                        O tipo de cadastro não pode ser alterado após o registro.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => updateForm("personType", "PF")}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                        form.personType === "PF"
+                          ? "border-[#8b5e5e] bg-[#8b5e5e]/5"
+                          : "border-border hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <Users className={`size-6 ${form.personType === "PF" ? "text-[#8b5e5e]" : "text-muted-foreground"}`} />
+                      <span className={`text-sm font-medium ${form.personType === "PF" ? "text-[#8b5e5e]" : "text-foreground"}`}>
+                        Pessoa Fisica
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">CPF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateForm("personType", "PJ")}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                        form.personType === "PJ"
+                          ? "border-[#8b5e5e] bg-[#8b5e5e]/5"
+                          : "border-border hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <Building2 className={`size-6 ${form.personType === "PJ" ? "text-[#8b5e5e]" : "text-muted-foreground"}`} />
+                      <span className={`text-sm font-medium ${form.personType === "PJ" ? "text-[#8b5e5e]" : "text-foreground"}`}>
+                        Pessoa Juridica
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">CNPJ</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {form.personType && (

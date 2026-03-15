@@ -1008,24 +1008,42 @@ export default function FotografosPage() {
               {/* ─── Tipo de Pessoa ─── */}
               <div>
                 <Label className="mb-2 block text-sm font-semibold">Tipo de Cadastro *</Label>
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant={form.personType === "PF" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => updateForm("personType", "PF")}
-                  >
-                    Pessoa Física (PF)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={form.personType === "PJ" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => updateForm("personType", "PJ")}
-                  >
-                    Pessoa Jurídica (PJ)
-                  </Button>
-                </div>
+                {editPhotographer ? (
+                  <div className="flex items-center gap-3 rounded-lg border-2 border-[#8b5e5e] bg-[#8b5e5e]/5 p-3">
+                    {form.personType === "PF" ? (
+                      <Users className="size-5 text-[#8b5e5e]" />
+                    ) : (
+                      <Building2 className="size-5 text-[#8b5e5e]" />
+                    )}
+                    <div>
+                      <span className="text-sm font-medium text-[#8b5e5e]">
+                        {form.personType === "PF" ? "Pessoa Física (PF)" : "Pessoa Jurídica (PJ)"}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">
+                        O tipo de cadastro não pode ser alterado após o registro.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant={form.personType === "PF" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => updateForm("personType", "PF")}
+                    >
+                      Pessoa Física (PF)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={form.personType === "PJ" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => updateForm("personType", "PJ")}
+                    >
+                      Pessoa Jurídica (PJ)
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <Separator />

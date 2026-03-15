@@ -704,52 +704,52 @@ function ClientHistoryPanel({ client }: { client: Client }) {
   const [activeTab, setActiveTab] = useState<"resumo" | "compras" | "timeline">("resumo");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* ── Client Header ── */}
-      <div className="flex items-start gap-5">
+      <div className="flex items-start gap-5 rounded-xl border bg-muted/20 p-5">
         <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-[#8b5e5e]/10 text-lg font-bold text-[#8b5e5e]">
           {getInitials(client.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <h3 className="text-xl font-semibold text-foreground">{client.name}</h3>
-            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColor(client.status)}`}>
+            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusColor(client.status)}`}>
               {statusLabel(client.status)}
             </span>
           </div>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Mail className="size-3 shrink-0" /> <span className="truncate">{client.email}</span>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Mail className="size-3.5 shrink-0" /> <span className="truncate">{client.email}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Phone className="size-3 shrink-0" /> {client.phone}
+            <div className="flex items-center gap-2">
+              <Phone className="size-3.5 shrink-0" /> {client.phone}
             </div>
-            <div className="flex items-center gap-1.5 sm:col-span-2">
-              <MapPin className="size-3 shrink-0" /> {client.fullAddress}
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <MapPin className="size-3.5 shrink-0" /> {client.fullAddress}
             </div>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className="text-[10px]">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-xs px-2.5 py-0.5">
               {client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}
             </Badge>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-xs px-2.5 py-0.5">
               {client.clientType === "pf" ? `CPF: ${client.cpfCnpj}` : `CNPJ: ${client.cpfCnpj}`}
             </Badge>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               Cliente desde {formatDate(client.createdAt)} · Origem: {client.source}
             </span>
           </div>
           {client.tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
               {client.tags.map((tag) => (
-                <span key={tag} className="inline-flex rounded-full bg-[#8b5e5e]/10 px-2 py-0.5 text-[9px] font-medium text-[#8b5e5e]">
+                <span key={tag} className="inline-flex rounded-full bg-[#8b5e5e]/10 px-2.5 py-1 text-[10px] font-medium text-[#8b5e5e]">
                   {tag}
                 </span>
               ))}
             </div>
           )}
           {client.clientType === "pj" && (
-            <div className="mt-1 text-[10px] text-muted-foreground">
+            <div className="mt-1.5 text-xs text-muted-foreground">
               {client.razaoSocial} · {client.nomeFantasia}
             </div>
           )}
@@ -757,12 +757,12 @@ function ClientHistoryPanel({ client }: { client: Client }) {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
+      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1.5">
         {(["resumo", "compras", "timeline"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -775,63 +775,63 @@ function ClientHistoryPanel({ client }: { client: Client }) {
 
       {/* ── Tab: Resumo ── */}
       {activeTab === "resumo" && (
-        <div className="space-y-5">
-          {/* KPIs - 2 rows with wider card layout */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            <div className="rounded-lg border bg-background p-3 text-center">
-              <ShoppingBag className="mx-auto size-4 text-primary/60" />
-              <p className="mt-1 text-xl font-bold text-foreground">{stats.totalPurchases}</p>
-              <p className="text-[10px] uppercase text-muted-foreground">Compras</p>
+        <div className="space-y-6">
+          {/* KPIs */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+            <div className="rounded-xl border bg-background p-4 text-center">
+              <ShoppingBag className="mx-auto size-5 text-primary/60" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{stats.totalPurchases}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">Compras</p>
             </div>
-            <div className="rounded-lg border bg-background p-3 text-center">
-              <BookOpen className="mx-auto size-4 text-primary/60" />
-              <p className="mt-1 text-xl font-bold text-foreground">{stats.totalDogbooks}</p>
-              <p className="text-[10px] uppercase text-muted-foreground">Dogbooks</p>
+            <div className="rounded-xl border bg-background p-4 text-center">
+              <BookOpen className="mx-auto size-5 text-primary/60" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{stats.totalDogbooks}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">Dogbooks</p>
             </div>
-            <div className="rounded-lg border bg-background p-3 text-center">
-              <Camera className="mx-auto size-4 text-primary/60" />
-              <p className="mt-1 text-xl font-bold text-foreground">{stats.totalSessions}</p>
-              <p className="text-[10px] uppercase text-muted-foreground">Sessoes</p>
+            <div className="rounded-xl border bg-background p-4 text-center">
+              <Camera className="mx-auto size-5 text-primary/60" />
+              <p className="mt-2 text-2xl font-bold text-foreground">{stats.totalSessions}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">Sessoes</p>
             </div>
-            <div className="rounded-lg border bg-background p-3 text-center">
-              <DollarSign className="mx-auto size-4 text-green-600" />
-              <p className="mt-1 text-base font-bold text-green-600">{stats.totalSpent}</p>
-              <p className="text-[10px] uppercase text-muted-foreground">Total Gasto</p>
+            <div className="rounded-xl border bg-background p-4 text-center">
+              <DollarSign className="mx-auto size-5 text-green-600" />
+              <p className="mt-2 text-lg font-bold text-green-600">{stats.totalSpent}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">Total Gasto</p>
             </div>
-            <div className="rounded-lg border bg-background p-3 text-center">
-              <CheckCircle className="mx-auto size-4 text-green-600" />
-              <p className="mt-1 text-xl font-bold text-green-600">{stats.delivered}</p>
-              <p className="text-[10px] uppercase text-muted-foreground">Entregues</p>
+            <div className="rounded-xl border bg-background p-4 text-center">
+              <CheckCircle className="mx-auto size-5 text-green-600" />
+              <p className="mt-2 text-2xl font-bold text-green-600">{stats.delivered}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">Entregues</p>
             </div>
-            <div className="rounded-lg border bg-background p-3 text-center">
-              <Clock className="mx-auto size-4 text-amber-600" />
-              <p className="mt-1 text-xl font-bold text-amber-600">{stats.pending}</p>
-              <p className="text-[10px] uppercase text-muted-foreground">Pendentes</p>
+            <div className="rounded-xl border bg-background p-4 text-center">
+              <Clock className="mx-auto size-5 text-amber-600" />
+              <p className="mt-2 text-2xl font-bold text-amber-600">{stats.pending}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">Pendentes</p>
             </div>
           </div>
 
           {/* Engagement */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-lg border p-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Ultima Atividade</p>
-              <p className="mt-0.5 text-sm font-medium">{formatDate(client.lastActivity)}</p>
-              <p className="text-[10px] text-muted-foreground">ha {daysSince(client.lastActivity)} dias</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="rounded-xl border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Ultima Atividade</p>
+              <p className="mt-1.5 text-base font-semibold">{formatDate(client.lastActivity)}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">ha {daysSince(client.lastActivity)} dias</p>
             </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Ticket Medio</p>
-              <p className="mt-0.5 text-sm font-medium">
+            <div className="rounded-xl border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Ticket Medio</p>
+              <p className="mt-1.5 text-base font-semibold">
                 {stats.totalPurchases > 0
                   ? formatCurrency(stats.totalSpentNum / stats.totalPurchases)
                   : "R$ 0,00"}
               </p>
             </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Origem</p>
-              <p className="mt-0.5 text-sm font-medium">{client.source}</p>
+            <div className="rounded-xl border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Origem</p>
+              <p className="mt-1.5 text-base font-semibold">{client.source}</p>
             </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Tipo</p>
-              <p className="mt-0.5 text-sm font-medium">{client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}</p>
+            <div className="rounded-xl border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</p>
+              <p className="mt-1.5 text-base font-semibold">{client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}</p>
             </div>
           </div>
 
@@ -1698,7 +1698,7 @@ export default function ClientesPage() {
                             <SheetTrigger className="inline-flex size-7 items-center justify-center rounded-md text-[#8b5e5e] hover:bg-muted" title="Investigar cliente">
                               <FileSearch className="size-3.5" />
                             </SheetTrigger>
-                            <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+                            <SheetContent className="w-full overflow-y-auto sm:max-w-4xl">
                               <SheetHeader>
                                 <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
                                   <FileSearch className="size-4" />

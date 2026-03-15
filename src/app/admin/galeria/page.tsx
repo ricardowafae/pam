@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,13 +15,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Heart, Shield, Search, Image as ImageIcon } from "lucide-react";
+import { Heart, Shield, Search, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
-const galleryItems = [
+/* ────────────────────── Types & Data ────────────────────── */
+
+interface GalleryItem {
+  id: number;
+  client: string;
+  pet: string;
+  phone: string;
+  date: string;
+  status: "Aprovada" | "Pendente";
+  favorited: boolean;
+}
+
+const initialGalleryItems: GalleryItem[] = [
   {
     id: 1,
     client: "Ana Souza",
     pet: "Thor",
+    phone: "5511999990001",
     date: "10/03/2026",
     status: "Aprovada",
     favorited: true,
@@ -32,6 +44,7 @@ const galleryItems = [
     id: 2,
     client: "Carlos Mendes",
     pet: "Bob",
+    phone: "5511999990002",
     date: "08/03/2026",
     status: "Pendente",
     favorited: false,
@@ -40,6 +53,7 @@ const galleryItems = [
     id: 3,
     client: "Fernanda Lima",
     pet: "Mel",
+    phone: "5511999990003",
     date: "05/03/2026",
     status: "Aprovada",
     favorited: true,
@@ -48,6 +62,7 @@ const galleryItems = [
     id: 4,
     client: "Mariana Costa",
     pet: "Pipoca",
+    phone: "5511999990004",
     date: "03/03/2026",
     status: "Pendente",
     favorited: false,
@@ -56,6 +71,7 @@ const galleryItems = [
     id: 5,
     client: "Pedro Santos",
     pet: "Max",
+    phone: "5511999990005",
     date: "01/03/2026",
     status: "Aprovada",
     favorited: false,
@@ -64,6 +80,7 @@ const galleryItems = [
     id: 6,
     client: "Rodrigo Alves",
     pet: "Nina",
+    phone: "5511999990006",
     date: "28/02/2026",
     status: "Aprovada",
     favorited: true,
@@ -72,6 +89,7 @@ const galleryItems = [
     id: 7,
     client: "Julia Ferreira",
     pet: "Bolinha",
+    phone: "5511999990007",
     date: "25/02/2026",
     status: "Pendente",
     favorited: false,
@@ -80,17 +98,21 @@ const galleryItems = [
     id: 8,
     client: "Bruno Oliveira",
     pet: "Toby",
+    phone: "5511999990008",
     date: "22/02/2026",
     status: "Aprovada",
     favorited: true,
   },
 ];
 
+/* ────────────────────── Component ────────────────────── */
+
 export default function GaleriaPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [items, setItems] = useState<GalleryItem[]>(initialGalleryItems);
 
-  const filteredItems = galleryItems.filter((item) => {
+  const filteredItems = items.filter((item) => {
     const matchesSearch =
       item.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.pet.toLowerCase().includes(searchTerm.toLowerCase());
@@ -98,6 +120,37 @@ export default function GaleriaPage() {
       statusFilter === "all" || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const handleToggleFavorite = useCallback((id: number) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const newFavorited = !item.favorited;
+        toast.success(
+          newFavorited
+            ? `Foto de ${item.pet} (${item.client}) adicionada aos favoritos!`
+            : `Foto de ${item.pet} (${item.client}) removida dos favoritos.`
+        );
+        return { ...item, favorited: newFavorited };
+      })
+    );
+  }, []);
+
+  const handleSolicitarPermissao = useCallback((item: GalleryItem) => {
+    const message = encodeURIComponent(
+      `Olá ${item.client}! 🐾\n\n` +
+      `Aqui é a equipe da *Patas, Amor e Memórias*.\n\n` +
+      `As fotos da sessão do(a) *${item.pet}* ficaram incríveis! ` +
+      `Gostaríamos de solicitar sua autorização para utilizarmos as imagens ` +
+      `em nosso site e redes sociais.\n\n` +
+      `As fotos serão usadas exclusivamente para divulgação dos nossos serviços, ` +
+      `sempre com carinho e respeito. 💛\n\n` +
+      `Podemos contar com sua autorização?`
+    );
+    const whatsappUrl = `https://wa.me/${item.phone}?text=${message}`;
+    window.open(whatsappUrl, "_blank");
+    toast.success(`Solicitação de permissão enviada para ${item.client} via WhatsApp.`);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -167,6 +220,7 @@ export default function GaleriaPage() {
                       ? "bg-[#8b5e5e] hover:bg-[#7a4f4f]"
                       : ""
                   }
+                  onClick={() => handleToggleFavorite(item.id)}
                 >
                   <Heart
                     className={`size-3.5 ${
@@ -176,8 +230,12 @@ export default function GaleriaPage() {
                   Favoritar
                 </Button>
                 {item.status === "Pendente" && (
-                  <Button variant="outline" size="sm">
-                    <Shield className="size-3.5" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSolicitarPermissao(item)}
+                  >
+                    <ExternalLink className="size-3.5" />
                     Solicitar Permissao
                   </Button>
                 )}
