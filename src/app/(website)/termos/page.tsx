@@ -27,9 +27,8 @@ export default function TermosPage() {
             </h2>
             <p>
               Este documento regula o uso dos serviços oferecidos pela Patas,
-              Amor e Memórias, operada por [Razão Social a ser preenchida],
-              inscrita no CNPJ sob nº [CNPJ a ser preenchido], com sede em
-              [Endereço completo a ser preenchido], doravante denominada
+              Amor e Memórias, com sede na rua Claudio Soares, 72, Pinheiros
+              - São Paulo - SP, doravante denominada
               &ldquo;Empresa&rdquo;.
             </p>
             <p>
