@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import {
   Card,
@@ -78,6 +79,7 @@ import {
   Repeat,
   Heart,
   Loader2,
+  KeyRound,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -1065,6 +1067,32 @@ export default function ClientesPage() {
     );
   };
 
+  const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+
+  const handleResetPassword = async (email: string, name: string) => {
+    setResettingEmail(email);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao enviar email");
+      }
+      toast.success(`Email de redefinição de senha enviado para ${name}!`, {
+        description: `Um link foi enviado para ${email}.`,
+      });
+    } catch (err: any) {
+      toast.error("Erro ao enviar email de redefinição.", {
+        description: err.message,
+      });
+    } finally {
+      setResettingEmail(null);
+    }
+  };
+
   const filteredClients = mockClients.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1738,6 +1766,22 @@ export default function ClientesPage() {
                             }}
                           >
                             <MessageSquare className="size-3.5" />
+                          </Button>
+
+                          {/* Reset Password */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-amber-600"
+                            title="Resetar senha do cliente"
+                            disabled={resettingEmail === client.email}
+                            onClick={() => handleResetPassword(client.email, client.name)}
+                          >
+                            {resettingEmail === client.email ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <KeyRound className="size-3.5" />
+                            )}
                           </Button>
 
                           {/* Delete */}

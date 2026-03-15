@@ -140,12 +140,14 @@ export default function GaleriaPage() {
     const message = encodeURIComponent(
       `Olá ${item.client}! 🐾\n\n` +
       `Aqui é a equipe da *Patas, Amor e Memórias*.\n\n` +
-      `As fotos da sessão do(a) *${item.pet}* ficaram incríveis! ` +
-      `Gostaríamos de solicitar sua autorização para utilizarmos as imagens ` +
+      `As fotos do(a) *${item.pet}* estão incríveis! ` +
+      `Gostaríamos de solicitar sua autorização para compartilharmos as imagens ` +
       `em nosso site e redes sociais.\n\n` +
-      `As fotos serão usadas exclusivamente para divulgação dos nossos serviços, ` +
-      `sempre com carinho e respeito. 💛\n\n` +
-      `Podemos contar com sua autorização?`
+      `As fotos serão usadas exclusivamente em nossa querida cãomunidade ` +
+      `para continuar espalhando amor uma foto de cada vez, ` +
+      `e sempre com carinho e respeito. 💛\n\n` +
+      `Podemos contar com sua autorização?\n` +
+      `Desde já, nosso muitíssimo obrigado por fazer parte desse projeto!`
     );
     const whatsappUrl = `https://wa.me/${item.phone}?text=${message}`;
     window.open(whatsappUrl, "_blank");

@@ -65,6 +65,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  KeyRound,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -408,6 +409,31 @@ export default function FotografosPage() {
 
   const [editPhotographer, setEditPhotographer] = useState<Photographer | null>(null);
   const [deletePhotographer, setDeletePhotographer] = useState<Photographer | null>(null);
+  const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+
+  const handleResetPassword = async (email: string, name: string) => {
+    setResettingEmail(email);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao enviar email");
+      }
+      toast.success(`Email de redefinição de senha enviado para ${name}!`, {
+        description: `Um link foi enviado para ${email}.`,
+      });
+    } catch (err: any) {
+      toast.error("Erro ao enviar email de redefinição.", {
+        description: err.message,
+      });
+    } finally {
+      setResettingEmail(null);
+    }
+  };
 
   const markAsPaid = (id: number) => {
     setCommissions((prev) =>
@@ -658,6 +684,20 @@ export default function FotografosPage() {
                               onClick={() => handleCopyPhotographerLink(ph)}
                             >
                               <Link2 className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              title="Resetar senha do fotógrafo"
+                              disabled={resettingEmail === ph.email}
+                              onClick={() => handleResetPassword(ph.email, ph.name)}
+                            >
+                              {resettingEmail === ph.email ? (
+                                <Loader2 className="size-3.5 animate-spin text-amber-600" />
+                              ) : (
+                                <KeyRound className="size-3.5 text-amber-600" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"

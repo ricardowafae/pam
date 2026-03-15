@@ -66,6 +66,8 @@ import {
   ChevronUp,
   Megaphone,
   BarChart3,
+  KeyRound,
+  Loader2,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -357,6 +359,31 @@ export default function InfluenciadoresPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [editInfluencer, setEditInfluencer] = useState<Influencer | null>(null);
   const [deleteInfluencer, setDeleteInfluencer] = useState<Influencer | null>(null);
+  const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+
+  const handleResetPassword = async (email: string, name: string) => {
+    setResettingEmail(email);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao enviar email");
+      }
+      toast.success(`Email de redefinição de senha enviado para ${name}!`, {
+        description: `Um link foi enviado para ${email}.`,
+      });
+    } catch (err: any) {
+      toast.error("Erro ao enviar email de redefinição.", {
+        description: err.message,
+      });
+    } finally {
+      setResettingEmail(null);
+    }
+  };
 
   /* ─── KPIs (filtered by date range) ─── */
   const commissionsInRange = commissions.filter((c) => isInRange(c.dueDate, dateRange));
@@ -715,6 +742,20 @@ export default function InfluenciadoresPage() {
                               onClick={() => handleCopyLink(inf.slug)}
                             >
                               <Link2 className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              title="Resetar senha do influenciador"
+                              disabled={resettingEmail === inf.email}
+                              onClick={() => handleResetPassword(inf.email, inf.name)}
+                            >
+                              {resettingEmail === inf.email ? (
+                                <Loader2 className="size-3.5 animate-spin text-amber-600" />
+                              ) : (
+                                <KeyRound className="size-3.5 text-amber-600" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
