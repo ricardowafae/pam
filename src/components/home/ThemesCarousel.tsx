@@ -124,7 +124,7 @@ export default function ThemesCarousel() {
             <button
               key={theme.id}
               onClick={() => setActiveTheme(theme.id)}
-              className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm font-medium transition-all ${
+              className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.03] active:scale-95 ${
                 activeTheme === theme.id
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "bg-white text-muted-foreground hover:bg-secondary border border-border/50"

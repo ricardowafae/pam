@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PawPrint } from "lucide-react";
+import Link from "next/link";
+import { PawPrint, ShoppingBag } from "lucide-react";
 
 const traits = [
   "Amor que não acaba",
@@ -77,6 +78,16 @@ export default function PersonalidadeCanina() {
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/dogbook"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground h-9 px-10 text-sm uppercase tracking-wide font-semibold transition-all duration-200 ease-out hover:scale-[1.03] hover:shadow-lg hover:bg-primary/90 active:scale-95 active:shadow-sm"
+          >
+            <ShoppingBag className="size-4" />
+            Comprar Dogbook
+          </Link>
         </div>
       </div>
     </section>

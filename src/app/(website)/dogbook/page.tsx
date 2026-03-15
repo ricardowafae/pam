@@ -24,7 +24,7 @@ import {
   Minus,
   Plus,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useCart } from "@/hooks/useCart";
 import { toast } from "sonner";
 import type { Product } from "@/types";
@@ -135,6 +135,14 @@ export default function DogbookPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedTheme, setSelectedTheme] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [pawRatings, setPawRatings] = useState<Record<string, number>>({});
+
+  const handlePawClick = useCallback((trait: string, rating: number) => {
+    setPawRatings((prev) => ({
+      ...prev,
+      [trait]: prev[trait] === rating ? rating - 1 : rating,
+    }));
+  }, []);
   const { addItem } = useCart();
   const router = useRouter();
 
@@ -477,7 +485,7 @@ export default function DogbookPage() {
               <button
                 key={theme.id}
                 onClick={() => setSelectedTheme(i)}
-                className={`px-4 md:px-6 py-1.5 md:py-2.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-4 md:px-6 py-1.5 md:py-2.5 rounded-full text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.03] active:scale-95 ${
                   selectedTheme === i
                     ? "bg-primary text-primary-foreground shadow-md"
                     : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
@@ -493,14 +501,14 @@ export default function DogbookPage() {
             {/* Navigation Arrows */}
             <button
               onClick={handlePrevTheme}
-              className="absolute left-0 md:-left-6 top-1/2 -translate-y-1/2 z-10 size-10 rounded-full bg-white/80 shadow-md flex items-center justify-center hover:bg-white transition-colors"
+              className="absolute left-0 md:-left-6 top-1/2 -translate-y-1/2 z-10 size-10 rounded-full bg-white/80 shadow-md flex items-center justify-center hover:bg-white transition-all duration-200 ease-out hover:scale-110 active:scale-90"
               aria-label="Tema anterior"
             >
               <ChevronLeft className="size-5" />
             </button>
             <button
               onClick={handleNextTheme}
-              className="absolute right-0 md:-right-6 top-1/2 -translate-y-1/2 z-10 size-10 rounded-full bg-white/80 shadow-md flex items-center justify-center hover:bg-white transition-colors"
+              className="absolute right-0 md:-right-6 top-1/2 -translate-y-1/2 z-10 size-10 rounded-full bg-white/80 shadow-md flex items-center justify-center hover:bg-white transition-all duration-200 ease-out hover:scale-110 active:scale-90"
               aria-label="Próximo tema"
             >
               <ChevronRight className="size-5" />
@@ -613,24 +621,38 @@ export default function DogbookPage() {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {PERSONALITY_TRAITS.map((trait) => (
-              <div
-                key={trait}
-                className="flex items-center justify-between rounded-xl bg-secondary/50 px-5 py-3"
-              >
-                <span className="text-sm font-medium text-foreground">
-                  {trait}
-                </span>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className="size-4 text-primary/30"
-                    />
-                  ))}
+            {PERSONALITY_TRAITS.map((trait) => {
+              const rating = pawRatings[trait] || 0;
+              return (
+                <div
+                  key={trait}
+                  className="flex items-center justify-between rounded-xl bg-secondary/50 px-5 py-3"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {trait}
+                  </span>
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        aria-label={`${i + 1} patinha${i > 0 ? "s" : ""} para ${trait}`}
+                        className="group/paw p-0.5 transition-transform duration-150 hover:scale-125 active:scale-95"
+                        onClick={() => handlePawClick(trait, i + 1)}
+                      >
+                        <PawPrint
+                          className={`size-4 transition-all duration-200 ${
+                            i < rating
+                              ? "text-primary fill-primary"
+                              : "text-primary/30 group-hover/paw:text-primary/50"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-10">
@@ -682,16 +704,10 @@ export default function DogbookPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl bg-amber-50/50 border border-amber-200/50 p-4">
-                <p className="text-sm text-amber-800/80">
-                  💡 Dica: utilize tintas aquarelas atóxicas solúveis em água
-                  para um resultado perfeito e seguro.
-                </p>
-              </div>
             </div>
 
             {/* Paw Image */}
-            <div className="relative aspect-square md:aspect-[4/5] rounded-2xl overflow-hidden">
+            <div className="relative aspect-square md:aspect-[4/5] rounded-2xl overflow-hidden max-w-[70%] mx-auto">
               <Image
                 src="/images/dogbook-paw-page.jpg"
                 alt="Marca da pegada - registro da patinha"

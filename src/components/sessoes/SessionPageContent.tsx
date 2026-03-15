@@ -100,7 +100,7 @@ export default function SessionPageContent({ session }: Props) {
             )}
             <Link
               href={`/sessoes/${tab.slug}`}
-              className={`inline-block px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm font-medium transition-all ${
+              className={`inline-block px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.03] active:scale-95 ${
                 session.slug === tab.slug
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "bg-secondary/60 text-muted-foreground hover:bg-secondary"
