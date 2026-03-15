@@ -364,7 +364,7 @@ function ProductVoucherCard({
                     <span className="text-xs text-muted-foreground line-through">
                       {formatBRL(subtotalRaw)}
                     </span>
-                    <span className="text-xs font-semibold text-rose-500">
+                    <span className="text-xs font-semibold text-green-600">
                       -{discountPct}%
                     </span>
                   </div>
@@ -680,10 +680,10 @@ export default function ValePresentePage() {
                         </div>
                         {grandTotal.discount > 0 && (
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-rose-500 font-medium">
+                            <span className="text-green-600 font-medium">
                               Desconto
                             </span>
-                            <span className="text-rose-500 font-semibold">
+                            <span className="text-green-600 font-semibold">
                               -{formatBRL(grandTotal.discount)}
                             </span>
                           </div>
