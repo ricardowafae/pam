@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
+import type { Product } from "@/types";
 import {
   Gift,
   Heart,
@@ -408,6 +412,9 @@ function ProductVoucherCard({
 /* ─────────── Main Page ─────────── */
 
 export default function ValePresentePage() {
+  const router = useRouter();
+  const { addItem } = useCart();
+
   // quantities[productIdx][optionIdx]
   const [allQuantities, setAllQuantities] = useState<number[][]>(
     PRODUCTS.map((p) => p.options.map(() => 0))
@@ -423,6 +430,43 @@ export default function ValePresentePage() {
     },
     []
   );
+
+  const handleFinalizarCompra = useCallback(() => {
+    let addedCount = 0;
+
+    PRODUCTS.forEach((product, pIdx) => {
+      const quantities = allQuantities[pIdx];
+      quantities.forEach((qty, optIdx) => {
+        if (qty > 0) {
+          const opt = product.options[optIdx];
+          const valeProduct: Product = {
+            id: `vale-${product.id}-${opt.value}`,
+            name: `Vale Presente ${product.title} — ${opt.label}`,
+            slug: `vale-${product.id}-${opt.value}`,
+            category: "vale_presente",
+            description: `Vale presente de ${opt.label} para ${product.title}`,
+            base_price: opt.value,
+            max_installments: 10,
+            pix_discount_pct: 0,
+            image_url: product.image,
+            active: true,
+            sort_order: 0,
+            created_at: "",
+            updated_at: "",
+          };
+          addItem(valeProduct, qty);
+          addedCount += qty;
+        }
+      });
+    });
+
+    if (addedCount > 0) {
+      toast.success(
+        `${addedCount} vale${addedCount > 1 ? "s" : ""} presente${addedCount > 1 ? "s" : ""} adicionado${addedCount > 1 ? "s" : ""} ao carrinho!`
+      );
+      router.push("/carrinho");
+    }
+  }, [allQuantities, addItem, router]);
 
   // Grand total calculation
   const grandTotal = useMemo(() => {
@@ -623,8 +667,8 @@ export default function ValePresentePage() {
             </div>
 
             {/* Right: Sticky floating total panel */}
-            <div className="hidden lg:block">
-              <div className="sticky top-6">
+            <div className="hidden lg:block self-stretch">
+              <div className="sticky top-24">
                 <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-5 shadow-lg space-y-4">
                   <div className="flex items-center gap-2">
                     <ShoppingBag className="size-5 text-primary" />
@@ -701,6 +745,7 @@ export default function ValePresentePage() {
                       <Button
                         size="lg"
                         className="w-full gap-2 uppercase tracking-wide text-sm font-semibold"
+                        onClick={handleFinalizarCompra}
                       >
                         <ShoppingBag className="size-4" />
                         Finalizar Compra
@@ -741,6 +786,7 @@ export default function ValePresentePage() {
                 <Button
                   size="lg"
                   className="gap-2 uppercase tracking-wide text-sm font-semibold shrink-0"
+                  onClick={handleFinalizarCompra}
                 >
                   <ShoppingBag className="size-4" />
                   Finalizar
