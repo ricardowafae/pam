@@ -230,7 +230,6 @@ export async function POST(req: NextRequest) {
       payment_method_types:
         paymentMethod === "pix" ? ["boleto", "card"] : ["card"],
       line_items: lineItems,
-      discounts: discounts.length > 0 ? discounts : undefined,
       customer_email: customerEmail || undefined,
       metadata: {
         order_id: order.id,
@@ -246,9 +245,13 @@ export async function POST(req: NextRequest) {
           order_number: order.order_number,
         },
       },
-      allow_promotion_codes: false,
       locale: "pt-BR",
     };
+
+    // Stripe doesn't allow both allow_promotion_codes and discounts
+    if (discounts.length > 0) {
+      sessionParams.discounts = discounts;
+    }
 
     // Add installments for card payments
     if (paymentMethod !== "pix") {
