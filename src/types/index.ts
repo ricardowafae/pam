@@ -17,15 +17,20 @@ export interface Profile {
   updated_at: string;
 }
 
+// ── Person Type (PF/PJ) ──
+export type PersonType = "PF" | "PJ";
+
 // ── Customers ──
 export interface Customer {
   id: string;
   user_id: string | null;
+  person_type: PersonType;
   name: string;
   email: string;
   phone: string | null;
   cpf: string | null;
   birth_date: string | null;
+  // Delivery address
   cep: string | null;
   street: string | null;
   number: string | null;
@@ -33,6 +38,17 @@ export interface Customer {
   neighborhood: string | null;
   city: string | null;
   state: string | null;
+  // PJ-specific fields
+  cnpj: string | null;
+  razao_social: string | null;
+  nome_fantasia: string | null;
+  company_cep: string | null;
+  company_street: string | null;
+  company_number: string | null;
+  company_complement: string | null;
+  company_neighborhood: string | null;
+  company_city: string | null;
+  company_state: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

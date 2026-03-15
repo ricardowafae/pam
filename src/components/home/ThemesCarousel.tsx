@@ -71,7 +71,7 @@ const DOGBOOK_PRODUCT: Product = {
   base_price: 490,
   max_installments: 10,
   pix_discount_pct: 5,
-  image_url: "/images/dogbook-cover.jpg",
+  image_url: "/images/dogbook-cover-closed.jpg",
   active: true,
   sort_order: 0,
   created_at: "",

@@ -26,6 +26,7 @@ import Link from "next/link";
 /* ── Mock user ─────────────────────────────────────── */
 const mockUser = {
   name: "Ana",
+  personType: "PF" as "PF" | "PJ",
   pets: [
     { name: "Luna", birthday: "15 de Abril", daysUntilBirthday: 32 },
     { name: "Thor", birthday: "10 de Agosto", daysUntilBirthday: 149 },
@@ -74,8 +75,8 @@ export default function PortalClienteDashboard() {
         <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
           Ola, {mockUser.name}! 🐾
         </h1>
-        <p className="text-muted-foreground mt-1">
-          Bem-vinda ao seu Portal. Veja o que esta acontecendo.
+        <p className="text-sm text-muted-foreground mt-1">
+          {mockUser.personType === "PF" ? "Pessoa Fisica" : "Pessoa Juridica"} — Bem-vinda ao seu Portal.
         </p>
       </div>
 

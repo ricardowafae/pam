@@ -18,8 +18,8 @@ const footerLinks = {
     { label: "Vale Presente", href: "/vale-presente" },
   ],
   parceiros: [
-    { label: "Área do Fotógrafo", href: "/parceiros/fotografo" },
-    { label: "Área do Influenciador", href: "/parceiros/influenciador" },
+    { label: "Área do Fotógrafo", href: "/parceiros/login" },
+    { label: "Área do Influenciador", href: "/parceiros/login" },
   ],
 };
 

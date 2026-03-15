@@ -12,6 +12,7 @@ import {
   User,
   Menu,
   PawPrint,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -41,6 +43,7 @@ const navItems = [
 const mockUser = {
   name: "Ana Silva",
   initials: "AS",
+  personType: "PF" as "PF" | "PJ",
 };
 
 function SidebarContent() {
@@ -54,9 +57,17 @@ function SidebarContent() {
             <AvatarFallback>{mockUser.initials}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium text-foreground">
-              Ola, {mockUser.name}!
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-foreground">
+                Ola, {mockUser.name}!
+              </p>
+              <Badge
+                variant={mockUser.personType === "PJ" ? "default" : "secondary"}
+                className="text-[10px] px-1.5 py-0"
+              >
+                {mockUser.personType}
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground">Portal do Cliente</p>
           </div>
         </div>

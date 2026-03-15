@@ -331,11 +331,25 @@ export default function DogbookPage() {
             </div>
 
             {/* Total */}
-            <div className="flex items-center justify-between py-3 border-t border-b border-border">
-              <span className="text-sm text-muted-foreground">Total:</span>
-              <span className="text-2xl font-bold text-foreground">
-                R$ {total.toFixed(2).replace(".", ",")}
-              </span>
+            <div className="rounded-xl border border-border bg-secondary/30 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Total:</span>
+                <div className="text-right">
+                  {discount > 0 && (
+                    <span className="text-sm text-muted-foreground line-through mr-2">
+                      R$ {(PRICE * quantity).toFixed(2).replace(".", ",")}
+                    </span>
+                  )}
+                  <span className="text-2xl font-bold text-foreground">
+                    R$ {total.toFixed(2).replace(".", ",")}
+                  </span>
+                  {discount > 0 && (
+                    <p className="text-sm text-green-600 font-medium mt-0.5">
+                      Voce economiza R$ {((PRICE * quantity) - total).toFixed(2).replace(".", ",")}!
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* CTA Buttons */}

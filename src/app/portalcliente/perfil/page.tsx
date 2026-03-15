@@ -14,6 +14,7 @@ import {
   Dog,
   Lock,
   Building2,
+  Info,
 } from "lucide-react";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import {
@@ -103,30 +104,31 @@ const STATES = [
   "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
+/* ── Mock: person type defined at registration (immutable) ── */
+const mockPersonType: PersonType = "PF";
+
 /* ── Component ─────────────────────────────────────── */
 export default function PerfilPage() {
+  /* Person type — read-only, defined at registration */
+  const personType: PersonType = mockPersonType;
+
   /* Personal data */
   const [nome, setNome] = useState("Ana Silva");
   const [email, setEmail] = useState("ana.silva@email.com");
   const [telefone, setTelefone] = useState("(11) 99999-1234");
   const [cpf] = useState("123.456.789-00");
 
-  /* PF / PJ toggle */
-  const [personType, setPersonType] = useState<PersonType>("PF");
-
   /* PF-specific */
   const [dataNascimento, setDataNascimento] = useState("");
 
   /* PJ-specific */
-  const [cnpj, setCnpj] = useState("");
+  const [cnpj] = useState("12.345.678/0001-90");
   const [razaoSocial, setRazaoSocial] = useState("");
   const [nomeFantasia, setNomeFantasia] = useState("");
   const [companyAddress, setCompanyAddress] = useState<Address>(emptyAddress);
-  const [loadingCompanyCep, setLoadingCompanyCep] = useState(false);
 
-  /* Address */
+  /* Delivery address */
   const [address, setAddress] = useState<Address>(initialAddress);
-  const [loadingCep, setLoadingCep] = useState(false);
 
   /* Pets */
   const [pets, setPets] = useState<Pet[]>(initialPets);
@@ -350,7 +352,15 @@ export default function PerfilPage() {
               </button>
             </div>
             <div>
-              <p className="font-medium text-foreground">{nome}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-foreground">{nome}</p>
+                <Badge
+                  variant={personType === "PJ" ? "default" : "secondary"}
+                  className="text-xs"
+                >
+                  {personType === "PF" ? "Pessoa Fisica" : "Pessoa Juridica"}
+                </Badge>
+              </div>
               <p className="text-sm text-muted-foreground">{email}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Cliente desde Mar/2026
@@ -360,38 +370,21 @@ export default function PerfilPage() {
         </CardContent>
       </Card>
 
-      {/* ── PF / PJ Toggle ───────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="size-4 text-primary" />
-            Tipo de Cadastro
-          </CardTitle>
-          <CardDescription>
-            Selecione se voce e pessoa fisica ou juridica
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Button
-              variant={personType === "PF" ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setPersonType("PF")}
-            >
-              <User className="size-4 mr-2" />
-              Pessoa Fisica
-            </Button>
-            <Button
-              variant={personType === "PJ" ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setPersonType("PJ")}
-            >
-              <Building2 className="size-4 mr-2" />
-              Pessoa Juridica
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Info Banner: PF/PJ are independent ────── */}
+      <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <Info className="size-5 text-primary shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-medium text-foreground mb-1">
+            Cadastros PF e PJ sao independentes
+          </p>
+          <p className="text-muted-foreground">
+            Caso deseje atuar como Pessoa Fisica e Pessoa Juridica
+            simultaneamente, sera necessario criar um novo cadastro com login e
+            senha distintos. Cada cadastro tera seus proprios pedidos, dogbooks,
+            sessoes e informacoes.
+          </p>
+        </div>
+      </div>
 
       {/* ── PF: Personal Data ────────────────────── */}
       {personType === "PF" && (
@@ -476,13 +469,18 @@ export default function PerfilPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="cnpj">CNPJ *</Label>
+                <Label htmlFor="cnpj" className="flex items-center gap-1">
+                  CNPJ <Lock className="size-3 text-muted-foreground" />
+                </Label>
                 <Input
                   id="cnpj"
                   value={cnpj}
-                  onChange={(e) => setCnpj(e.target.value)}
-                  placeholder="00.000.000/0000-00"
+                  disabled
+                  className="bg-muted cursor-not-allowed"
                 />
+                <p className="text-xs text-muted-foreground">
+                  O CNPJ nao pode ser alterado.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="razaoSocial">Razao Social *</Label>
@@ -515,13 +513,19 @@ export default function PerfilPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pj-email">E-mail</Label>
+              <Label htmlFor="pj-email" className="flex items-center gap-1">
+                E-mail <Lock className="size-3 text-muted-foreground" />
+              </Label>
               <Input
                 id="pj-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                disabled
+                className="bg-muted cursor-not-allowed"
               />
+              <p className="text-xs text-muted-foreground">
+                O e-mail nao pode ser alterado.
+              </p>
             </div>
 
             <Separator />

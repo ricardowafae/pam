@@ -115,7 +115,7 @@ const PRODUCTS: ProductCard[] = [
     title: "Dogbook",
     description:
       "O álbum personalizado que eterniza os momentos mais especiais do pet em páginas de pura arte.",
-    image: "/images/dogbook-cover.jpg",
+    image: "/images/dogbook-cover-closed.jpg",
     options: [
       { label: "R$ 50,00", value: 50 },
       { label: "R$ 100,00", value: 100 },
