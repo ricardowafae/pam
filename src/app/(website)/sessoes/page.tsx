@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Clock, ImageIcon, MapPin, Star, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SESSIONS } from "@/components/sessoes/session-data";
+import SessionPriceDisplay from "@/components/sessoes/SessionPriceDisplay";
 
 export const metadata: Metadata = {
   title: "Sessões Fotográficas Pet",
@@ -66,10 +67,6 @@ export default function SessoesOverviewPage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-8 md:grid-cols-3">
           {SESSIONS.map((session) => {
-            const installmentValue = (session.price / session.installments)
-              .toFixed(2)
-              .replace(".", ",");
-
             return (
               <div
                 key={session.slug}
@@ -160,16 +157,7 @@ export default function SessoesOverviewPage() {
                         minimumFractionDigits: 2,
                       })}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      ou {session.installments}x de R$ {installmentValue}
-                    </p>
-                    <p className="text-xs font-medium text-green-600 mt-0.5">
-                      No PIX: R${" "}
-                      {session.pixPrice.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      })}{" "}
-                      (5% off)
-                    </p>
+                    <SessionPriceDisplay price={session.price} />
                   </div>
 
                   {/* CTA */}

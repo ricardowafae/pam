@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import type { CartItem, Product } from "@/types";
+import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 
 /* ─────────── Cart Context Type ─────────── */
 
@@ -115,7 +116,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const discount = getDiscount(dogbookQty);
   const discountAmount = subtotal * discount;
   const total = subtotal - discountAmount;
-  const pixTotal = total * 0.95;
+  const paymentCfg = usePaymentConfig();
+  const pixTotal = total * (1 - paymentCfg.pixDiscountPct / 100);
 
   return (
     <CartContext.Provider

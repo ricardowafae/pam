@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { PRICING, PAYMENT_CONFIG, formatBRL as formatBRLShared, FIXED_COUPONS, REDEMPTION_SETTINGS, type FixedCouponConfig } from "@/lib/pricing-config";
+import { persistPaymentConfig } from "@/hooks/usePaymentConfig";
 import {
   Card,
   CardContent,
@@ -60,6 +61,7 @@ import {
   Layers,
   Ban,
   Pencil,
+  Receipt,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -101,6 +103,7 @@ interface ProductConfig {
 interface PaymentConfig {
   maxInstallments: string;
   pixDiscount: string;
+  boletoDiscount: string;
 }
 
 /* ────────────────────── Helpers ────────────────────── */
@@ -165,6 +168,7 @@ const initialProducts: ProductConfig[] = [
 const initialPayment: PaymentConfig = {
   maxInstallments: String(PAYMENT_CONFIG.maxInstallments),
   pixDiscount: String(PAYMENT_CONFIG.pixDiscountPct),
+  boletoDiscount: String(PAYMENT_CONFIG.boletoDiscountPct),
 };
 
 const initialGiftCards: GiftCardConfig[] = [
@@ -270,9 +274,23 @@ export default function PrecosPage() {
   const [redemptionSettings, setRedemptionSettings] = useState(REDEMPTION_SETTINGS);
   const [savedRedemptionSettings, setSavedRedemptionSettings] = useState(REDEMPTION_SETTINGS);
 
-  /* ─── Payment state ─── */
-  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(initialPayment);
-  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(initialPayment);
+  /* ─── Payment state (reads persisted values from localStorage on mount) ─── */
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(() => {
+    if (typeof window === "undefined") return initialPayment;
+    try {
+      const raw = localStorage.getItem("pam_payment_config");
+      if (raw) {
+        const p = JSON.parse(raw);
+        return {
+          maxInstallments: String(p.maxInstallments ?? PAYMENT_CONFIG.maxInstallments),
+          pixDiscount: String(p.pixDiscountPct ?? PAYMENT_CONFIG.pixDiscountPct),
+          boletoDiscount: String(p.boletoDiscountPct ?? PAYMENT_CONFIG.boletoDiscountPct),
+        };
+      }
+    } catch { /* fall through */ }
+    return initialPayment;
+  });
+  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(() => paymentConfig);
 
   const hasChanges = useMemo(() => {
     return JSON.stringify(products) !== JSON.stringify(savedProducts) ||
@@ -292,6 +310,12 @@ export default function PrecosPage() {
       setSavedCoupons(JSON.parse(JSON.stringify(fixedCoupons)));
       setSavedRedemptionSettings(JSON.parse(JSON.stringify(redemptionSettings)));
       setSavedPaymentConfig(JSON.parse(JSON.stringify(paymentConfig)));
+      // Persist payment config to localStorage so public pages pick it up
+      persistPaymentConfig({
+        maxInstallments: parseInt(paymentConfig.maxInstallments) || PAYMENT_CONFIG.maxInstallments,
+        pixDiscountPct: parseFloat(paymentConfig.pixDiscount) || PAYMENT_CONFIG.pixDiscountPct,
+        boletoDiscountPct: parseFloat(paymentConfig.boletoDiscount) || PAYMENT_CONFIG.boletoDiscountPct,
+      });
       toast.success("Modificações salvas com sucesso!", {
         description: "Preços, formas de pagamento, cupons e condições foram atualizados em todo o site.",
       });
@@ -992,6 +1016,80 @@ export default function PrecosPage() {
                             →{" "}
                             <span className="font-semibold text-green-600">
                               R$ {formatBRL(pixVal)}
+                            </span>
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Boleto */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Receipt className="size-4 text-amber-600" />
+                  Boleto Bancário
+                </CardTitle>
+                <CardDescription>
+                  Configure o desconto para pagamentos via Boleto aplicado a todos os produtos e serviços.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="global-boleto" className="text-xs text-muted-foreground">
+                    Desconto Boleto (%)
+                  </Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      id="global-boleto"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={paymentConfig.boletoDiscount}
+                      onChange={(e) =>
+                        setPaymentConfig((prev) => ({
+                          ...prev,
+                          boletoDiscount: e.target.value,
+                        }))
+                      }
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      % de desconto
+                    </span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Preview per product */}
+                <div>
+                  <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Preview por Produto
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {products.map((product) => {
+                      const basePrice = parsePrice(product.price);
+                      const boletoPct = parseFloat(paymentConfig.boletoDiscount || "0");
+                      const boletoVal = basePrice * (1 - boletoPct / 100);
+                      return (
+                        <div
+                          key={product.id}
+                          className="rounded-lg border border-border p-3"
+                        >
+                          <p className="text-xs font-medium text-foreground">
+                            {product.name}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            <span className="line-through">
+                              R$ {formatBRL(basePrice)}
+                            </span>{" "}
+                            →{" "}
+                            <span className="font-semibold text-amber-600">
+                              R$ {formatBRL(boletoVal)}
                             </span>
                           </p>
                         </div>

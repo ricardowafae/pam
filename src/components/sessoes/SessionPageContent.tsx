@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import type { SessionData } from "./session-data";
 import { useCart } from "@/hooks/useCart";
+import { usePaymentConfig } from "@/hooks/usePaymentConfig";
+import { getPixPrice } from "@/lib/pricing-config";
 import { toast } from "sonner";
 import type { Product } from "@/types";
 
@@ -45,6 +47,11 @@ interface Props {
 export default function SessionPageContent({ session }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
+  const paymentCfg = usePaymentConfig();
+
+  // Use dynamic payment config from admin (localStorage) instead of static values
+  const installments = paymentCfg.maxInstallments;
+  const pixPrice = getPixPrice(session.price, paymentCfg.pixDiscountPct);
 
   const sessionProduct: Product = {
     id: `sessao-${session.slug}`,
@@ -53,8 +60,8 @@ export default function SessionPageContent({ session }: Props) {
     category: "sessao",
     description: session.description,
     base_price: session.price,
-    max_installments: session.installments,
-    pix_discount_pct: 5,
+    max_installments: installments,
+    pix_discount_pct: paymentCfg.pixDiscountPct,
     image_url: session.image,
     active: true,
     sort_order: 0,
@@ -72,7 +79,7 @@ export default function SessionPageContent({ session }: Props) {
     router.push("/carrinho");
   }
 
-  const installmentValue = (session.price / session.installments)
+  const installmentValue = (session.price / installments)
     .toFixed(2)
     .replace(".", ",");
 
@@ -194,14 +201,14 @@ export default function SessionPageContent({ session }: Props) {
                 })}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                ou até {session.installments}x de R$ {installmentValue}
+                ou até {installments}x de R$ {installmentValue}
               </p>
               <p className="text-sm font-medium text-green-600 mt-0.5">
                 No PIX: R${" "}
-                {session.pixPrice.toLocaleString("pt-BR", {
+                {pixPrice.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}{" "}
-                (5% off)
+                ({paymentCfg.pixDiscountPct}% off)
               </p>
             </div>
 

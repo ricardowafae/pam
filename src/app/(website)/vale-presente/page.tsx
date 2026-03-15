@@ -113,7 +113,8 @@ const INSPIRATION_CARDS = [
   },
 ];
 
-import { GIFT_CARDS, PRICING, PAYMENT_CONFIG } from "@/lib/pricing-config";
+import { GIFT_CARDS, PRICING } from "@/lib/pricing-config";
+import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 
 const PRODUCT_IMAGES: Record<string, string> = {
   dogbook: "/images/dogbook-cover-closed.jpg",
@@ -382,6 +383,7 @@ function ProductVoucherCard({
 export default function ValePresentePage() {
   const router = useRouter();
   const { addItem } = useCart();
+  const paymentCfg = usePaymentConfig();
 
   // quantities[productIdx][optionIdx]
   const [allQuantities, setAllQuantities] = useState<number[][]>(
@@ -414,7 +416,7 @@ export default function ValePresentePage() {
             category: "vale_presente",
             description: `Vale presente de ${opt.label} para ${product.title}`,
             base_price: opt.value,
-            max_installments: PAYMENT_CONFIG.maxInstallments,
+            max_installments: paymentCfg.maxInstallments,
             pix_discount_pct: 0,
             image_url: product.image,
             active: true,

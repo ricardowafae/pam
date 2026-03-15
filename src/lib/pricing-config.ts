@@ -13,6 +13,7 @@
 export const PAYMENT_CONFIG = {
   maxInstallments: 10,
   pixDiscountPct: 5,
+  boletoDiscountPct: 3,
 };
 
 /* ─── Product Prices ─── */

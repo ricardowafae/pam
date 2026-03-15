@@ -110,30 +110,32 @@ const PERSONALITY_TRAITS = [
   "Patinhas velozes",
 ];
 
-import { PRICING, PAYMENT_CONFIG } from "@/lib/pricing-config";
+import { PRICING } from "@/lib/pricing-config";
+import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 
 const PRICE = PRICING.dogbook.price;
-const MAX_INSTALLMENTS = PAYMENT_CONFIG.maxInstallments;
 
 /* ─────────── Component ─────────── */
 
-const DOGBOOK_PRODUCT: Product = {
-  id: "dogbook-1",
-  name: "Dogbook",
-  slug: "dogbook",
-  category: "dogbook",
-  description: "Fotolivro artesanal premium",
-  base_price: PRICE,
-  max_installments: MAX_INSTALLMENTS,
-  pix_discount_pct: PAYMENT_CONFIG.pixDiscountPct,
-  image_url: "/images/dogbook-cover-closed.jpg",
-  active: true,
-  sort_order: 1,
-  created_at: "",
-  updated_at: "",
-};
-
 export default function DogbookPage() {
+  const paymentCfg = usePaymentConfig();
+  const MAX_INSTALLMENTS = paymentCfg.maxInstallments;
+
+  const DOGBOOK_PRODUCT: Product = {
+    id: "dogbook-1",
+    name: "Dogbook",
+    slug: "dogbook",
+    category: "dogbook",
+    description: "Fotolivro artesanal premium",
+    base_price: PRICE,
+    max_installments: MAX_INSTALLMENTS,
+    pix_discount_pct: paymentCfg.pixDiscountPct,
+    image_url: "/images/dogbook-cover-closed.jpg",
+    active: true,
+    sort_order: 1,
+    created_at: "",
+    updated_at: "",
+  };
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedTheme, setSelectedTheme] = useState(0);
   const [quantity, setQuantity] = useState(1);
