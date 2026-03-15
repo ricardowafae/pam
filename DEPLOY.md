@@ -47,7 +47,7 @@ Os buckets sao criados automaticamente pelo migration. Verifique em **Storage**:
 ### 1.4 Criar Usuario Admin
 
 1. Va em **Authentication > Users > Add User**
-2. Email: `patas.amor.risadas@gmail.com`
+2. Email: `patasamorememorias@gmail.com`
 3. Password: defina uma senha forte
 4. Em **User Metadata**, adicione: `{"role": "admin", "full_name": "Admin PAM"}`
 5. Confirme — o trigger automatico criara o registro na tabela `profiles`

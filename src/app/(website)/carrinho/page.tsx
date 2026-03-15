@@ -231,11 +231,11 @@ export default function CarrinhoPage() {
                 {/* Name */}
                 <div>
                   <Label htmlFor="name" className="text-foreground">
-                    Nome Completo *
+                    {personType === "pj" ? "Nome Fantasia *" : "Nome Completo *"}
                   </Label>
                   <Input
                     id="name"
-                    placeholder="Seu nome completo"
+                    placeholder={personType === "pj" ? "Nome fantasia da empresa" : "Seu nome completo"}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required

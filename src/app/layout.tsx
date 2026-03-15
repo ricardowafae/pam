@@ -60,7 +60,7 @@ const jsonLd = {
     "Fotolivros artesanais e sessões fotográficas para eternizar os melhores momentos com seu pet.",
   url: "https://patasamorememorias.com.br",
   telephone: "+55-11-93620-7631",
-  email: "patas.amor.risadas@gmail.com",
+  email: "patasamorememorias@gmail.com",
   address: {
     "@type": "PostalAddress",
     streetAddress: "R. Claudio Soares, 72",

@@ -191,7 +191,7 @@ PAM_Claude/
 
 ## Contato / Info do Negocio
 
-- **Email**: patas.amor.risadas@gmail.com
+- **Email**: patasamorememorias@gmail.com
 - **Telefone**: (11) 97105-3445
 - **Endereco**: R. Claudio Soares, 72 - Pinheiros, Sao Paulo
 - **Instagram**: Presente no footer (icone)
