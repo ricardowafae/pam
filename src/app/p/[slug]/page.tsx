@@ -137,7 +137,7 @@ export default async function InfluencerLandingPage({ params }: Props) {
             </span>
           </div>
           <p>R. Claudio Soares, 72 - Pinheiros, Sao Paulo</p>
-          <p className="mt-1">patas.amor.risadas@gmail.com | (11) 97105-3445</p>
+          <p className="mt-1">patas.amor.risadas@gmail.com | (11) 93620-7631</p>
         </div>
       </footer>
     </div>

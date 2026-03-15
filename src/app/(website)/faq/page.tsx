@@ -66,6 +66,11 @@ const sessionFAQs = [
     answer:
       "Nosso fotógrafo Juliano Lemos é especializado em pets e sabe lidar com todas as situações. Se necessário, reagendamos sem custo adicional.",
   },
+  {
+    question: "Vocês atendem em quais cidades?",
+    answer:
+      "Neste momento, estamos fotografando apenas na cidade de São Paulo. Fique atento às nossas redes sociais para novidades sobre expansão para outras regiões.",
+  },
 ];
 
 const paymentFAQs = [

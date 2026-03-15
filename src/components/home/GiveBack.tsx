@@ -97,7 +97,7 @@ export default function GiveBack() {
 
             {/* CTA */}
             <a
-              href="https://wa.me/5511971053445"
+              href="https://wa.me/5511936207631"
               target="_blank"
               rel="noopener noreferrer"
             >

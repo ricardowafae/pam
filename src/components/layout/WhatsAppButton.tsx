@@ -2,7 +2,7 @@
 
 import { MessageCircle } from "lucide-react";
 
-const WHATSAPP_NUMBER = "5511971053445";
+const WHATSAPP_NUMBER = "5511936207631";
 const WHATSAPP_MESSAGE = "Olá! Gostaria de saber mais sobre o Dogbook e as sessões fotográficas.";
 
 export default function WhatsAppButton() {

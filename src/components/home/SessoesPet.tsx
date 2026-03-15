@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Star, MapPin, Camera, Quote } from "lucide-react";
+import { ArrowRight, Star, MapPin, Camera, Quote, ShoppingBag } from "lucide-react";
 
 const packages = [
   {
@@ -176,11 +176,11 @@ export default function SessoesPet() {
                 </ul>
                 <Link href={pkg.href} className="block pt-2">
                   <Button
-                    className="w-full gap-2 tracking-wide text-sm font-semibold rounded-full"
-                    variant="outline"
+                    size="lg"
+                    className="w-full gap-2 uppercase tracking-wide text-sm font-semibold"
                   >
+                    <ShoppingBag className="size-4" />
                     Comprar
-                    <ArrowRight className="size-4" />
                   </Button>
                 </Link>
               </div>

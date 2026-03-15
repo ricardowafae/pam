@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, ShoppingBag, Heart } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
+import type { Product } from "@/types";
 
 const themes = [
   {
@@ -59,9 +62,38 @@ const themes = [
   },
 ];
 
+const DOGBOOK_PRODUCT: Product = {
+  id: "dogbook-1",
+  name: "Dogbook",
+  slug: "dogbook",
+  category: "dogbook",
+  description: "Fotolivro artesanal premium para pets",
+  base_price: 490,
+  max_installments: 10,
+  pix_discount_pct: 5,
+  image_url: "/images/dogbook-cover.jpg",
+  active: true,
+  sort_order: 0,
+  created_at: "",
+  updated_at: "",
+};
+
 export default function ThemesCarousel() {
   const [activeTheme, setActiveTheme] = useState("verao");
   const current = themes.find((t) => t.id === activeTheme)!;
+  const router = useRouter();
+  const { addItem } = useCart();
+
+  const handleBuyNow = () => {
+    addItem(DOGBOOK_PRODUCT, 1);
+    toast.success("Dogbook adicionado ao carrinho!");
+    router.push("/carrinho");
+  };
+
+  const handleAddToCart = () => {
+    addItem(DOGBOOK_PRODUCT, 1);
+    toast.success("Dogbook adicionado ao carrinho!");
+  };
 
   return (
     <section className="bg-secondary/30 py-16 md:py-20">
@@ -80,68 +112,82 @@ export default function ThemesCarousel() {
           </p>
         </div>
 
-        {/* Theme content */}
-        <div className="grid items-center gap-8 lg:grid-cols-2">
-          {/* Image */}
-          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-lg">
-            <Image
-              src={current.image}
-              alt={current.title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-          </div>
+        {/* Theme content card */}
+        <div className="rounded-2xl bg-secondary/40 p-4 md:p-8">
+          <div className="grid items-center gap-8 lg:grid-cols-2">
+            {/* Image */}
+            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-lg">
+              <Image
+                src={current.image}
+                alt={current.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            </div>
 
-          {/* Info */}
-          <div className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-              {current.collection}
-            </p>
-            <h3 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-              {current.title}
-            </h3>
-            <p className="text-muted-foreground leading-relaxed">
-              {current.description}
-            </p>
-            <ul className="space-y-2">
-              {current.features.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-center gap-2.5 text-sm text-muted-foreground"
+            {/* Info */}
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+                {current.collection}
+              </p>
+              <h3 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
+                {current.title}
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                {current.description}
+              </p>
+              <ul className="space-y-2">
+                {current.features.map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-center gap-2.5 text-sm text-muted-foreground"
+                  >
+                    <Check className="size-4 shrink-0 text-primary" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              {/* Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <Button
+                  size="lg"
+                  className="flex-1 gap-2 uppercase tracking-wide text-sm font-semibold"
+                  onClick={handleBuyNow}
                 >
-                  <Check className="size-4 shrink-0 text-primary" />
-                  {f}
-                </li>
-              ))}
-            </ul>
+                  <ShoppingBag className="size-4" />
+                  Comprar Agora
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="flex-1 gap-2 uppercase tracking-wide text-sm font-semibold"
+                  onClick={handleAddToCart}
+                >
+                  <Heart className="size-4" />
+                  Adicionar ao Carrinho
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Theme tabs */}
-        <div className="mt-8 flex flex-wrap justify-center gap-2">
-          {themes.map((theme) => (
-            <button
-              key={theme.id}
-              onClick={() => setActiveTheme(theme.id)}
-              className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.03] active:scale-95 ${
-                activeTheme === theme.id
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "bg-white text-muted-foreground hover:bg-secondary border border-border/50"
-              }`}
-            >
-              {theme.label}
-            </button>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div className="mt-8 text-center">
-          <Link href="/dogbook">
-            <Button size="lg" className="uppercase tracking-wide text-sm font-semibold">
-              Comprar Dogbook
-            </Button>
-          </Link>
+          {/* Theme tabs */}
+          <div className="mt-8 flex flex-wrap justify-center gap-2">
+            {themes.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => setActiveTheme(theme.id)}
+                className={`px-4 md:px-6 py-2 md:py-2.5 rounded-full text-sm font-medium transition-all duration-200 ease-out hover:scale-[1.03] active:scale-95 ${
+                  activeTheme === theme.id
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "bg-white text-muted-foreground hover:bg-secondary border border-border/50"
+                }`}
+              >
+                {theme.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </section>

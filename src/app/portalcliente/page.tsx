@@ -180,7 +180,7 @@ export default function PortalClienteDashboard() {
             </CardContent>
           </Card>
         </Link>
-        <a href="https://wa.me/5511971053445" target="_blank" rel="noopener noreferrer">
+        <a href="https://wa.me/5511936207631" target="_blank" rel="noopener noreferrer">
           <Card className="hover:border-green-300 transition-colors cursor-pointer h-full">
             <CardContent className="pt-5 pb-5 flex flex-col items-center text-center gap-2">
               <MessageCircle className="size-8 text-green-600" />

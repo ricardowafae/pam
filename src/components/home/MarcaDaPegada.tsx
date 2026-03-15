@@ -41,15 +41,17 @@ export default function MarcaDaPegada() {
                 </li>
               </ul>
 
-              <Link href="/dogbook">
-                <Button
-                  size="lg"
-                  className="gap-2 uppercase tracking-wide text-sm font-semibold mt-2"
-                >
-                  <ShoppingBag className="size-4" />
-                  Comprar Dogbook
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                <Link href="/dogbook">
+                  <Button
+                    size="lg"
+                    className="gap-2 uppercase tracking-wide text-sm font-semibold"
+                  >
+                    <ShoppingBag className="size-4" />
+                    Comprar Dogbook
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Image - reduced size */}

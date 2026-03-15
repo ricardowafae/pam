@@ -34,8 +34,8 @@ export default function Footer() {
               <Image
                 src="/images/logo.svg"
                 alt="Patas, Amor e Memórias"
-                width={240}
-                height={67}
+                width={280}
+                height={78}
               />
             </Link>
             <p className="text-sm text-muted-foreground">
@@ -44,7 +44,7 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="https://instagram.com/patas.amor.risadas"
+                href="https://www.instagram.com/patasamorememorias"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-full bg-primary/10 p-2 text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
@@ -118,8 +118,8 @@ export default function Footer() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="h-4 w-4 shrink-0" />
-                  <a href="tel:+5511971053445" className="hover:text-primary">
-                    (11) 97105-3445
+                  <a href="tel:+5511936207631" className="hover:text-primary">
+                    (11) 93620-7631
                   </a>
                 </li>
                 <li className="flex items-start gap-2">
