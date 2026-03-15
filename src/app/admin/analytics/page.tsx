@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -87,42 +87,121 @@ import {
    MOCK DATA — Comprehensive E-commerce Analytics
    ══════════════════════════════════════════════════════════ */
 
-/* ─── Hero KPIs (GA4 + Shopify style) ─── */
-const heroKpis = [
-  { label: "Receita Total", value: "R$ 165.150", change: "+18%", positive: true, icon: DollarSign },
-  { label: "Pedidos", value: "181", change: "+15%", positive: true, icon: ShoppingCart },
-  { label: "Ticket Medio", value: "R$ 912", change: "+4%", positive: true, icon: Receipt },
-  { label: "Visitantes Unicos", value: "3.842", change: "+12%", positive: true, icon: Users },
-  { label: "Taxa de Conversao", value: "4.2%", change: "+0.8%", positive: true, icon: Target },
-  { label: "Receita / Visitante", value: "R$ 43", change: "+6%", positive: true, icon: Zap },
-];
+/* ─── Seeded Random for deterministic mock data ─── */
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
 
-/* ─── Revenue by Month STACKED by product type ─── */
-const revenueByMonthByProduct = [
-  { month: "Out", dogbook: 8200, pocket: 3600, estudio: 2200, completa: 1200, total: 15200 },
-  { month: "Nov", dogbook: 9800, pocket: 4500, estudio: 2800, completa: 1400, total: 18500 },
-  { month: "Dez", dogbook: 16500, pocket: 5200, estudio: 4400, completa: 2800, total: 28900 },
-  { month: "Jan", dogbook: 11200, pocket: 4800, estudio: 3700, completa: 2600, total: 22300 },
-  { month: "Fev", dogbook: 12400, pocket: 5100, estudio: 4200, completa: 2400, total: 24100 },
-  { month: "Mar", dogbook: 14800, pocket: 6300, estudio: 5900, completa: 4200, total: 31200 },
-];
+/* ─── Generate 360 days of daily mock data ─── */
+function generateDailyMockData() {
+  const data: { date: Date; day: string; revenue: number; visitors: number; orders: number; adSpend: number }[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const rng = seededRandom(42);
 
-/* ─── Daily Revenue + Visitors (Triple Whale style) ─── */
-const dailyMetrics = [
-  { day: "01/03", revenue: 2100, visitors: 98, orders: 4, adSpend: 120 },
-  { day: "02/03", revenue: 3400, visitors: 115, orders: 5, adSpend: 130 },
-  { day: "03/03", revenue: 1900, visitors: 132, orders: 3, adSpend: 125 },
-  { day: "04/03", revenue: 4200, visitors: 108, orders: 6, adSpend: 140 },
-  { day: "05/03", revenue: 2800, visitors: 145, orders: 4, adSpend: 110 },
-  { day: "06/03", revenue: 5100, visitors: 168, orders: 7, adSpend: 150 },
-  { day: "07/03", revenue: 3600, visitors: 155, orders: 5, adSpend: 135 },
-  { day: "08/03", revenue: 4800, visitors: 178, orders: 6, adSpend: 160 },
-  { day: "09/03", revenue: 5500, visitors: 192, orders: 8, adSpend: 155 },
-  { day: "10/03", revenue: 3200, visitors: 165, orders: 5, adSpend: 145 },
-  { day: "11/03", revenue: 2600, visitors: 148, orders: 4, adSpend: 130 },
-  { day: "12/03", revenue: 4100, visitors: 172, orders: 6, adSpend: 140 },
-  { day: "13/03", revenue: 4900, visitors: 188, orders: 7, adSpend: 150 },
-];
+  for (let i = 360; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const month = d.getMonth(); // 0-11
+    // Seasonality: Dec-Jan higher, Jun-Jul lower
+    const seasonFactor = 1 + 0.3 * Math.sin(((month - 5) / 12) * 2 * Math.PI);
+    // Weekend boost
+    const dayOfWeek = d.getDay();
+    const weekendFactor = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.15 : 1;
+    // Growth trend over time (newer = more revenue)
+    const trendFactor = 0.85 + 0.15 * ((360 - i) / 360);
+
+    const baseRevenue = 3500;
+    const revenue = Math.round(baseRevenue * seasonFactor * weekendFactor * trendFactor * (0.6 + rng() * 0.8));
+    const visitors = Math.round(120 * seasonFactor * weekendFactor * trendFactor * (0.7 + rng() * 0.6));
+    const orders = Math.max(1, Math.round(revenue / (800 + rng() * 400)));
+    const adSpend = Math.round(100 + rng() * 80);
+
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+
+    data.push({ date: d, day: `${dd}/${mm}`, revenue, visitors, orders, adSpend });
+  }
+  return data;
+}
+
+const allDailyMetrics = generateDailyMockData();
+
+/* ─── Helpers for computing KPIs from filtered data ─── */
+function filterDailyByRange(data: typeof allDailyMetrics, range: DateRange) {
+  if (!range.start || !range.end) return data;
+  return data.filter((d) => d.date >= range.start! && d.date <= range.end!);
+}
+
+function computeKpis(filtered: typeof allDailyMetrics) {
+  const totalRevenue = filtered.reduce((s, d) => s + d.revenue, 0);
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const totalVisitors = filtered.reduce((s, d) => s + d.visitors, 0);
+  const ticketMedio = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+  const convRate = totalVisitors > 0 ? ((totalOrders / totalVisitors) * 100).toFixed(1) : "0";
+  const revenuePerVisitor = totalVisitors > 0 ? Math.round(totalRevenue / totalVisitors) : 0;
+
+  // Compare with previous period of same length
+  const days = filtered.length;
+  const endIdx = allDailyMetrics.indexOf(filtered[0]);
+  const prevStart = Math.max(0, endIdx - days);
+  const prevSlice = allDailyMetrics.slice(prevStart, endIdx);
+  const prevRevenue = prevSlice.reduce((s, d) => s + d.revenue, 0);
+  const prevOrders = prevSlice.reduce((s, d) => s + d.orders, 0);
+  const prevVisitors = prevSlice.reduce((s, d) => s + d.visitors, 0);
+  const prevTicket = prevOrders > 0 ? Math.round(prevRevenue / prevOrders) : 0;
+  const prevConvRate = prevVisitors > 0 ? ((prevOrders / prevVisitors) * 100) : 0;
+  const prevRPV = prevVisitors > 0 ? Math.round(prevRevenue / prevVisitors) : 0;
+
+  const pctChange = (curr: number, prev: number) => {
+    if (prev === 0) return "+100%";
+    const change = ((curr - prev) / prev) * 100;
+    return `${change >= 0 ? "+" : ""}${change.toFixed(0)}%`;
+  };
+
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(".", ".")}` : String(n);
+  const fmtBRL = (n: number) => `R$ ${n >= 1000 ? fmt(n) : n}`;
+
+  return [
+    { label: "Receita Total", value: `R$ ${totalRevenue.toLocaleString("pt-BR")}`, change: pctChange(totalRevenue, prevRevenue), positive: totalRevenue >= prevRevenue, icon: DollarSign },
+    { label: "Pedidos", value: String(totalOrders), change: pctChange(totalOrders, prevOrders), positive: totalOrders >= prevOrders, icon: ShoppingCart },
+    { label: "Ticket Medio", value: `R$ ${ticketMedio.toLocaleString("pt-BR")}`, change: pctChange(ticketMedio, prevTicket), positive: ticketMedio >= prevTicket, icon: Receipt },
+    { label: "Visitantes Unicos", value: totalVisitors.toLocaleString("pt-BR"), change: pctChange(totalVisitors, prevVisitors), positive: totalVisitors >= prevVisitors, icon: Users },
+    { label: "Taxa de Conversao", value: `${convRate}%`, change: pctChange(parseFloat(convRate), prevConvRate), positive: parseFloat(convRate) >= prevConvRate, icon: Target },
+    { label: "Receita / Visitante", value: `R$ ${revenuePerVisitor}`, change: pctChange(revenuePerVisitor, prevRPV), positive: revenuePerVisitor >= prevRPV, icon: Zap },
+  ];
+}
+
+/* ─── Aggregate daily data into monthly buckets ─── */
+function aggregateMonthly(filtered: typeof allDailyMetrics) {
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const buckets: Record<string, { month: string; dogbook: number; pocket: number; estudio: number; completa: number; total: number }> = {};
+
+  for (const d of filtered) {
+    const key = `${d.date.getFullYear()}-${d.date.getMonth()}`;
+    if (!buckets[key]) {
+      buckets[key] = { month: monthNames[d.date.getMonth()], dogbook: 0, pocket: 0, estudio: 0, completa: 0, total: 0 };
+    }
+    // Distribute revenue across product types (mock split)
+    const rng = seededRandom(d.date.getTime());
+    const dogbookPct = 0.45 + rng() * 0.1;
+    const pocketPct = 0.2 + rng() * 0.05;
+    const estudioPct = 0.2 + rng() * 0.05;
+    const completaPct = 1 - dogbookPct - pocketPct - estudioPct;
+
+    buckets[key].dogbook += Math.round(d.revenue * dogbookPct);
+    buckets[key].pocket += Math.round(d.revenue * pocketPct);
+    buckets[key].estudio += Math.round(d.revenue * estudioPct);
+    buckets[key].completa += Math.round(d.revenue * completaPct);
+    buckets[key].total += d.revenue;
+  }
+
+  return Object.values(buckets);
+}
 
 /* ─── Conversion Funnel ─── */
 const funnelData = [
@@ -361,6 +440,15 @@ function MiniKpi({ label, value, change, positive }: {
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
+
+  const filteredDaily = useMemo(() => filterDailyByRange(allDailyMetrics, dateRange), [dateRange]);
+  const heroKpis = useMemo(() => computeKpis(filteredDaily), [filteredDaily]);
+  const revenueByMonthByProduct = useMemo(() => aggregateMonthly(filteredDaily), [filteredDaily]);
+  const dailyMetrics = filteredDaily;
+  const visitorsByDay = useMemo(
+    () => filteredDaily.map((d) => ({ day: d.day, v: d.visitors })),
+    [filteredDaily]
+  );
 
   const totalRevenue = salesByProduct.reduce((s, p) => s + p.revenue, 0);
   const totalUnits = salesByProduct.reduce((s, p) => s + p.units, 0);

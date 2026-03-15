@@ -34,9 +34,9 @@ function toInputDate(date: Date): string {
 function getActivePreset(range: DateRange): PresetDays | null {
   if (!range.start || !range.end) return null;
   const diffMs = range.end.getTime() - range.start.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   for (const p of presets) {
-    if (diffDays === p.days) return p.days;
+    if (diffDays === p.days || diffDays === p.days - 1) return p.days;
   }
   return null;
 }
