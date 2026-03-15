@@ -32,6 +32,9 @@ export default function InfluencerLandingClient({
     // 1. Save tracking to localStorage
     saveInfluencerTracking(slug, couponCode, name);
 
+    // Notify CartProvider (may already be mounted in root layout)
+    window.dispatchEvent(new CustomEvent("pam-influencer-tracking"));
+
     // 2. Fire tracking API call (fire and forget)
     const sessionId =
       sessionStorage.getItem("pam_session_id") ?? generateSessionId();

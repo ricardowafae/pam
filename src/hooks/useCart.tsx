@@ -98,17 +98,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
   const [influencerSlug, setInfluencerSlug] = useState<string | null>(null);
 
-  // Hydrate from localStorage on mount
-  useEffect(() => {
-    setItems(loadCart());
-    setHydrated(true);
-
-    // Check for influencer tracking and auto-apply coupon
+  // Apply influencer coupon from tracking data
+  const applyInfluencerTracking = useCallback(() => {
     const tracking = getInfluencerTracking();
     if (tracking) {
       setInfluencerSlug(tracking.slug);
       if (tracking.couponCode) {
-        // Auto-apply influencer coupon (fire and forget)
         validateCoupon(tracking.couponCode).then((data) => {
           if (data.valid) {
             setAppliedCoupon({
@@ -122,6 +117,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  // Hydrate from localStorage on mount
+  useEffect(() => {
+    setItems(loadCart());
+    setHydrated(true);
+    applyInfluencerTracking();
+  }, [applyInfluencerTracking]);
+
+  // Listen for influencer tracking events (fired by InfluencerLandingClient)
+  // This handles the case where CartProvider is already mounted when the user
+  // visits /p/[slug] and gets redirected.
+  useEffect(() => {
+    const handler = () => applyInfluencerTracking();
+    window.addEventListener("pam-influencer-tracking", handler);
+    return () => window.removeEventListener("pam-influencer-tracking", handler);
+  }, [applyInfluencerTracking]);
 
   // Persist to localStorage on change (after hydration)
   useEffect(() => {
