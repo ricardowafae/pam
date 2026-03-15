@@ -1726,7 +1726,7 @@ export default function ClientesPage() {
                             <SheetTrigger className="inline-flex size-7 items-center justify-center rounded-md text-[#8b5e5e] hover:bg-muted" title="Investigar cliente">
                               <FileSearch className="size-3.5" />
                             </SheetTrigger>
-                            <SheetContent className="w-full overflow-y-auto sm:max-w-[112rem]">
+                            <SheetContent className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-[70vw]">
                               <SheetHeader>
                                 <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
                                   <FileSearch className="size-4" />
