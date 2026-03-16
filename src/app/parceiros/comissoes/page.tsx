@@ -7,7 +7,6 @@ import {
   Camera,
   CheckCircle,
   Clock,
-  AlertTriangle,
   ImageIcon,
   Eye,
   X,
@@ -37,7 +36,6 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 /* ── Types ─────────────────────────────────────────── */

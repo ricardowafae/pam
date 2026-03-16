@@ -38,9 +38,9 @@ export async function GET(req: NextRequest) {
           },
         }
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error("[settings GET product_prices]", err);
-      return NextResponse.json({ error: err.message }, { status: 500 });
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Erro interno" }, { status: 500 });
     }
   }
 
@@ -73,9 +73,9 @@ export async function GET(req: NextRequest) {
         },
       }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error("[settings GET]", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Erro interno" }, { status: 500 });
   }
 }
 
@@ -107,8 +107,8 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[settings POST]", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Erro interno" }, { status: 500 });
   }
 }

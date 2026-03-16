@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[save-products]", err);
     return NextResponse.json(
-      { error: err.message },
+      { error: err instanceof Error ? err.message : "Erro interno" },
       { status: 500 }
     );
   }
