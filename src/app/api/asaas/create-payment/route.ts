@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
 
     if (blocked) {
       return NextResponse.json(
-        { error: "Nao foi possivel processar este pedido. Entre em contato com o suporte." },
-        { status: 403 }
+        { error: "Nao foi possivel processar este pedido. Tente novamente mais tarde." },
+        { status: 400 }
       );
     }
 

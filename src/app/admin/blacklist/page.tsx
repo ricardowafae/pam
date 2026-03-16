@@ -111,7 +111,7 @@ export default function BlacklistPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("Erro ao carregar blacklist", {
+      toast.error("Erro ao carregar blocklist", {
         description: error.message,
       });
     } else {
@@ -165,12 +165,12 @@ export default function BlacklistPage() {
 
     if (error) {
       if (error.code === "23505") {
-        toast.error("CPF/CNPJ ja esta na blacklist");
+        toast.error("CPF/CNPJ ja esta na blocklist");
       } else {
         toast.error("Erro ao adicionar", { description: error.message });
       }
     } else {
-      toast.success(`${newName} adicionado a blacklist`);
+      toast.success(`${newName} adicionado a blocklist`);
       setShowNewModal(false);
       resetForm();
       fetchEntries();
@@ -190,7 +190,7 @@ export default function BlacklistPage() {
     if (error) {
       toast.error("Erro ao remover", { description: error.message });
     } else {
-      toast.success(`${deleteEntry.name} removido da blacklist`);
+      toast.success(`${deleteEntry.name} removido da blocklist`);
       setDeleteEntry(null);
       fetchEntries();
     }
@@ -204,7 +204,7 @@ export default function BlacklistPage() {
         <div>
           <h1 className="font-serif text-2xl font-bold text-foreground flex items-center gap-2">
             <ShieldBan className="size-6 text-red-600" />
-            Blacklist
+            Blocklist
           </h1>
           <p className="text-sm text-muted-foreground">
             Clientes bloqueados de realizar compras e contato
@@ -220,13 +220,13 @@ export default function BlacklistPage() {
         >
           <DialogTrigger className="inline-flex h-9 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700">
             <Plus className="size-4" />
-            Adicionar a Blacklist
+            Adicionar a Blocklist
           </DialogTrigger>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <UserX className="size-5 text-red-600" />
-                Adicionar a Blacklist
+                Adicionar a Blocklist
               </DialogTitle>
               <DialogDescription>
                 O cliente sera bloqueado de realizar compras na plataforma.
@@ -387,7 +387,7 @@ export default function BlacklistPage() {
             <div className="py-12 text-center text-sm text-muted-foreground">
               {searchTerm
                 ? "Nenhum resultado encontrado"
-                : "Nenhum cliente na blacklist"}
+                : "Nenhum cliente na blocklist"}
             </div>
           ) : (
             <Table>
@@ -471,11 +471,11 @@ export default function BlacklistPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="size-5" />
-              Remover da Blacklist
+              Remover da Blocklist
             </DialogTitle>
             <DialogDescription>
               Tem certeza que deseja remover{" "}
-              <strong>{deleteEntry?.name}</strong> da blacklist? Esta pessoa
+              <strong>{deleteEntry?.name}</strong> da blocklist? Esta pessoa
               podera realizar compras novamente.
             </DialogDescription>
           </DialogHeader>

@@ -48,7 +48,7 @@ const sidebarLinks = [
   { href: "/admin/vales", label: "Gestão de Vales", icon: Gift },
   { href: "/admin/comunicacao", label: "Comunicação", icon: MessageSquareMore },
   { href: "/admin/equipe", label: "Equipe", icon: UsersRound },
-  { href: "/admin/blacklist", label: "Blacklist", icon: ShieldBan },
+  { href: "/admin/blacklist", label: "Blocklist", icon: ShieldBan },
 ];
 
 function SidebarNav({ onLinkClick }: { onLinkClick?: () => void }) {
