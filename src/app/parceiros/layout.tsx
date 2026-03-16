@@ -55,14 +55,16 @@ const ROLE_STORAGE_KEY = "pam_partner_role";
 function usePartnerRole(): PartnerRole {
   const pathname = usePathname();
 
-  const [role, setRole] = useState<PartnerRole>(() => {
-    // During SSR / first render, try sessionStorage
-    if (typeof window !== "undefined") {
-      const stored = sessionStorage.getItem(ROLE_STORAGE_KEY);
-      if (stored === "fotografo" || stored === "influenciador") return stored;
+  // Always start with "fotografo" on server to avoid hydration mismatch
+  const [role, setRole] = useState<PartnerRole>("fotografo");
+
+  useEffect(() => {
+    // On mount, read persisted role from sessionStorage
+    const stored = sessionStorage.getItem(ROLE_STORAGE_KEY);
+    if (stored === "fotografo" || stored === "influenciador") {
+      setRole(stored);
     }
-    return "fotografo";
-  });
+  }, []);
 
   useEffect(() => {
     // When navigating to an explicit role page, persist the role
