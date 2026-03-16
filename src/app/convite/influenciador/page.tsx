@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { DEFAULT_COMMISSION_RATES, type CommissionRates } from "@/lib/commission-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +28,12 @@ import {
   Megaphone,
   FileText,
   Loader2,
+  Copy,
   PawPrint,
+  Gift,
+  Camera,
 } from "lucide-react";
+import { useCepLookup } from "@/hooks/useCepLookup";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -45,6 +50,13 @@ const emptyRegForm = {
   nomeFantasia: "",
   cnpj: "",
   chavePix: "",
+  cep: "",
+  street: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "",
+  state: "",
   bio: "",
 };
 
@@ -64,6 +76,19 @@ export default function ConviteInfluenciadorPage() {
       })
       .catch(() => {});
   }, []);
+
+  const cepLookup = useCepLookup({
+    onSuccess: (data) => {
+      setForm((f) => ({
+        ...f,
+        street: data.logradouro || f.street,
+        neighborhood: data.bairro || f.neighborhood,
+        city: data.localidade || f.city,
+        state: data.uf || f.state,
+      }));
+    },
+    onError: (msg) => toast.error(msg),
+  });
 
   const updateForm = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -126,11 +151,15 @@ export default function ConviteInfluenciadorPage() {
       <section className="relative overflow-hidden bg-[#8b5e5e] px-4 py-20 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-[#8b5e5e] to-[#6b4444] opacity-90" />
         <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mb-6 flex items-center justify-center gap-2">
-            <PawPrint className="size-8" />
-            <span className="font-serif text-xl font-bold">
-              Patas, Amor e Memórias
-            </span>
+          <div className="mb-6 flex items-center justify-center">
+            <Image
+              src="/images/logo.svg"
+              alt="Patas, Amor e Memórias"
+              width={220}
+              height={60}
+              className="brightness-0 invert"
+              priority
+            />
           </div>
           <h1 className="font-serif text-4xl font-bold leading-tight md:text-5xl">
             Seja um Influenciador Parceiro
@@ -246,6 +275,40 @@ export default function ConviteInfluenciadorPage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* ─── Presente Especial ─── */}
+      <section className="relative overflow-hidden bg-gradient-to-r from-[#8b5e5e] to-[#6b4444] px-4 py-16 text-white">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute -right-20 -top-20 size-80 rounded-full bg-white/20" />
+          <div className="absolute -bottom-10 -left-10 size-60 rounded-full bg-white/10" />
+        </div>
+        <div className="relative mx-auto max-w-4xl text-center">
+          <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-white/20">
+            <Gift className="size-10 text-white" />
+          </div>
+          <h2 className="font-serif text-3xl font-bold md:text-4xl">
+            Presente de Boas-Vindas
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90">
+            Ao se tornar um influenciador parceiro, você ganha uma
+          </p>
+          <div className="mx-auto mt-8 max-w-lg rounded-2xl border-2 border-white/30 bg-white/10 p-8 backdrop-blur-sm">
+            <Camera className="mx-auto size-12 text-white" />
+            <h3 className="mt-4 font-serif text-2xl font-bold">
+              Sessão Fotográfica Estúdio
+            </h3>
+            <p className="mt-2 text-white/80">
+              Uma sessão completa em estúdio para você e seu pet, com
+              direito a fotos profissionais editadas. Nosso presente
+              para celebrar essa parceria!
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-semibold">
+              <Star className="size-4" />
+              100% Gratuita
+            </div>
+          </div>
         </div>
       </section>
 
@@ -603,6 +666,77 @@ export default function ConviteInfluenciadorPage() {
                       placeholder="CPF, CNPJ, Email, Celular ou Chave Aleatória"
                       className="mt-1"
                     />
+                  </div>
+                </div>
+
+                {/* ─── Endereco ─── */}
+                <div className="space-y-3 rounded-lg border p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Endereco</p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">CEP</Label>
+                      <div className="relative">
+                        <Input
+                          placeholder="00000-000"
+                          value={form.cep}
+                          onChange={(e) => setForm({ ...form, cep: e.target.value })}
+                          onBlur={() => cepLookup.fetchCep(form.cep)}
+                        />
+                        {cepLookup.loading && (
+                          <Loader2 className="absolute right-2 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Rua</Label>
+                      <Input placeholder="Rua" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Numero</Label>
+                      <Input placeholder="N°" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Complemento</Label>
+                      <Input placeholder="Apto, Sala..." value={form.complement} onChange={(e) => setForm({ ...form, complement: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Bairro</Label>
+                      <Input placeholder="Bairro" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input placeholder="Cidade" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Estado</Label>
+                      <Input placeholder="UF" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Endereco Completo</Label>
+                    <div className="relative">
+                      <Input
+                        readOnly
+                        value={[form.street, form.number, form.complement, form.neighborhood, form.city, form.state, form.cep].filter(Boolean).join(", ") || ""}
+                        placeholder="Preenchido automaticamente"
+                        className="bg-muted/30 pr-9"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          const addr = [form.street, form.number, form.complement, form.neighborhood, form.city, form.state, form.cep].filter(Boolean).join(", ");
+                          navigator.clipboard.writeText(addr);
+                          toast.success("Endereco copiado!");
+                        }}
+                      >
+                        <Copy className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 

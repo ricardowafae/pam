@@ -70,6 +70,7 @@ import {
   KeyRound,
   Loader2,
 } from "lucide-react";
+import { useCepLookup } from "@/hooks/useCepLookup";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -96,6 +97,13 @@ interface Influencer {
   } | null;
   total_sales: number;
   total_commission: number;
+  cep?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
 }
 
 type CommissionStatus = "pago" | "pendente" | "atrasado" | "cancelado";
@@ -212,6 +220,13 @@ const emptyForm = {
   cupomCodigo: "DESCONTO10",
   cupomDesconto: "10",
   seasonalCoupons: [] as SeasonalCoupon[],
+  cep: "",
+  street: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "",
+  state: "",
   bio: "",
   notasInternas: "",
   ativo: true,
@@ -241,6 +256,19 @@ export default function InfluenciadoresPage() {
   const [globalInfluencerRates, setGlobalInfluencerRates] = useState<{
     dogbook: number; pocket: number; estudio: number; completa: number;
   } | null>(null);
+
+  const cepLookup = useCepLookup({
+    onSuccess: (data) => {
+      setForm((f) => ({
+        ...f,
+        street: data.logradouro || f.street,
+        neighborhood: data.bairro || f.neighborhood,
+        city: data.localidade || f.city,
+        state: data.uf || f.state,
+      }));
+    },
+    onError: (msg) => toast.error(msg),
+  });
 
   /* ─── Fetch global commission rates ─── */
   useEffect(() => {
@@ -346,6 +374,13 @@ export default function InfluenciadoresPage() {
       commission_rates: inf.commission_rates || null,
       total_sales: inf.total_sales || 0,
       total_commission: inf.total_commission || 0,
+      cep: inf.cep || "",
+      street: inf.street || "",
+      number: inf.number || "",
+      complement: inf.complement || "",
+      neighborhood: inf.neighborhood || "",
+      city: inf.city || "",
+      state: inf.state || "",
     }));
 
     setInfluencers(mapped);
@@ -478,6 +513,13 @@ export default function InfluenciadoresPage() {
       comPocket: inf.commission_rates?.pocket?.toFixed(2) || "20.00",
       comEstudio: inf.commission_rates?.estudio?.toFixed(2) || "50.00",
       comCompleta: inf.commission_rates?.completa?.toFixed(2) || "100.00",
+      cep: inf.cep || "",
+      street: inf.street || "",
+      number: inf.number || "",
+      complement: inf.complement || "",
+      neighborhood: inf.neighborhood || "",
+      city: inf.city || "",
+      state: inf.state || "",
     });
     setEditInfluencer(inf);
     setShowNewForm(true);
@@ -505,6 +547,13 @@ export default function InfluenciadoresPage() {
         phone: form.phone,
         instagram: form.instagram,
         status: form.ativo ? "ativo" : "inativo",
+        cep: form.cep || null,
+        street: form.street || null,
+        number: form.number || null,
+        complement: form.complement || null,
+        neighborhood: form.neighborhood || null,
+        city: form.city || null,
+        state: form.state || null,
       };
 
       if (editInfluencer) {
@@ -791,6 +840,7 @@ export default function InfluenciadoresPage() {
                       <TableHead className="hidden md:table-cell">
                         Slug
                       </TableHead>
+                      <TableHead className="hidden lg:table-cell">Cidade</TableHead>
                       <TableHead className="hidden lg:table-cell text-center">
                         Visualizacoes
                       </TableHead>
@@ -845,6 +895,9 @@ export default function InfluenciadoresPage() {
                               <Copy className="size-3" />
                             </Button>
                           </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                          {inf.city && inf.state ? `${inf.city} - ${inf.state}` : inf.city || "-"}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-center">
                           {inf.views.toLocaleString("pt-BR")}
@@ -1384,6 +1437,79 @@ export default function InfluenciadoresPage() {
                       </div>
                     </div>
                   </div>
+
+              <Separator />
+
+              {/* ─── Endereco ─── */}
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-xs font-medium text-muted-foreground">Endereco</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-1">
+                    <Label className="text-xs">CEP</Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="00000-000"
+                        value={form.cep}
+                        onChange={(e) => setForm({ ...form, cep: e.target.value })}
+                        onBlur={() => cepLookup.fetchCep(form.cep)}
+                      />
+                      {cepLookup.loading && (
+                        <Loader2 className="absolute right-2 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Rua</Label>
+                    <Input placeholder="Rua" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Numero</Label>
+                    <Input placeholder="N°" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Complemento</Label>
+                    <Input placeholder="Apto, Sala..." value={form.complement} onChange={(e) => setForm({ ...form, complement: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Bairro</Label>
+                    <Input placeholder="Bairro" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Cidade</Label>
+                    <Input placeholder="Cidade" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Estado</Label>
+                    <Input placeholder="UF" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Endereco Completo</Label>
+                  <div className="relative">
+                    <Input
+                      readOnly
+                      value={[form.street, form.number, form.complement, form.neighborhood, form.city, form.state, form.cep].filter(Boolean).join(", ") || ""}
+                      placeholder="Preenchido automaticamente"
+                      className="bg-muted/30 pr-9"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        const addr = [form.street, form.number, form.complement, form.neighborhood, form.city, form.state, form.cep].filter(Boolean).join(", ");
+                        navigator.clipboard.writeText(addr);
+                        toast.success("Endereco copiado!");
+                      }}
+                    >
+                      <Copy className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               <Separator />
 

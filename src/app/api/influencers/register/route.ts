@@ -34,7 +34,8 @@ function generateCouponCode(slug: string): string {
  * Registers a new influencer application.
  *
  * Body: { personType, name, email, phone, cpf, instagram, tiktok, slug,
- *         razaoSocial, nomeFantasia, cnpj, chavePix, bio }
+ *         razaoSocial, nomeFantasia, cnpj, chavePix,
+ *         cep, street, number, complement, neighborhood, city, state, bio }
  * Returns: { success: true, influencer } or { success: false, error }
  */
 export async function POST(req: NextRequest) {
@@ -54,6 +55,13 @@ export async function POST(req: NextRequest) {
       nomeFantasia,
       cnpj,
       chavePix,
+      cep,
+      street,
+      number,
+      complement,
+      neighborhood,
+      city,
+      state,
       bio,
     } = body;
 
@@ -174,6 +182,13 @@ export async function POST(req: NextRequest) {
         nome_fantasia: nomeFantasia || null,
         cnpj: cnpj || null,
         chave_pix: chavePix || null,
+        cep: cep || null,
+        street: street || null,
+        number: number || null,
+        complement: complement || null,
+        neighborhood: neighborhood || null,
+        city: city || null,
+        state: state || null,
         bio: bio || null,
         status: "pendente",
       })

@@ -77,6 +77,8 @@ interface DogbookItem {
   stageDB: DogbookStageDB; // raw DB value for updates
   tracking: string;
   nf: string;
+  photosUploaded: number;
+  photosMax: number;
 }
 
 interface Order {
@@ -295,6 +297,8 @@ export default function PedidosPage() {
           stageDB: db.stage as DogbookStageDB,
           tracking: o.tracking_code || "-",
           nf: o.nf_number || "-",
+          photosUploaded: Number(db.photos_uploaded) || 0,
+          photosMax: Number(db.photos_max) || 0,
         }));
 
         return {
@@ -542,6 +546,7 @@ export default function PedidosPage() {
                       <TableHead>Cliente</TableHead>
                       <TableHead className="text-center">Qtd</TableHead>
                       <TableHead>Status Geral</TableHead>
+                      <TableHead className="text-center hidden md:table-cell">Fotos</TableHead>
                       <TableHead className="hidden lg:table-cell">
                         Pagamento
                       </TableHead>
@@ -641,6 +646,11 @@ export default function PedidosPage() {
                                 </div>
                               )}
                             </TableCell>
+                            <TableCell className="text-center hidden md:table-cell text-xs text-muted-foreground">
+                              {order.items.length > 0
+                                ? `${order.items.reduce((s, i) => s + i.photosUploaded, 0)}/${order.items.reduce((s, i) => s + i.photosMax, 0)}`
+                                : "-"}
+                            </TableCell>
                             <TableCell className="hidden lg:table-cell">
                               <Badge
                                 variant={
@@ -725,6 +735,11 @@ export default function PedidosPage() {
                                       <Loader2 className="size-3 animate-spin text-muted-foreground" />
                                     )}
                                   </div>
+                                </TableCell>
+                                <TableCell className="text-center hidden md:table-cell">
+                                  <span className="text-xs font-medium text-foreground">
+                                    {item.photosUploaded}/{item.photosMax}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
                                   {item.tracking !== "-" && (
