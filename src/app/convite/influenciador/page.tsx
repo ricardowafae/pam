@@ -18,12 +18,10 @@ import { toast } from "sonner";
 import {
   Heart,
   DollarSign,
-  Users,
   Star,
   CheckCircle2,
   ArrowRight,
   Building2,
-  TrendingUp,
   Link2,
   BarChart3,
   Megaphone,

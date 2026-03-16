@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { DEFAULT_COMMISSION_RATES } from "@/lib/commission-config";
-import Image from "next/image";
-import Link from "next/link";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
