@@ -22,8 +22,16 @@ CREATE TABLE IF NOT EXISTS customer_blacklist (
 CREATE INDEX IF NOT EXISTS idx_blacklist_cpf ON customer_blacklist(cpf_cnpj);
 CREATE INDEX IF NOT EXISTS idx_blacklist_email ON customer_blacklist(email);
 
--- RLS: only service role can access
+-- RLS
 ALTER TABLE customer_blacklist ENABLE ROW LEVEL SECURITY;
+
+-- Allow authenticated users (admin) full access
+CREATE POLICY "Allow authenticated full access to blacklist"
+ON customer_blacklist
+FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
 
 -- Insert initial entries
 INSERT INTO customer_blacklist (cpf_cnpj, name, rg, address, reason)
