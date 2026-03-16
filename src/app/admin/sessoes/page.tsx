@@ -326,6 +326,7 @@ export default function SessoesPage() {
     setLoading(true);
     setError(null);
 
+    // Fetch sessions
     const { data, error: fetchError } = await supabase
       .from("photo_sessions")
       .select(`
@@ -335,7 +336,6 @@ export default function SessoesPage() {
         order_id,
         customer_id,
         photographer_id,
-        pet_id,
         session_type,
         status,
         payment_status,
@@ -352,10 +352,6 @@ export default function SessoesPage() {
           name,
           email,
           phone
-        ),
-        pets:pet_id (
-          id,
-          name
         ),
         photographers:photographer_id (
           id,
@@ -400,7 +396,7 @@ export default function SessoesPage() {
 
     for (const row of data) {
       const customer = row.customers as unknown as { id: string; name: string; email: string; phone: string | null } | null;
-      const pet = row.pets as unknown as { id: string; name: string } | null;
+      // pet_id não existe na tabela photo_sessions — petName será "-"
       const photographer = row.photographers as unknown as { id: string; name: string } | null;
       const order = row.orders as unknown as {
         id: string;
@@ -418,7 +414,7 @@ export default function SessoesPage() {
         subId: row.session_number || `#SES-${row.id.slice(0, 4).toUpperCase()}`,
         dbId: row.id,
         type: sessionTypeToDisplay[row.session_type as DBSessionType] || "Pocket",
-        petName: pet?.name || "-",
+        petName: "-",
         date: row.scheduled_date || "",
         time: row.scheduled_time ? row.scheduled_time.slice(0, 5) : "-",
         location: row.location || "-",
