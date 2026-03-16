@@ -442,10 +442,8 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
 
   const ticketMedio = totalOrderCount > 0 ? Math.round(totalRevenue / totalOrderCount) : 0;
   const prevTicketMedio = prevTotalOrderCount > 0 ? Math.round(prevTotalRevenue / prevTotalOrderCount) : 0;
-  const paidOrderCount = paidOrders.length;
-  const prevPaidOrderCount = prevPaidOrders.length;
-  const convRate = totalVisitors > 0 ? ((paidOrderCount / totalVisitors) * 100) : 0;
-  const prevConvRate = prevTotalVisitors > 0 ? ((prevPaidOrderCount / prevTotalVisitors) * 100) : 0;
+  const convRate = totalVisitors > 0 ? ((paidOrders.length / totalVisitors) * 100) : 0;
+  const prevConvRate = prevTotalVisitors > 0 ? ((prevPaidOrders.length / prevTotalVisitors) * 100) : 0;
   const revenuePerVisitor = totalVisitors > 0 ? Math.round(totalRevenue / totalVisitors) : 0;
   const prevRevenuePerVisitor = prevTotalVisitors > 0 ? Math.round(prevTotalRevenue / prevTotalVisitors) : 0;
 
