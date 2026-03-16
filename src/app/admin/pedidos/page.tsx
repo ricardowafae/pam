@@ -264,6 +264,7 @@ export default function PedidosPage() {
           coupons ( id, code ),
           influencers ( id, name, slug )
         `)
+        .eq("payment_status", "pago")
         .order("created_at", { ascending: false });
 
       if (ordersError) {
@@ -377,7 +378,9 @@ export default function PedidosPage() {
   const totalDogbooks = ordersInRange.reduce((sum, o) => sum + o.items.length, 0);
   const allItems = ordersInRange.flatMap((o) => o.items);
   const deliveredItems = allItems.filter((i) => i.stage === "Entregue").length;
-  const pendingPaymentItems = allItems.filter((i) => i.stage === "Aguardando Pagamento").length;
+  const inProductionItems = allItems.filter((i) =>
+    i.stage !== "Entregue" && i.stage !== "Aguardando Pagamento"
+  ).length;
 
   /* ─── Filtered ─── */
   const filteredOrders = orderList.filter((o) => {
@@ -469,13 +472,13 @@ export default function PedidosPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <AlertCircle className="size-4 text-amber-600" />
+              <Package className="size-4 text-blue-600" />
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Aguardando Pgto.
+                Em Producao
               </p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-amber-600">
-              {pendingPaymentItems}
+            <p className="mt-2 text-2xl font-bold text-blue-600">
+              {inProductionItems}
             </p>
           </CardContent>
         </Card>
