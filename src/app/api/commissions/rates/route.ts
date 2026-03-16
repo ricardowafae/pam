@@ -70,9 +70,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { rates } = body as { rates: CommissionRates };
 
-    if (!rates || !rates.influencer || !rates.photographer || !rates.sessionPricing) {
+    if (!rates || !rates.influencer || !rates.photographer) {
       return NextResponse.json(
-        { error: "Body must include { rates: { influencer: {...}, photographer: {...}, sessionPricing: {...} } }" },
+        { error: "Body must include { rates: { influencer: {...}, photographer: {...} } }" },
         { status: 400 }
       );
     }
