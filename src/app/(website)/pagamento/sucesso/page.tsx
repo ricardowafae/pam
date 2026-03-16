@@ -12,16 +12,30 @@ type PaymentStatus = "loading" | "success" | "processing" | "error";
 
 function PagamentoSucessoContent() {
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session_id");
+  const paymentId = searchParams.get("payment_id");
+  const orderParam = searchParams.get("order");
 
   const { clearCart } = useCart();
   const clearedRef = useRef(false);
 
   const [status, setStatus] = useState<PaymentStatus>("loading");
-  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string | null>(orderParam);
 
   useEffect(() => {
-    if (!sessionId) {
+    // If we have an order number from URL params and the cart was just cleared,
+    // we can show success immediately (credit card flow)
+    if (!paymentId && orderParam) {
+      setStatus("success");
+      setOrderNumber(orderParam);
+      if (!clearedRef.current) {
+        clearedRef.current = true;
+        clearCart();
+        clearInfluencerTracking();
+      }
+      return;
+    }
+
+    if (!paymentId) {
       setStatus("error");
       return;
     }
@@ -29,17 +43,16 @@ function PagamentoSucessoContent() {
     async function fetchStatus() {
       try {
         const res = await fetch(
-          `/api/stripe/checkout-status?session_id=${sessionId}`
+          `/api/asaas/payment-status?payment_id=${paymentId}`
         );
         const data = await res.json();
 
-        if (data.status === "complete" && data.paymentStatus === "paid") {
+        if (data.status === "success") {
           setStatus("success");
-          setOrderNumber(data.orderNumber);
-        } else if (data.status === "complete") {
-          // Payment might still be processing (e.g. boleto)
+          setOrderNumber(data.orderNumber || orderParam);
+        } else if (data.status === "processing") {
           setStatus("processing");
-          setOrderNumber(data.orderNumber);
+          setOrderNumber(data.orderNumber || orderParam);
         } else {
           setStatus("error");
         }
@@ -56,7 +69,7 @@ function PagamentoSucessoContent() {
     }
 
     fetchStatus();
-  }, [sessionId, clearCart]);
+  }, [paymentId, orderParam, clearCart]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4 py-16">

@@ -21,6 +21,7 @@ import {
   TrendingUp,
   MessageSquareMore,
   HandCoins,
+  ShieldBan,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -47,6 +48,7 @@ const sidebarLinks = [
   { href: "/admin/vales", label: "Gestão de Vales", icon: Gift },
   { href: "/admin/comunicacao", label: "Comunicação", icon: MessageSquareMore },
   { href: "/admin/equipe", label: "Equipe", icon: UsersRound },
+  { href: "/admin/blacklist", label: "Blacklist", icon: ShieldBan },
 ];
 
 function SidebarNav({ onLinkClick }: { onLinkClick?: () => void }) {

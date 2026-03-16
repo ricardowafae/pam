@@ -50,6 +50,7 @@ export interface Customer {
   company_city: string | null;
   company_state: string | null;
   notes: string | null;
+  asaas_customer_id: string | null;
   created_at: string;
   updated_at: string;
   // Relations (populated via joins)
@@ -122,6 +123,7 @@ export interface Order {
   payment_status: PaymentStatus;
   stripe_payment_id: string | null;
   stripe_checkout_id: string | null;
+  asaas_payment_id: string | null;
   coupon_id: string | null;
   influencer_id: string | null;
   tracking_code: string | null;
@@ -253,26 +255,24 @@ export type SessionStatus =
 export interface PhotoSession {
   id: string;
   session_number: string;
-  order_item_id: string | null;
   order_id: string | null;
   customer_id: string;
   photographer_id: string | null;
-  pet_id: string | null;
+  product_id: string | null;
   session_type: SessionType;
   status: SessionStatus;
   payment_status: PaymentStatus;
+  payment_amount: number | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
-  duration_minutes: number | null;
+  duration_min: number | null;
   location: string | null;
-  total_photos: number;
-  observations: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
   // Relations
   customer?: Customer;
   photographer?: Photographer;
-  pet?: Pet;
 }
 
 // ── Influencers ──

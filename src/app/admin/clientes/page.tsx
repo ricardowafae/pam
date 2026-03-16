@@ -164,17 +164,14 @@ interface DbPhotoSession {
   session_number: string;
   order_id: string;
   customer_id: string;
-  pet_id: string | null;
   session_type: string;
   status: string;
   scheduled_date: string | null;
   scheduled_time: string | null;
-  duration_minutes: number | null;
+  duration_min: number | null;
   location: string | null;
-  total_photos: number | null;
-  observations: string | null;
+  notes: string | null;
   created_at: string;
-  pet?: DbPet | null;
 }
 
 /** Enriched order with nested dogbooks & sessions for display */
@@ -709,18 +706,15 @@ function ClientHistoryPanel({
                                 <span className={`ml-1 inline-flex rounded-full px-1 py-0.5 text-[8px] font-medium ${sessionTypeBadge(s.session_type)}`}>
                                   {sessionTypeLabel(s.session_type)}
                                 </span>
-                                {s.pet && <span className="ml-1 text-xs text-foreground">{s.pet.name}</span>}
+                                {s.location && <span className="ml-1 text-xs text-muted-foreground">({s.location})</span>}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               {s.scheduled_date && (
                                 <span className="text-[9px] text-muted-foreground">{formatDate(s.scheduled_date)}</span>
                               )}
-                              {s.total_photos && s.total_photos > 0 && (
-                                <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                                  <ImageIcon className="size-2.5" />
-                                  {s.total_photos}
-                                </div>
+                              {s.location && (
+                                <span className="text-[9px] text-muted-foreground">{s.location}</span>
                               )}
                               <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${stageColor(s.status)}`}>
                                 {stageLabel(s.status)}
@@ -900,7 +894,7 @@ export default function ClientesPage() {
     // Fetch photo sessions for this customer
     const { data: sessionsData } = await supabase
       .from("photo_sessions")
-      .select("*, pet:pets(*)")
+      .select("id, session_number, order_id, customer_id, session_type, status, scheduled_date, scheduled_time, duration_min, location, notes, created_at")
       .eq("customer_id", customerId);
 
     const dogbooks = (dogbooksData as DbDogbook[]) || [];

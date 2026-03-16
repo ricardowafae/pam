@@ -3,10 +3,12 @@
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle,
   CreditCard,
+  FileText,
   Gift,
   Loader2,
   Lock,
@@ -29,15 +31,9 @@ import { usePaymentConfig } from "@/hooks/usePaymentConfig";
 import { useCart } from "@/hooks/useCart";
 import { clearInfluencerTracking } from "@/lib/influencer-tracking";
 import { toast } from "sonner";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  EmbeddedCheckoutProvider,
-  EmbeddedCheckout,
-} from "@stripe/react-stripe-js";
-
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-);
+import CreditCardForm from "@/components/checkout/CreditCardForm";
+import PixPayment from "@/components/checkout/PixPayment";
+import BoletoPayment from "@/components/checkout/BoletoPayment";
 
 type PersonType = "pf" | "pj";
 
@@ -60,17 +56,41 @@ export default function CarrinhoPage() {
     clearCart,
   } = useCart();
 
+  const router = useRouter();
+
   /* --- form state --- */
   const [personType, setPersonType] = useState<PersonType>("pf");
   const [valeCode, setValeCode] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"cartao" | "pix">("cartao");
-  // PIX is disabled until a compatible payment provider is configured.
-  // The backend is ready for PIX — just flip this flag when available.
-  const pixEnabled = false;
+  const [paymentMethod, setPaymentMethod] = useState<"cartao" | "pix" | "boleto">("cartao");
+
+  /* --- credit card fields --- */
+  const [creditCardData, setCreditCardData] = useState({
+    holderName: "",
+    number: "",
+    expiryMonth: "",
+    expiryYear: "",
+    ccv: "",
+  });
+  const [installmentCount, setInstallmentCount] = useState(1);
+
+  /* --- post-payment state --- */
+  const [pixData, setPixData] = useState<{
+    encodedImage: string;
+    payload: string;
+    expirationDate: string;
+    paymentId: string;
+    orderNumber: string;
+  } | null>(null);
+  const [boletoData, setBoletoData] = useState<{
+    bankSlipUrl: string;
+    invoiceUrl: string;
+    dueDate: string;
+    orderNumber: string;
+  } | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   /* --- form fields --- */
   const [name, setName] = useState("");
@@ -158,6 +178,7 @@ export default function CarrinhoPage() {
 
   async function handleContinue() {
     setSubmitted(true);
+    setPaymentError(null);
 
     const requiredPersonal = personType === "pf"
       ? [name, email, phone, cpf]
@@ -172,39 +193,100 @@ export default function CarrinhoPage() {
       return;
     }
 
-    // Create Stripe Checkout Session
+    // Validate credit card fields
+    if (paymentMethod === "cartao") {
+      const { holderName, number, expiryMonth, expiryYear, ccv } = creditCardData;
+      if (!holderName || !number || !expiryMonth || !expiryYear || !ccv) {
+        toast.error("Preencha todos os dados do cartão.");
+        return;
+      }
+      if (number.replace(/\D/g, "").length < 13) {
+        toast.error("Número do cartão inválido.");
+        return;
+      }
+    }
+
     setCheckoutLoading(true);
     try {
-      const res = await fetch("/api/stripe/create-checkout", {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload: any = {
+        items: items.map((item) => ({
+          slug: item.product.slug,
+          quantity: item.quantity,
+        })),
+        customerEmail: email,
+        customerName: personType === "pj" ? (razaoSocial || name) : name,
+        customerPhone: phone,
+        cpfCnpj: personType === "pf" ? cpf.replace(/\D/g, "") : cnpj.replace(/\D/g, ""),
+        couponCode: appliedCoupon?.code || undefined,
+        influencerSlug: influencerSlug || undefined,
+        paymentMethod,
+        postalCode: cep,
+        addressNumber: numero,
+        addressComplement: complemento || undefined,
+      };
+
+      // Add credit card data
+      if (paymentMethod === "cartao") {
+        payload.creditCard = {
+          holderName: creditCardData.holderName,
+          number: creditCardData.number,
+          expiryMonth: creditCardData.expiryMonth,
+          expiryYear: creditCardData.expiryYear,
+          ccv: creditCardData.ccv,
+        };
+        if (installmentCount > 1) {
+          payload.installmentCount = installmentCount;
+        }
+      }
+
+      const res = await fetch("/api/asaas/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: items.map((item) => ({
-            slug: item.product.slug,
-            quantity: item.quantity,
-          })),
-          customerEmail: email,
-          customerName: name,
-          customerPhone: phone,
-          couponCode: appliedCoupon?.code || undefined,
-          influencerSlug: influencerSlug || undefined,
-          paymentMethod,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
 
-      if (data.clientSecret) {
-        // Clear influencer tracking — cart will be cleared on success page
-        clearInfluencerTracking();
-        setClientSecret(data.clientSecret);
+      if (!res.ok || !data.success) {
+        // Payment failed
+        const errorMsg = data.error || "Erro ao processar pagamento.";
+        setPaymentError(errorMsg);
+        toast.error(errorMsg);
         setCheckoutLoading(false);
-        // Scroll to top to show embedded checkout
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        toast.error(data.error || "Erro ao criar sessão de pagamento.");
-        setCheckoutLoading(false);
+        return;
       }
+
+      // Clear influencer tracking
+      clearInfluencerTracking();
+
+      // Handle response by payment method
+      if (data.status === "approved") {
+        // Credit card approved — redirect to success page
+        clearCart();
+        router.push(`/pagamento/sucesso?payment_id=${data.paymentId}&order=${data.orderNumber}`);
+        return;
+      }
+
+      if (data.status === "pending_pix" && data.pix) {
+        setPixData({
+          ...data.pix,
+          paymentId: data.paymentId,
+          orderNumber: data.orderNumber,
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (data.status === "pending_boleto" && data.boleto) {
+        setBoletoData({
+          ...data.boleto,
+          orderNumber: data.orderNumber,
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (data.status === "declined") {
+        setPaymentError(data.error || "Pagamento não autorizado.");
+        toast.error(data.error || "Pagamento não autorizado.");
+      }
+
+      setCheckoutLoading(false);
     } catch {
       toast.error("Erro de conexão. Tente novamente.");
       setCheckoutLoading(false);
@@ -216,33 +298,62 @@ export default function CarrinhoPage() {
   const maxInstallments = paymentCfg.maxInstallments;
   const installmentValue = total / maxInstallments;
 
-  /* --- Embedded Checkout view --- */
-  if (clientSecret) {
+  /* --- PIX payment view --- */
+  if (pixData) {
     return (
       <div className="pb-16">
-        <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-lg px-4 pt-8 sm:px-6 lg:px-8">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">
-              Pagamento
+              Pagamento PIX
             </h1>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setClientSecret(null)}
+              onClick={() => setPixData(null)}
               className="gap-1.5"
             >
               <ArrowLeft className="size-4" />
-              Voltar ao carrinho
+              Voltar
             </Button>
           </div>
-          <div className="rounded-xl border border-border/60 bg-card p-1 sm:p-2">
-            <EmbeddedCheckoutProvider
-              stripe={stripePromise}
-              options={{ clientSecret }}
+          <PixPayment
+            pixData={pixData}
+            paymentId={pixData.paymentId}
+            orderNumber={pixData.orderNumber}
+            onPaymentConfirmed={() => {
+              clearCart();
+              router.push(`/pagamento/sucesso?payment_id=${pixData.paymentId}&order=${pixData.orderNumber}`);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  /* --- Boleto payment view --- */
+  if (boletoData) {
+    return (
+      <div className="pb-16">
+        <div className="mx-auto max-w-lg px-4 pt-8 sm:px-6 lg:px-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">
+              Boleto Gerado
+            </h1>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBoletoData(null)}
+              className="gap-1.5"
             >
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
+              <ArrowLeft className="size-4" />
+              Voltar
+            </Button>
           </div>
+          <BoletoPayment
+            boletoData={boletoData}
+            orderNumber={boletoData.orderNumber}
+          />
         </div>
       </div>
     );
@@ -757,6 +868,11 @@ export default function CarrinhoPage() {
                       {paymentCfg.pixDiscountPct}% de desconto no PIX
                     </p>
                   )}
+                  {paymentMethod === "boleto" && (
+                    <p className="mt-0.5 text-xs text-amber-600 font-medium">
+                      Vencimento em 3 dias uteis
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -779,34 +895,59 @@ export default function CarrinhoPage() {
                         : "border-border text-muted-foreground hover:border-primary/40"
                     )}
                   >
-                    💳 Cartão
+                    <CreditCard className="size-3.5 inline mr-1" />
+                    Cartao
                   </button>
                   <button
                     type="button"
-                    onClick={() => pixEnabled && setPaymentMethod("pix")}
-                    disabled={!pixEnabled}
+                    onClick={() => setPaymentMethod("pix")}
                     className={cn(
                       "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors",
-                      !pixEnabled
-                        ? "cursor-not-allowed border-border/40 bg-muted/30 text-muted-foreground/50"
-                        : paymentMethod === "pix"
-                          ? "border-green-600 bg-green-50 text-green-700"
-                          : "border-border text-muted-foreground hover:border-green-400"
+                      paymentMethod === "pix"
+                        ? "border-green-600 bg-green-50 text-green-700"
+                        : "border-border text-muted-foreground hover:border-green-400"
                     )}
-                    title={!pixEnabled ? "PIX em breve" : undefined}
                   >
-                    <span className={pixEnabled ? "text-green-600" : "text-muted-foreground/50"}>◉</span> PIX
-                    {pixEnabled ? (
-                      <span className="ml-1 text-[10px] text-green-600 font-semibold">
-                        -{paymentCfg.pixDiscountPct}%
-                      </span>
-                    ) : (
-                      <span className="ml-1 text-[10px] font-semibold">
-                        Em breve
-                      </span>
+                    <span className="text-green-600">◉</span> PIX
+                    <span className="ml-1 text-[10px] text-green-600 font-semibold">
+                      -{paymentCfg.pixDiscountPct}%
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("boleto")}
+                    className={cn(
+                      "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors",
+                      paymentMethod === "boleto"
+                        ? "border-amber-600 bg-amber-50 text-amber-700"
+                        : "border-border text-muted-foreground hover:border-amber-400"
                     )}
+                  >
+                    <FileText className="size-3.5 inline mr-1" />
+                    Boleto
                   </button>
                 </div>
+
+                {/* Credit card form (inline) */}
+                {paymentMethod === "cartao" && (
+                  <div className="mt-3">
+                    <CreditCardForm
+                      value={creditCardData}
+                      onChange={setCreditCardData}
+                      installmentCount={installmentCount}
+                      onInstallmentChange={setInstallmentCount}
+                      maxInstallments={maxInstallments}
+                      total={total}
+                    />
+                  </div>
+                )}
+
+                {/* Payment error message */}
+                {paymentError && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {paymentError}
+                  </div>
+                )}
               </div>
 
               {/* CTA Button */}
@@ -829,14 +970,14 @@ export default function CarrinhoPage() {
                 )}
               </Button>
 
-              {/* Stripe badge */}
+              {/* Security badge */}
               <div className="mt-3 flex flex-col items-center gap-1 text-center">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CreditCard className="size-3.5" />
-                  Pagamento seguro via Stripe
+                  <Lock className="size-3.5" />
+                  Pagamento seguro
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Aceito: Cartão de crédito{pixEnabled ? " e PIX" : ""}
+                  Aceito: Cartao de credito, PIX e Boleto
                 </p>
               </div>
 
