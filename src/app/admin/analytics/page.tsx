@@ -442,8 +442,10 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
 
   const ticketMedio = totalOrderCount > 0 ? Math.round(totalRevenue / totalOrderCount) : 0;
   const prevTicketMedio = prevTotalOrderCount > 0 ? Math.round(prevTotalRevenue / prevTotalOrderCount) : 0;
-  const convRate = totalVisitors > 0 ? ((totalOrderCount / totalVisitors) * 100) : 0;
-  const prevConvRate = prevTotalVisitors > 0 ? ((prevTotalOrderCount / prevTotalVisitors) * 100) : 0;
+  const paidOrderCount = paidOrders.length;
+  const prevPaidOrderCount = prevPaidOrders.length;
+  const convRate = totalVisitors > 0 ? ((paidOrderCount / totalVisitors) * 100) : 0;
+  const prevConvRate = prevTotalVisitors > 0 ? ((prevPaidOrderCount / prevTotalVisitors) * 100) : 0;
   const revenuePerVisitor = totalVisitors > 0 ? Math.round(totalRevenue / totalVisitors) : 0;
   const prevRevenuePerVisitor = prevTotalVisitors > 0 ? Math.round(prevTotalRevenue / prevTotalVisitors) : 0;
 
@@ -710,16 +712,23 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
     .sort(([, a], [, b]) => b.visitors.size - a.visitors.size)
     .map(([source, data]) => {
       const visitors = data.visitors.size;
-      const conversions = 0; // would need visitor_id <-> customer_id mapping for full accuracy
-      const convRateVal = totalVisitors > 0 ? Math.round((validOrders.length / totalVisitors) * 1000) / 10 : 0;
+      // Count paid orders from visitors of this source
+      const sourceVisitorIds = data.visitors;
+      const sourceConversions = paidOrders.filter((o) =>
+        o.customer_id && sourceVisitorIds.has(o.customer_id)
+      ).length;
+      const convRateVal = visitors > 0 ? Math.round((sourceConversions / visitors) * 1000) / 10 : 0;
+      const sourceRevenue = paidOrders
+        .filter((o) => o.customer_id && sourceVisitorIds.has(o.customer_id))
+        .reduce((s, o) => s + (o.total || 0), 0);
       return {
         source,
         visitors,
         pct: totalVisitors > 0 ? Math.round((visitors / totalVisitors) * 1000) / 10 : 0,
         bounce: 0,
-        conversions,
+        conversions: sourceConversions,
         convRate: convRateVal,
-        revenue: 0,
+        revenue: Math.round(sourceRevenue),
         cpa: 0,
         roas: "-",
         icon: trafficSourceIcon(source),
@@ -778,7 +787,7 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
     }
   }
 
-  for (const o of validOrders) {
+  for (const o of paidOrders) {
     const cust = customerMap.get(o.customer_id);
     const city = (cust as any)?.city || "Desconhecida";
     const state = (cust as any)?.state || "??";
@@ -1741,10 +1750,10 @@ export default function AnalyticsPage() {
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>Cidade</TableHead>
-                      <TableHead className="text-right">Visitantes</TableHead>
+                      <TableHead className="text-right">Clientes</TableHead>
                       <TableHead className="text-right">Pedidos</TableHead>
                       <TableHead className="text-right hidden md:table-cell">Receita</TableHead>
-                      <TableHead className="text-right hidden md:table-cell">Conv. %</TableHead>
+                      <TableHead className="text-right hidden md:table-cell">Pedidos/Cliente</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1755,7 +1764,7 @@ export default function AnalyticsPage() {
                         <TableCell className="text-right">{g.visitors.toLocaleString("pt-BR")}</TableCell>
                         <TableCell className="text-right">{g.orders}</TableCell>
                         <TableCell className="text-right hidden md:table-cell font-medium text-[#8b5e5e]">R$ {g.revenue.toLocaleString("pt-BR")}</TableCell>
-                        <TableCell className="text-right hidden md:table-cell">{g.visitors > 0 ? ((g.orders / g.visitors) * 100).toFixed(1) : "0"}%</TableCell>
+                        <TableCell className="text-right hidden md:table-cell">{g.visitors > 0 ? (g.orders / g.visitors).toFixed(1) : "0"}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>

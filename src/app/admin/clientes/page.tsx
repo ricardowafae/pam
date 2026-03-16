@@ -407,7 +407,7 @@ function getCustomerStats(orders: EnrichedOrder[]) {
   });
 
   return {
-    totalPurchases: orders.length,
+    totalPurchases: orders.filter((o) => o.payment_status === "pago").length,
     totalDogbooks,
     totalSessions,
     totalSpentNum: totalSpent,
@@ -1143,7 +1143,7 @@ export default function ClientesPage() {
   const totalClients = clientsInRange.length;
   const totalPets = clientsInRange.reduce((sum, c) => sum + c.pets.length, 0);
   const ordersInRange = allOrders.filter((o) => isInRange(o.created_at, dateRange));
-  const totalPurchases = ordersInRange.length;
+  const totalPurchases = ordersInRange.filter((o) => o.payment_status === "pago").length;
   const paidOrdersInRange = ordersInRange.filter((o) => o.payment_status === "pago");
   const totalRevenue = paidOrdersInRange.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
   const activeClients = customersWithStatus.filter((c) =>
