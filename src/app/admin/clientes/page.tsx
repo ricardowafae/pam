@@ -395,7 +395,7 @@ function getCustomerStats(orders: EnrichedOrder[]) {
   orders.forEach((o) => {
     totalDogbooks += o.dogbooks.length;
     totalSessions += o.sessions.length;
-    totalSpent += o.total;
+    if (o.payment_status === "pago") totalSpent += o.total;
     o.dogbooks.forEach((d) => {
       if (d.stage === "concluido") delivered++;
       else pending++;
@@ -1144,7 +1144,8 @@ export default function ClientesPage() {
   const totalPets = clientsInRange.reduce((sum, c) => sum + c.pets.length, 0);
   const ordersInRange = allOrders.filter((o) => isInRange(o.created_at, dateRange));
   const totalPurchases = ordersInRange.length;
-  const totalRevenue = ordersInRange.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  const paidOrdersInRange = ordersInRange.filter((o) => o.payment_status === "pago");
+  const totalRevenue = paidOrdersInRange.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
   const activeClients = customersWithStatus.filter((c) =>
     c._orders.some((o) => isInRange(o.created_at, dateRange))
   ).length;
@@ -1511,7 +1512,7 @@ export default function ClientesPage() {
               </p>
             </div>
             <p className="mt-2 text-lg font-bold text-blue-600">
-              {totalPurchases > 0 ? formatCurrency(totalRevenue / totalPurchases) : "R$ 0,00"}
+              {paidOrdersInRange.length > 0 ? formatCurrency(totalRevenue / paidOrdersInRange.length) : "R$ 0,00"}
             </p>
           </CardContent>
         </Card>
@@ -1573,7 +1574,9 @@ export default function ClientesPage() {
                   <TableBody>
                     {filteredClients.map((customer) => {
                       const orders = customer._orders;
-                      const totalSpent = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+                      const totalSpent = orders
+                        .filter((o) => o.payment_status === "pago")
+                        .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
                       const lastOrder = orders.length > 0 ? orders[0] : null;
 
                       return (
