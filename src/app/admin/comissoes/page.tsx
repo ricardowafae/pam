@@ -31,7 +31,6 @@ import {
   Info,
   Mail,
   Send,
-  Tag,
 } from "lucide-react";
 import type { CommissionRates } from "@/lib/commission-config";
 import { DEFAULT_COMMISSION_RATES } from "@/lib/commission-config";
@@ -94,15 +93,6 @@ export default function AdminComissoesPage() {
     setDirty(true);
   };
 
-  const updateSessionPricing = (key: keyof CommissionRates["sessionPricing"], value: string) => {
-    const num = parseFloat(value) || 0;
-    setRates((prev) => ({
-      ...prev,
-      sessionPricing: { ...prev.sessionPricing, [key]: num },
-    }));
-    setDirty(true);
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -116,7 +106,7 @@ export default function AdminComissoesPage() {
         toast.error(data.error || "Erro ao salvar comissoes.");
         return;
       }
-      toast.success("Comissoes e precos salvos com sucesso!");
+      toast.success("Comissoes salvas com sucesso!");
       setDirty(false);
     } catch {
       toast.error("Erro ao salvar. Tente novamente.");
@@ -162,10 +152,10 @@ export default function AdminComissoesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">
-            Comissoes e Precos
+            Comissoes
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Defina precos de sessao e valores de comissao para Fotografos e Influenciadores.
+            Defina os valores de comissao pagos a Fotografos e Influenciadores.
           </p>
         </div>
         <Button
@@ -216,85 +206,6 @@ export default function AdminComissoesPage() {
 
         {/* ═══════════════ TAB: FOTÓGRAFOS ═══════════════ */}
         <TabsContent value="fotografos" className="space-y-6">
-          {/* Session Pricing */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-green-100">
-                  <Tag className="size-5 text-green-600" />
-                </div>
-                <div>
-                  <CardTitle className="font-serif text-lg">
-                    Precos de Sessao Fotografica
-                  </CardTitle>
-                  <CardDescription>
-                    Valor cobrado do cliente por cada tipo de sessao. Esses valores
-                    aparecem no modal de cadastro de fotografos (somente leitura).
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                {(
-                  [
-                    { label: "Sessao Pocket", key: "pocket" as const, desc: "Sessao rapida ao ar livre" },
-                    { label: "Sessao Estudio", key: "estudio" as const, desc: "Sessao em estudio profissional" },
-                    { label: "Sessao Completa", key: "completa" as const, desc: "Pacote completo com cenarios" },
-                  ] as const
-                ).map((item) => (
-                  <div key={item.key}>
-                    <Label className="text-sm font-medium">{item.label}</Label>
-                    <p className="mb-2 text-xs text-muted-foreground">{item.desc}</p>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                        R$
-                      </span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={rates.sessionPricing[item.key]}
-                        onChange={(e) => updateSessionPricing(item.key, e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Separator className="my-6" />
-
-              {/* Preview */}
-              <div>
-                <p className="mb-3 text-xs font-medium uppercase text-muted-foreground">
-                  Previa — precos de sessao
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {(
-                    [
-                      { label: "Pocket", key: "pocket" as const },
-                      { label: "Estudio", key: "estudio" as const },
-                      { label: "Completa", key: "completa" as const },
-                    ] as const
-                  ).map((item) => (
-                    <div
-                      key={item.key}
-                      className="rounded-lg border bg-[#f9f3ee] p-3 text-center"
-                    >
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {item.label}
-                      </p>
-                      <p className="mt-1 font-serif text-xl font-bold text-[#8b5e5e]">
-                        R$ {formatBRL(rates.sessionPricing[item.key])}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Photographer Commissions */}
           <Card>
             <CardHeader>
@@ -383,7 +294,7 @@ export default function AdminComissoesPage() {
                   </p>
                   <p className="text-xs text-amber-700">
                     Envia um e-mail para todos os fotografos ativos com os valores
-                    atuais de comissao e precos de sessao.
+                    atuais de comissao.
                   </p>
                 </div>
               </div>

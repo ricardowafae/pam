@@ -232,7 +232,6 @@ export default function FotografosPage() {
   const [expandedCommissionId, setExpandedCommissionId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
   const [globalRates, setGlobalRates] = useState<{
-    sessionPricing: { pocket: number; estudio: number; completa: number };
     photographer: { pocket: number; estudio: number; completa: number };
   } | null>(null);
 
@@ -241,10 +240,9 @@ export default function FotografosPage() {
     fetch("/api/commissions/rates")
       .then((r) => r.json())
       .then((d) => {
-        if (d.rates) {
+        if (d.rates?.photographer) {
           setGlobalRates({
-            sessionPricing: d.rates.sessionPricing || { pocket: 590, estudio: 990, completa: 1490 },
-            photographer: d.rates.photographer || { pocket: 150, estudio: 300, completa: 500 },
+            photographer: d.rates.photographer,
           });
         }
       })
@@ -1425,12 +1423,12 @@ export default function FotografosPage() {
                     </div>
                   </>
                 )}
-                {/* Session pricing & commission — read-only, managed in /admin/comissoes */}
+                {/* Commission — read-only, managed in /admin/comissoes */}
                 <div className="sm:col-span-2 rounded-lg border bg-muted/30 p-4">
                   <div className="mb-2 flex items-center gap-2">
                     <DollarSign className="size-4 text-muted-foreground" />
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Valores de Sessao e Comissao (definidos em Comissoes)
+                      Comissao por Sessao (definida em Comissoes)
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
@@ -1443,13 +1441,7 @@ export default function FotografosPage() {
                     ).map((item) => (
                       <div key={item.spKey} className="rounded-md border bg-white p-2 text-center">
                         <p className="text-[10px] text-muted-foreground">{item.label}</p>
-                        <p className="text-sm font-bold text-foreground">
-                          {globalRates
-                            ? `R$ ${globalRates.sessionPricing[item.spKey].toFixed(2).replace(".", ",")}`
-                            : "..."}
-                        </p>
-                        <p className="text-[10px] text-[#8b5e5e]">
-                          Comissao:{" "}
+                        <p className="text-sm font-bold text-[#8b5e5e]">
                           {globalRates
                             ? `R$ ${globalRates.photographer[item.spKey].toFixed(2).replace(".", ",")}`
                             : "..."}
