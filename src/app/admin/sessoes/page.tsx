@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -541,10 +541,9 @@ export default function SessoesPage() {
                       );
 
                       return (
-                        <>
+                        <React.Fragment key={order.id}>
                           {/* ── Purchase (compra) header row ── */}
                           <TableRow
-                            key={order.id}
                             className="cursor-pointer hover:bg-muted/30"
                             onClick={() =>
                               setExpandedOrderId(isExpanded ? null : order.id)
@@ -776,7 +775,7 @@ export default function SessoesPage() {
                               </TableCell>
                             </TableRow>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </TableBody>
