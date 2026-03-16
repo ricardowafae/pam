@@ -660,7 +660,11 @@ export default function PedidosPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="size-7"
-                                onClick={(e) => e.stopPropagation()}
+                                title="Ver detalhes"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedOrderId(expandedOrderId === order.id ? null : order.id);
+                                }}
                               >
                                 <Eye className="size-3.5" />
                               </Button>

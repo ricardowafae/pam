@@ -357,30 +357,34 @@ export default function FotografosPage() {
     const { data, error } = await supabase
       .from("commissions")
       .select("*, photographers(name)")
-      .order("period_year", { ascending: false })
-      .order("period_month", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
       toast.error("Erro ao carregar comissões.", { description: error.message });
       return;
     }
 
-    const mapped: CommissionPayment[] = (data || []).map((row: any) => ({
-      id: row.id,
-      photographer_id: row.photographer_id || "",
-      photographerName: row.photographers?.name || "Fotógrafo removido",
-      month: formatMonthYear(row.period_month, row.period_year),
-      sessions: 0, // will be enriched if needed
-      revenue: Number(row.total_sale_value) || 0,
-      commissionValue: Number(row.commission_amount) || 0,
-      commissionPct: Number(row.commission_pct) || 0,
-      status: row.status as CommissionStatus,
-      paidDate: row.paid_at || null,
-      receiptUrl: row.receipt_url || null,
-      period_month: row.period_month,
-      period_year: row.period_year,
-      created_at: row.created_at || "",
-    }));
+    const mapped: CommissionPayment[] = (data || []).map((row: any) => {
+      const d = row.created_at ? new Date(row.created_at) : new Date();
+      const pMonth = d.getMonth() + 1;
+      const pYear = d.getFullYear();
+      return {
+        id: row.id,
+        photographer_id: row.photographer_id || "",
+        photographerName: row.photographers?.name || "Fotógrafo removido",
+        month: formatMonthYear(pMonth, pYear),
+        sessions: 0,
+        revenue: Number(row.total_sale_value) || 0,
+        commissionValue: Number(row.amount) || 0,
+        commissionPct: 0,
+        status: row.status as CommissionStatus,
+        paidDate: row.paid_at || null,
+        receiptUrl: row.receipt_url || null,
+        period_month: pMonth,
+        period_year: pYear,
+        created_at: row.created_at || "",
+      };
+    });
 
     setCommissions(mapped);
   }, [supabase]);
