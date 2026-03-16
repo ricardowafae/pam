@@ -68,6 +68,9 @@ export default function CarrinhoPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cartao" | "pix">("cartao");
+  // PIX is disabled until a compatible payment provider is configured.
+  // The backend is ready for PIX — just flip this flag when available.
+  const pixEnabled = false;
 
   /* --- form fields --- */
   const [name, setName] = useState("");
@@ -780,18 +783,28 @@ export default function CarrinhoPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod("pix")}
+                    onClick={() => pixEnabled && setPaymentMethod("pix")}
+                    disabled={!pixEnabled}
                     className={cn(
                       "flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors",
-                      paymentMethod === "pix"
-                        ? "border-green-600 bg-green-50 text-green-700"
-                        : "border-border text-muted-foreground hover:border-green-400"
+                      !pixEnabled
+                        ? "cursor-not-allowed border-border/40 bg-muted/30 text-muted-foreground/50"
+                        : paymentMethod === "pix"
+                          ? "border-green-600 bg-green-50 text-green-700"
+                          : "border-border text-muted-foreground hover:border-green-400"
                     )}
+                    title={!pixEnabled ? "PIX em breve" : undefined}
                   >
-                    <span className="text-green-600">◉</span> PIX
-                    <span className="ml-1 text-[10px] text-green-600 font-semibold">
-                      -{paymentCfg.pixDiscountPct}%
-                    </span>
+                    <span className={pixEnabled ? "text-green-600" : "text-muted-foreground/50"}>◉</span> PIX
+                    {pixEnabled ? (
+                      <span className="ml-1 text-[10px] text-green-600 font-semibold">
+                        -{paymentCfg.pixDiscountPct}%
+                      </span>
+                    ) : (
+                      <span className="ml-1 text-[10px] font-semibold">
+                        Em breve
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -823,7 +836,7 @@ export default function CarrinhoPage() {
                   Pagamento seguro via Stripe
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Aceito: Cartão de crédito e PIX
+                  Aceito: Cartão de crédito{pixEnabled ? " e PIX" : ""}
                 </p>
               </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { DEFAULT_COMMISSION_RATES } from "@/lib/commission-config";
 import Image from "next/image";
 import Link from "next/link";
 import { useCepLookup } from "@/hooks/useCepLookup";
@@ -59,6 +60,16 @@ export default function ConviteFotografoPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRegForm);
   const [submitting, setSubmitting] = useState(false);
+  const [commissions, setCommissions] = useState(DEFAULT_COMMISSION_RATES.photographer);
+
+  useEffect(() => {
+    fetch("/api/commissions/rates")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.rates?.photographer) setCommissions(d.rates.photographer);
+      })
+      .catch(() => {});
+  }, []);
 
   const updateForm = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -245,7 +256,7 @@ export default function ConviteFotografoPage() {
                   Sessão Pocket
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 150,00
+                  R$ {commissions.pocket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por sessão concluída</CardDescription>
               </CardHeader>
@@ -273,7 +284,7 @@ export default function ConviteFotografoPage() {
                   Sessão Estúdio
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 300,00
+                  R$ {commissions.estudio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por sessão concluída</CardDescription>
               </CardHeader>
@@ -301,7 +312,7 @@ export default function ConviteFotografoPage() {
                   Sessão Completa
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 500,00
+                  R$ {commissions.completa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por sessão concluída</CardDescription>
               </CardHeader>

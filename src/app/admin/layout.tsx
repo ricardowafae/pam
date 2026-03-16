@@ -20,6 +20,7 @@ import {
   Gift,
   TrendingUp,
   MessageSquareMore,
+  HandCoins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -41,6 +42,7 @@ const sidebarLinks = [
   { href: "/admin/influenciadores", label: "Influenciadores", icon: Megaphone },
   { href: "/admin/fotografos", label: "Fotografos", icon: UserCheck },
   { href: "/admin/conversao", label: "Conversao", icon: TrendingUp },
+  { href: "/admin/comissoes", label: "Comissoes", icon: HandCoins },
   { href: "/admin/precos", label: "Produtos e Serviços", icon: DollarSign },
   { href: "/admin/vales", label: "Gestão de Vales", icon: Gift },
   { href: "/admin/comunicacao", label: "Comunicação", icon: MessageSquareMore },

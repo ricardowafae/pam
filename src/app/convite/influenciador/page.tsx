@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { DEFAULT_COMMISSION_RATES, type CommissionRates } from "@/lib/commission-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,16 @@ export default function ConviteInfluenciadorPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRegForm);
   const [submitting, setSubmitting] = useState(false);
+  const [commissions, setCommissions] = useState(DEFAULT_COMMISSION_RATES.influencer);
+
+  useEffect(() => {
+    fetch("/api/commissions/rates")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.rates?.influencer) setCommissions(d.rates.influencer);
+      })
+      .catch(() => {});
+  }, []);
 
   const updateForm = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -258,7 +269,7 @@ export default function ConviteInfluenciadorPage() {
                   Dogbook
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 10,00
+                  R$ {commissions.dogbook.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por unidade vendida</CardDescription>
               </CardHeader>
@@ -282,7 +293,7 @@ export default function ConviteInfluenciadorPage() {
                   Sessão Pocket
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 20,00
+                  R$ {commissions.pocket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por venda</CardDescription>
               </CardHeader>
@@ -306,7 +317,7 @@ export default function ConviteInfluenciadorPage() {
                   Sessão Estúdio
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 50,00
+                  R$ {commissions.estudio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por venda</CardDescription>
               </CardHeader>
@@ -330,7 +341,7 @@ export default function ConviteInfluenciadorPage() {
                   Sessão Completa
                 </Badge>
                 <CardTitle className="font-serif text-3xl text-[#8b5e5e]">
-                  R$ 100,00
+                  R$ {commissions.completa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </CardTitle>
                 <CardDescription>por venda</CardDescription>
               </CardHeader>
