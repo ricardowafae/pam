@@ -90,40 +90,36 @@ export async function POST(req: NextRequest) {
       );
 
     if (error) {
-      // If table doesn't exist, create it and retry
+      console.error("[commissions/rates POST] Supabase error:", JSON.stringify(error));
+
+      // If table doesn't exist, return a clear message so admin can create it
       if (error.code === "42P01" || error.message?.includes("does not exist")) {
-        await supabaseAdmin.rpc("exec_sql", {
-          sql: `
-            CREATE TABLE IF NOT EXISTS site_settings (
-              key TEXT PRIMARY KEY,
-              value JSONB NOT NULL DEFAULT '{}',
-              updated_at TIMESTAMPTZ DEFAULT NOW()
-            );
-          `,
-        });
-
-        // Retry the upsert
-        const { error: retryError } = await supabaseAdmin
-          .from("site_settings")
-          .upsert(
-            {
-              key: "commission_rates",
-              value: rates,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "key" }
-          );
-
-        if (retryError) throw retryError;
-      } else {
-        throw error;
+        return NextResponse.json(
+          {
+            error:
+              "A tabela 'site_settings' nao existe no banco de dados. " +
+              "Execute o SQL de criacao no Supabase SQL Editor: " +
+              "CREATE TABLE site_settings (key TEXT PRIMARY KEY, value JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMPTZ DEFAULT NOW());",
+          },
+          { status: 500 }
+        );
       }
+
+      return NextResponse.json(
+        { error: error.message || JSON.stringify(error) },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     console.error("[commissions/rates POST]", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : JSON.stringify(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
