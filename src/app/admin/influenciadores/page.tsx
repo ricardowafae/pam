@@ -238,6 +238,21 @@ export default function InfluenciadoresPage() {
   const [deleteInfluencer, setDeleteInfluencer] = useState<Influencer | null>(null);
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<{ email: string; name: string } | null>(null);
+  const [globalInfluencerRates, setGlobalInfluencerRates] = useState<{
+    dogbook: number; pocket: number; estudio: number; completa: number;
+  } | null>(null);
+
+  /* ─── Fetch global commission rates ─── */
+  useEffect(() => {
+    fetch("/api/commissions/rates")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.rates?.influencer) {
+          setGlobalInfluencerRates(d.rates.influencer);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   /* ─── Fetch data from Supabase ─── */
   const fetchInfluencers = useCallback(async () => {
@@ -481,12 +496,7 @@ export default function InfluenciadoresPage() {
     setSaving(true);
     try {
       const slugValue = form.slug.startsWith("/p/") ? form.slug : form.slug;
-      const commissionRates = {
-        dogbook: parseFloat(form.comDogbook) || 10,
-        pocket: parseFloat(form.comPocket) || 20,
-        estudio: parseFloat(form.comEstudio) || 50,
-        completa: parseFloat(form.comCompleta) || 100,
-      };
+      /* Commission rates are now global — managed in /admin/comissoes */
 
       const influencerData = {
         name: form.name,
@@ -494,7 +504,6 @@ export default function InfluenciadoresPage() {
         email: form.email,
         phone: form.phone,
         instagram: form.instagram,
-        commission_rates: commissionRates,
         status: form.ativo ? "ativo" : "inativo",
       };
 
@@ -1378,60 +1387,39 @@ export default function InfluenciadoresPage() {
 
               <Separator />
 
-              {/* ─── Comissoes por Venda ─── */}
-              <div>
+              {/* ─── Comissoes por Venda (read-only — managed in /admin/comissoes) ─── */}
+              <div className="rounded-lg border bg-muted/30 p-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <DollarSign className="size-4 text-primary/60" />
+                  <DollarSign className="size-4 text-muted-foreground" />
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Comissoes por Venda (R$)
+                    Comissoes por Venda (definidas em Comissoes)
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div>
-                    <Label>Dogbook</Label>
-                    <Input
-                      value={form.comDogbook}
-                      onChange={(e) =>
-                        updateForm("comDogbook", e.target.value)
-                      }
-                      placeholder="10.00"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Sessao Pocket</Label>
-                    <Input
-                      value={form.comPocket}
-                      onChange={(e) =>
-                        updateForm("comPocket", e.target.value)
-                      }
-                      placeholder="20.00"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Sessao Estudio</Label>
-                    <Input
-                      value={form.comEstudio}
-                      onChange={(e) =>
-                        updateForm("comEstudio", e.target.value)
-                      }
-                      placeholder="50.00"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Sessao Completa</Label>
-                    <Input
-                      value={form.comCompleta}
-                      onChange={(e) =>
-                        updateForm("comCompleta", e.target.value)
-                      }
-                      placeholder="100.00"
-                      className="mt-1"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {(
+                    [
+                      { label: "Dogbook", key: "dogbook" as const },
+                      { label: "Pocket", key: "pocket" as const },
+                      { label: "Estudio", key: "estudio" as const },
+                      { label: "Completa", key: "completa" as const },
+                    ] as const
+                  ).map((item) => (
+                    <div key={item.key} className="rounded-md border bg-white p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                      <p className="text-sm font-bold text-[#8b5e5e]">
+                        {globalInfluencerRates
+                          ? `R$ ${globalInfluencerRates[item.key].toFixed(2).replace(".", ",")}`
+                          : "..."}
+                      </p>
+                    </div>
+                  ))}
                 </div>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Para alterar esses valores, acesse{" "}
+                  <a href="/admin/comissoes" className="text-[#8b5e5e] underline">
+                    Admin &gt; Comissoes
+                  </a>
+                </p>
               </div>
 
               <Separator />

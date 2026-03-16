@@ -43,6 +43,10 @@ export async function GET() {
         ...DEFAULT_COMMISSION_RATES.photographer,
         ...(stored.photographer || {}),
       },
+      sessionPricing: {
+        ...DEFAULT_COMMISSION_RATES.sessionPricing,
+        ...(stored.sessionPricing || {}),
+      },
     };
 
     return NextResponse.json(
@@ -66,9 +70,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { rates } = body as { rates: CommissionRates };
 
-    if (!rates || !rates.influencer || !rates.photographer) {
+    if (!rates || !rates.influencer || !rates.photographer || !rates.sessionPricing) {
       return NextResponse.json(
-        { error: "Body must include { rates: { influencer: {...}, photographer: {...} } }" },
+        { error: "Body must include { rates: { influencer: {...}, photographer: {...}, sessionPricing: {...} } }" },
         { status: 400 }
       );
     }

@@ -18,6 +18,12 @@ export interface CommissionRates {
     estudio: number;
     completa: number;
   };
+  /** Precos de sessao cobrados do cliente (valores globais) */
+  sessionPricing: {
+    pocket: number;
+    estudio: number;
+    completa: number;
+  };
 }
 
 export const DEFAULT_COMMISSION_RATES: CommissionRates = {
@@ -31,5 +37,10 @@ export const DEFAULT_COMMISSION_RATES: CommissionRates = {
     pocket: 150,
     estudio: 300,
     completa: 500,
+  },
+  sessionPricing: {
+    pocket: 590,
+    estudio: 990,
+    completa: 1490,
   },
 };

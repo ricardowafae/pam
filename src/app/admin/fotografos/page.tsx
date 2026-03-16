@@ -231,6 +231,25 @@ export default function FotografosPage() {
   const [selectedCommission, setSelectedCommission] = useState<CommissionPayment | null>(null);
   const [expandedCommissionId, setExpandedCommissionId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
+  const [globalRates, setGlobalRates] = useState<{
+    sessionPricing: { pocket: number; estudio: number; completa: number };
+    photographer: { pocket: number; estudio: number; completa: number };
+  } | null>(null);
+
+  /* ─── Fetch global commission rates ─── */
+  useEffect(() => {
+    fetch("/api/commissions/rates")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.rates) {
+          setGlobalRates({
+            sessionPricing: d.rates.sessionPricing || { pocket: 590, estudio: 990, completa: 1490 },
+            photographer: d.rates.photographer || { pocket: 150, estudio: 300, completa: 500 },
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   /* ─── Fetch photographers ─── */
   const fetchPhotographers = useCallback(async () => {
@@ -657,10 +676,7 @@ export default function FotografosPage() {
       portfolio_url: form.portfolioUrl.trim() || null,
       bio: form.bio.trim() || null,
       status: form.ativo ? "ativo" : "inativo",
-      price_pocket: form.valorPocket ? parseFloat(form.valorPocket) : null,
-      price_estudio: form.valorEstudio ? parseFloat(form.valorEstudio) : null,
-      price_completa: form.valorCompleta ? parseFloat(form.valorCompleta) : null,
-      commission_pct: form.commissionPct ? parseFloat(form.commissionPct) : 10.0,
+      /* Session pricing and commission are now global — managed in /admin/comissoes */
       cep: form.cep.trim() || null,
       street: form.rua.trim() || null,
       number: form.numero.trim() || null,
@@ -1409,45 +1425,44 @@ export default function FotografosPage() {
                     </div>
                   </>
                 )}
-                <div>
-                  <Label>Valor - Sessao Pocket (R$)</Label>
-                  <Input
-                    value={form.valorPocket}
-                    onChange={(e) => updateForm("valorPocket", e.target.value)}
-                    placeholder="150.00"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Valor - Sessao Estudio (R$)</Label>
-                  <Input
-                    value={form.valorEstudio}
-                    onChange={(e) =>
-                      updateForm("valorEstudio", e.target.value)
-                    }
-                    placeholder="300.00"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Valor - Sessao Completa (R$)</Label>
-                  <Input
-                    value={form.valorCompleta}
-                    onChange={(e) =>
-                      updateForm("valorCompleta", e.target.value)
-                    }
-                    placeholder="500.00"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Comissão (%)</Label>
-                  <Input
-                    value={form.commissionPct}
-                    onChange={(e) => updateForm("commissionPct", e.target.value)}
-                    placeholder="10.00"
-                    className="mt-1"
-                  />
+                {/* Session pricing & commission — read-only, managed in /admin/comissoes */}
+                <div className="sm:col-span-2 rounded-lg border bg-muted/30 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <DollarSign className="size-4 text-muted-foreground" />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Valores de Sessao e Comissao (definidos em Comissoes)
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(
+                      [
+                        { label: "Pocket", spKey: "pocket" as const },
+                        { label: "Estudio", spKey: "estudio" as const },
+                        { label: "Completa", spKey: "completa" as const },
+                      ] as const
+                    ).map((item) => (
+                      <div key={item.spKey} className="rounded-md border bg-white p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                        <p className="text-sm font-bold text-foreground">
+                          {globalRates
+                            ? `R$ ${globalRates.sessionPricing[item.spKey].toFixed(2).replace(".", ",")}`
+                            : "..."}
+                        </p>
+                        <p className="text-[10px] text-[#8b5e5e]">
+                          Comissao:{" "}
+                          {globalRates
+                            ? `R$ ${globalRates.photographer[item.spKey].toFixed(2).replace(".", ",")}`
+                            : "..."}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] text-muted-foreground">
+                    Para alterar esses valores, acesse{" "}
+                    <a href="/admin/comissoes" className="text-[#8b5e5e] underline">
+                      Admin &gt; Comissoes
+                    </a>
+                  </p>
                 </div>
                 <div>
                   <Label>Chave PIX</Label>
