@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import {
   Card,
@@ -84,464 +85,106 @@ import {
 
 /* ────────────────────── Types ────────────────────── */
 
-interface Pet {
+interface DbPet {
+  id: string;
+  customer_id: string;
   name: string;
   breed: string;
-  birthDate: string;
-  photoUrl: string;
-  size: string;
-  gender: string;
+  species: string;
+  birthday: string | null;
+  photo_url: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
-type ClientType = "pf" | "pj";
-
-interface DogbookSubOrder {
-  subId: string;
-  theme: string;
-  petName: string;
-  stage: string;
-  photosUploaded: number;
-  photosRequired: number;
-}
-
-interface SessionSubOrder {
-  subId: string;
-  type: "Pocket" | "Estudio" | "Completa";
-  petName: string;
-  date: string;
-  stage: string;
-  photosDelivered: number;
-}
-
-interface Purchase {
+interface DbCustomer {
   id: string;
-  date: string;
-  type: "dogbook" | "sessao" | "misto";
-  dogbooks: DogbookSubOrder[];
-  sessions: SessionSubOrder[];
-  total: string;
-  payment: "Pago" | "Pendente" | "Parcial";
-  paymentMethod: string;
-  coupon: string;
-}
-
-type ClientStatus = "ativo" | "inativo" | "novo";
-
-interface Interaction {
-  date: string;
-  type: "compra" | "mensagem" | "sessao" | "aprovacao" | "upload" | "visita";
-  description: string;
-}
-
-interface Client {
-  id: number;
+  user_id: string | null;
   name: string;
   email: string;
   phone: string;
-  city: string;
-  state: string;
-  clientType: ClientType;
-  cpfCnpj: string;
-  pets: Pet[];
-  photoUrl: string;
-  address: {
-    cep: string;
-    street: string;
-    number: string;
-    complement: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-  };
-  fullAddress: string;
-  notes: string;
-  razaoSocial: string;
-  nomeFantasia: string;
-  purchases: Purchase[];
-  createdAt: string;
-  lastActivity: string;
-  status: ClientStatus;
-  source: string;
-  interactions: Interaction[];
-  tags: string[];
+  cpf: string | null;
+  birth_date: string | null;
+  cep: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  pets: DbPet[];
 }
 
-/* ────────────────────── Mock Data ────────────────────── */
+interface DbOrder {
+  id: string;
+  order_number: string;
+  customer_id: string;
+  subtotal: number;
+  discount_amount: number;
+  total: number;
+  status: string;
+  payment_method: string | null;
+  payment_status: string;
+  tracking_code: string | null;
+  nf_number: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  paid_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  coupon_id: string | null;
+}
 
-const mockClients: Client[] = [
-  {
-    id: 1,
-    name: "Ana Souza",
-    email: "ana@email.com",
-    phone: "(11) 99123-4567",
-    city: "Sao Paulo",
-    state: "SP",
-    clientType: "pf",
-    cpfCnpj: "123.456.789-00",
-    photoUrl: "",
-    pets: [
-      { name: "Thor", breed: "Golden Retriever", birthDate: "2022-05-15", photoUrl: "", size: "Grande", gender: "Macho" },
-      { name: "Luna", breed: "SRD", birthDate: "2023-01-20", photoUrl: "", size: "Medio", gender: "Femea" },
-    ],
-    address: { cep: "05423-010", street: "R. dos Pinheiros", number: "1234", complement: "Apto 42", neighborhood: "Pinheiros", city: "Sao Paulo", state: "SP" },
-    fullAddress: "R. dos Pinheiros, 1234, Apto 42 - Pinheiros, Sao Paulo - SP",
-    notes: "Prefere agendamentos pela manha",
-    razaoSocial: "",
-    nomeFantasia: "",
-    purchases: [
-      {
-        id: "#PAM-001",
-        date: "2026-03-10",
-        type: "dogbook",
-        dogbooks: [
-          { subId: "#PAM-001-1", theme: "Verao", petName: "Thor", stage: "Em Producao", photosUploaded: 30, photosRequired: 30 },
-        ],
-        sessions: [],
-        total: "R$ 490,00",
-        payment: "Pago",
-        paymentMethod: "Cartao 10x",
-        coupon: "",
-      },
-      {
-        id: "#SES-001",
-        date: "2026-03-10",
-        type: "sessao",
-        dogbooks: [],
-        sessions: [
-          { subId: "#SES-001-1", type: "Pocket", petName: "Thor", date: "2026-03-15", stage: "Confirmada", photosDelivered: 0 },
-        ],
-        total: "R$ 900,00",
-        payment: "Pago",
-        paymentMethod: "PIX",
-        coupon: "",
-      },
-    ],
-    createdAt: "2025-12-01",
-    lastActivity: "2026-03-10",
-    status: "ativo",
-    source: "Instagram",
-    interactions: [
-      { date: "2026-03-10", type: "compra", description: "Comprou Dogbook Verao + Sessao Pocket" },
-      { date: "2026-03-08", type: "visita", description: "Visitou pagina de sessoes" },
-      { date: "2026-03-05", type: "mensagem", description: "Perguntou sobre temas disponiveis" },
-    ],
-    tags: ["VIP", "Recorrente"],
-  },
-  {
-    id: 2,
-    name: "Carlos Mendes",
-    email: "carlos@email.com",
-    phone: "(11) 98765-4321",
-    city: "Sao Paulo",
-    state: "SP",
-    clientType: "pf",
-    cpfCnpj: "987.654.321-00",
-    photoUrl: "",
-    pets: [
-      { name: "Luna", breed: "Labrador", birthDate: "2021-08-10", photoUrl: "", size: "Grande", gender: "Femea" },
-      { name: "Bella", breed: "Poodle", birthDate: "2023-03-05", photoUrl: "", size: "Pequeno", gender: "Femea" },
-    ],
-    address: { cep: "01310-100", street: "Av. Paulista", number: "900", complement: "", neighborhood: "Bela Vista", city: "Sao Paulo", state: "SP" },
-    fullAddress: "Av. Paulista, 900 - Bela Vista, Sao Paulo - SP",
-    notes: "",
-    razaoSocial: "",
-    nomeFantasia: "",
-    purchases: [
-      {
-        id: "#PAM-002",
-        date: "2026-03-09",
-        type: "misto",
-        dogbooks: [
-          { subId: "#PAM-002-1", theme: "Natal", petName: "Luna", stage: "Aprovacao Layout", photosUploaded: 30, photosRequired: 30 },
-          { subId: "#PAM-002-2", theme: "Caoniversario", petName: "Luna", stage: "Aguardando Fotos", photosUploaded: 12, photosRequired: 30 },
-        ],
-        sessions: [
-          { subId: "#SES-002-1", type: "Estudio", petName: "Luna", date: "2026-03-16", stage: "Aguardando Pagamento", photosDelivered: 0 },
-          { subId: "#SES-002-2", type: "Pocket", petName: "Bella", date: "2026-03-17", stage: "Agendada", photosDelivered: 0 },
-        ],
-        total: "R$ 5.531,00",
-        payment: "Parcial",
-        paymentMethod: "Cartao 10x",
-        coupon: "FIRST10",
-      },
-    ],
-    createdAt: "2026-01-15",
-    lastActivity: "2026-03-09",
-    status: "ativo",
-    source: "Google",
-    interactions: [
-      { date: "2026-03-09", type: "compra", description: "Compra mista: 2 Dogbooks + 2 Sessoes" },
-      { date: "2026-03-07", type: "visita", description: "Visitou pagina do Dogbook" },
-    ],
-    tags: [],
-  },
-  {
-    id: 3,
-    name: "Fernanda Lima",
-    email: "fernanda@email.com",
-    phone: "(11) 97654-3210",
-    city: "Campinas",
-    state: "SP",
-    clientType: "pf",
-    cpfCnpj: "456.789.123-00",
-    photoUrl: "",
-    pets: [
-      { name: "Max", breed: "Pastor Alemao", birthDate: "2020-11-30", photoUrl: "", size: "Grande", gender: "Macho" },
-    ],
-    address: { cep: "13010-001", street: "R. Barao de Jaguara", number: "500", complement: "", neighborhood: "Centro", city: "Campinas", state: "SP" },
-    fullAddress: "R. Barao de Jaguara, 500 - Centro, Campinas - SP",
-    notes: "Cliente VIP - 3a compra",
-    razaoSocial: "",
-    nomeFantasia: "",
-    purchases: [
-      {
-        id: "#PAM-003",
-        date: "2026-03-08",
-        type: "dogbook",
-        dogbooks: [
-          { subId: "#PAM-003-1", theme: "Inverno", petName: "Max", stage: "Aprovacao Layout", photosUploaded: 30, photosRequired: 30 },
-        ],
-        sessions: [],
-        total: "R$ 490,00",
-        payment: "Pago",
-        paymentMethod: "PIX",
-        coupon: "",
-      },
-      {
-        id: "#SES-003",
-        date: "2026-03-08",
-        type: "sessao",
-        dogbooks: [],
-        sessions: [
-          { subId: "#SES-003-1", type: "Completa", petName: "Max", date: "2026-03-18", stage: "Realizada", photosDelivered: 45 },
-        ],
-        total: "R$ 4.900,00",
-        payment: "Pago",
-        paymentMethod: "Cartao 10x",
-        coupon: "",
-      },
-      {
-        id: "#PAM-010",
-        date: "2025-10-05",
-        type: "dogbook",
-        dogbooks: [
-          { subId: "#PAM-010-1", theme: "Natal", petName: "Max", stage: "Entregue", photosUploaded: 30, photosRequired: 30 },
-        ],
-        sessions: [],
-        total: "R$ 490,00",
-        payment: "Pago",
-        paymentMethod: "PIX",
-        coupon: "",
-      },
-    ],
-    createdAt: "2025-06-20",
-    lastActivity: "2026-03-18",
-    status: "ativo",
-    source: "Indicacao",
-    interactions: [
-      { date: "2026-03-18", type: "sessao", description: "Sessao Completa realizada" },
-      { date: "2026-03-08", type: "compra", description: "Comprou Dogbook Inverno + Sessao Completa" },
-      { date: "2025-10-05", type: "compra", description: "Comprou Dogbook Natal" },
-      { date: "2025-10-20", type: "aprovacao", description: "Aprovou layout Dogbook Natal" },
-      { date: "2025-11-02", type: "mensagem", description: "Recebeu Dogbook, elogiou qualidade" },
-    ],
-    tags: ["VIP", "Recorrente", "3+ compras"],
-  },
-  {
-    id: 4,
-    name: "Mariana Costa",
-    email: "mariana@email.com",
-    phone: "(11) 96543-2109",
-    city: "Sao Paulo",
-    state: "SP",
-    clientType: "pj",
-    cpfCnpj: "12.345.678/0001-99",
-    photoUrl: "",
-    pets: [
-      { name: "Mel", breed: "Dachshund", birthDate: "2022-02-14", photoUrl: "", size: "Pequeno", gender: "Femea" },
-      { name: "Bob", breed: "Lhasa Apso", birthDate: "2021-07-01", photoUrl: "", size: "Pequeno", gender: "Macho" },
-    ],
-    address: { cep: "04543-011", street: "R. Funchal", number: "263", complement: "Sala 12", neighborhood: "Vila Olimpia", city: "Sao Paulo", state: "SP" },
-    fullAddress: "R. Funchal, 263, Sala 12 - Vila Olimpia, Sao Paulo - SP",
-    notes: "Empresa de pet care, compra corporativa",
-    razaoSocial: "Pet Care LTDA",
-    nomeFantasia: "Mariana Pet Care",
-    purchases: [
-      {
-        id: "#PAM-004",
-        date: "2026-03-05",
-        type: "misto",
-        dogbooks: [
-          { subId: "#PAM-004-1", theme: "Caoniversario", petName: "Mel", stage: "Enviado", photosUploaded: 30, photosRequired: 30 },
-          { subId: "#PAM-004-2", theme: "Verao", petName: "Bob", stage: "Em Producao", photosUploaded: 30, photosRequired: 30 },
-          { subId: "#PAM-004-3", theme: "Natal", petName: "Mel", stage: "Aguardando Fotos", photosUploaded: 8, photosRequired: 30 },
-        ],
-        sessions: [
-          { subId: "#SES-004-1", type: "Pocket", petName: "Mel", date: "2026-03-20", stage: "Entregue", photosDelivered: 20 },
-          { subId: "#SES-004-2", type: "Estudio", petName: "Bob", date: "2026-03-21", stage: "Em Edicao", photosDelivered: 0 },
-          { subId: "#SES-004-3", type: "Completa", petName: "Mel", date: "2026-03-22", stage: "Confirmada", photosDelivered: 0 },
-        ],
-        total: "R$ 10.823,00",
-        payment: "Pago",
-        paymentMethod: "Cartao 10x",
-        coupon: "PETCARE20",
-      },
-    ],
-    createdAt: "2025-09-10",
-    lastActivity: "2026-03-22",
-    status: "ativo",
-    source: "Influenciador",
-    interactions: [
-      { date: "2026-03-22", type: "sessao", description: "Sessao Completa confirmada" },
-      { date: "2026-03-05", type: "compra", description: "Compra corporativa: 3 Dogbooks + 3 Sessoes" },
-    ],
-    tags: ["Corporativo", "Alto Valor"],
-  },
-  {
-    id: 5,
-    name: "Pedro Santos",
-    email: "pedro@email.com",
-    phone: "(11) 95432-1098",
-    city: "Santo Andre",
-    state: "SP",
-    clientType: "pf",
-    cpfCnpj: "321.654.987-00",
-    photoUrl: "",
-    pets: [
-      { name: "Pipoca", breed: "Pug", birthDate: "2023-06-12", photoUrl: "", size: "Pequeno", gender: "Femea" },
-    ],
-    address: { cep: "09020-010", street: "R. das Figueiras", number: "78", complement: "", neighborhood: "Centro", city: "Santo Andre", state: "SP" },
-    fullAddress: "R. das Figueiras, 78 - Centro, Santo Andre - SP",
-    notes: "",
-    razaoSocial: "",
-    nomeFantasia: "",
-    purchases: [
-      {
-        id: "#PAM-005",
-        date: "2026-02-28",
-        type: "dogbook",
-        dogbooks: [
-          { subId: "#PAM-005-1", theme: "Ano Novo", petName: "Pipoca", stage: "Entregue", photosUploaded: 30, photosRequired: 30 },
-        ],
-        sessions: [],
-        total: "R$ 490,00",
-        payment: "Pago",
-        paymentMethod: "PIX",
-        coupon: "",
-      },
-    ],
-    createdAt: "2026-02-01",
-    lastActivity: "2026-02-28",
-    status: "ativo",
-    source: "Google",
-    interactions: [
-      { date: "2026-02-28", type: "compra", description: "Comprou Dogbook Ano Novo" },
-      { date: "2026-03-10", type: "mensagem", description: "Elogiou o Dogbook recebido" },
-    ],
-    tags: [],
-  },
-  {
-    id: 6,
-    name: "Rodrigo Alves",
-    email: "rodrigo@email.com",
-    phone: "(21) 99876-5432",
-    city: "Rio de Janeiro",
-    state: "RJ",
-    clientType: "pf",
-    cpfCnpj: "654.321.987-00",
-    photoUrl: "",
-    pets: [
-      { name: "Simba", breed: "Shiba Inu", birthDate: "2024-01-05", photoUrl: "", size: "Medio", gender: "Macho" },
-      { name: "Nala", breed: "Shiba Inu", birthDate: "2024-01-05", photoUrl: "", size: "Medio", gender: "Femea" },
-    ],
-    address: { cep: "22041-080", street: "R. Barata Ribeiro", number: "450", complement: "Cobertura", neighborhood: "Copacabana", city: "Rio de Janeiro", state: "RJ" },
-    fullAddress: "R. Barata Ribeiro, 450, Cobertura - Copacabana, Rio de Janeiro - RJ",
-    notes: "",
-    razaoSocial: "",
-    nomeFantasia: "",
-    purchases: [
-      {
-        id: "#PAM-006",
-        date: "2026-03-12",
-        type: "dogbook",
-        dogbooks: [
-          { subId: "#PAM-006-1", theme: "Verao", petName: "Simba", stage: "Aguardando Pagamento", photosUploaded: 0, photosRequired: 30 },
-          { subId: "#PAM-006-2", theme: "Inverno", petName: "Simba", stage: "Aguardando Pagamento", photosUploaded: 0, photosRequired: 30 },
-        ],
-        sessions: [],
-        total: "R$ 931,00",
-        payment: "Pendente",
-        paymentMethod: "",
-        coupon: "",
-      },
-      {
-        id: "#SES-006",
-        date: "2026-03-12",
-        type: "sessao",
-        dogbooks: [],
-        sessions: [
-          { subId: "#SES-006-1", type: "Completa", petName: "Simba", date: "2026-03-25", stage: "Agendada", photosDelivered: 0 },
-          { subId: "#SES-006-2", type: "Pocket", petName: "Nala", date: "2026-03-26", stage: "Aguardando Pagamento", photosDelivered: 0 },
-        ],
-        total: "R$ 5.800,00",
-        payment: "Parcial",
-        paymentMethod: "Cartao 10x",
-        coupon: "",
-      },
-    ],
-    createdAt: "2026-03-01",
-    lastActivity: "2026-03-12",
-    status: "novo",
-    source: "Instagram",
-    interactions: [
-      { date: "2026-03-12", type: "compra", description: "Primeira compra: 2 Dogbooks + 2 Sessoes" },
-    ],
-    tags: ["Novo"],
-  },
-  {
-    id: 7,
-    name: "Julia Ferreira",
-    email: "julia@email.com",
-    phone: "(11) 94321-8765",
-    city: "Sao Paulo",
-    state: "SP",
-    clientType: "pf",
-    cpfCnpj: "111.222.333-44",
-    photoUrl: "",
-    pets: [
-      { name: "Biscuit", breed: "Bulldog Frances", birthDate: "2023-09-01", photoUrl: "", size: "Pequeno", gender: "Macho" },
-    ],
-    address: { cep: "01414-001", street: "R. Augusta", number: "1200", complement: "Apto 5B", neighborhood: "Consolacao", city: "Sao Paulo", state: "SP" },
-    fullAddress: "R. Augusta, 1200, Apto 5B - Consolacao, Sao Paulo - SP",
-    notes: "Nao comprou nos ultimos 6 meses",
-    razaoSocial: "",
-    nomeFantasia: "",
-    purchases: [
-      {
-        id: "#PAM-007",
-        date: "2025-08-15",
-        type: "dogbook",
-        dogbooks: [
-          { subId: "#PAM-007-1", theme: "Inverno", petName: "Biscuit", stage: "Entregue", photosUploaded: 30, photosRequired: 30 },
-        ],
-        sessions: [],
-        total: "R$ 490,00",
-        payment: "Pago",
-        paymentMethod: "PIX",
-        coupon: "",
-      },
-    ],
-    createdAt: "2025-08-01",
-    lastActivity: "2025-09-20",
-    status: "inativo",
-    source: "Google",
-    interactions: [
-      { date: "2025-08-15", type: "compra", description: "Comprou Dogbook Inverno" },
-      { date: "2025-09-20", type: "mensagem", description: "Elogiou produto recebido" },
-    ],
-    tags: ["Inativo"],
-  },
-];
+interface DbDogbook {
+  id: string;
+  order_id: string;
+  customer_id: string;
+  pet_id: string | null;
+  sub_number: string;
+  theme: string;
+  stage: string;
+  total_pages: number;
+  photos_uploaded: number;
+  photos_max: number;
+  created_at: string;
+  pet?: DbPet | null;
+}
+
+interface DbPhotoSession {
+  id: string;
+  session_number: string;
+  order_id: string;
+  customer_id: string;
+  pet_id: string | null;
+  session_type: string;
+  status: string;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
+  duration_minutes: number | null;
+  location: string | null;
+  total_photos: number | null;
+  observations: string | null;
+  created_at: string;
+  pet?: DbPet | null;
+}
+
+/** Enriched order with nested dogbooks & sessions for display */
+interface EnrichedOrder {
+  id: string;
+  order_number: string;
+  date: string;
+  type: "dogbook" | "sessao" | "misto";
+  total: number;
+  payment_status: string;
+  payment_method: string | null;
+  coupon_id: string | null;
+  dogbooks: DbDogbook[];
+  sessions: DbPhotoSession[];
+}
 
 /* ────────────────────── Helpers ────────────────────── */
 
@@ -557,107 +200,119 @@ function formatCurrency(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function parseCurrency(str: string): number {
-  const val = parseFloat(str.replace("R$ ", "").replace(/\./g, "").replace(",", "."));
-  return isNaN(val) ? 0 : val;
-}
-
 function stageColor(stage: string) {
   switch (stage) {
-    case "Entregue":
+    case "concluido":
+    case "entregue":
       return "text-green-700 bg-green-50 border-green-200";
-    case "Enviado":
+    case "enviado":
       return "text-purple-700 bg-purple-50 border-purple-200";
-    case "Em Producao":
-    case "Em Edicao":
+    case "em_producao":
+    case "em_edicao":
+    case "em_criacao":
       return "text-blue-700 bg-blue-50 border-blue-200";
-    case "Aprovacao Layout":
-    case "Realizada":
+    case "em_aprovacao":
+    case "realizada":
       return "text-yellow-700 bg-yellow-50 border-yellow-200";
-    case "Aguardando Fotos":
-    case "Agendada":
-    case "Confirmada":
+    case "aguardando_fotos":
+    case "agendada":
+    case "confirmada":
       return "text-orange-700 bg-orange-50 border-orange-200";
-    case "Aguardando Pagamento":
+    case "aguardando_pagamento":
       return "text-red-700 bg-red-50 border-red-200";
     default:
       return "text-gray-700 bg-gray-50 border-gray-200";
   }
 }
 
+function stageLabel(stage: string): string {
+  const map: Record<string, string> = {
+    aguardando_pagamento: "Aguardando Pagamento",
+    aguardando_fotos: "Aguardando Fotos",
+    em_criacao: "Em Criacao",
+    em_aprovacao: "Aprovacao Layout",
+    em_producao: "Em Producao",
+    enviado: "Enviado",
+    concluido: "Entregue",
+    agendada: "Agendada",
+    confirmada: "Confirmada",
+    realizada: "Realizada",
+    em_edicao: "Em Edicao",
+    entregue: "Entregue",
+    cancelada: "Cancelada",
+  };
+  return map[stage] || stage;
+}
+
 function sessionTypeBadge(type: string) {
   switch (type) {
-    case "Pocket":
+    case "pocket":
       return "bg-emerald-100 text-emerald-700";
-    case "Estudio":
+    case "estudio":
       return "bg-blue-100 text-blue-700";
-    case "Completa":
+    case "completa":
       return "bg-purple-100 text-purple-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
 }
 
-function statusColor(status: ClientStatus) {
-  switch (status) {
-    case "ativo":
-      return "bg-green-100 text-green-700 border-green-200";
-    case "inativo":
-      return "bg-gray-100 text-gray-500 border-gray-200";
-    case "novo":
-      return "bg-blue-100 text-blue-700 border-blue-200";
-  }
-}
-
-function statusLabel(status: ClientStatus) {
-  switch (status) {
-    case "ativo": return "Ativo";
-    case "inativo": return "Inativo";
-    case "novo": return "Novo";
-  }
-}
-
-function interactionIcon(type: Interaction["type"]) {
-  switch (type) {
-    case "compra": return <ShoppingBag className="size-3 text-green-600" />;
-    case "mensagem": return <MessageSquare className="size-3 text-blue-600" />;
-    case "sessao": return <Camera className="size-3 text-purple-600" />;
-    case "aprovacao": return <CheckCircle className="size-3 text-emerald-600" />;
-    case "upload": return <ImageIcon className="size-3 text-amber-600" />;
-    case "visita": return <Eye className="size-3 text-gray-500" />;
-  }
-}
-
-function getClientStats(client: Client) {
-  let totalDogbooks = 0;
-  let totalSessions = 0;
-  let totalSpent = 0;
-  let delivered = 0;
-  let pending = 0;
-
-  client.purchases.forEach((p) => {
-    totalDogbooks += p.dogbooks.length;
-    totalSessions += p.sessions.length;
-    totalSpent += parseCurrency(p.total);
-    p.dogbooks.forEach((d) => {
-      if (d.stage === "Entregue") delivered++;
-      else pending++;
-    });
-    p.sessions.forEach((s) => {
-      if (s.stage === "Entregue") delivered++;
-      else pending++;
-    });
-  });
-
-  return {
-    totalPurchases: client.purchases.length,
-    totalDogbooks,
-    totalSessions,
-    totalSpentNum: totalSpent,
-    totalSpent: formatCurrency(totalSpent),
-    delivered,
-    pending,
+function sessionTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    pocket: "Pocket",
+    estudio: "Estudio",
+    completa: "Completa",
   };
+  return map[type] || type;
+}
+
+function themeLabel(theme: string): string {
+  const map: Record<string, string> = {
+    verao: "Verao",
+    inverno: "Inverno",
+    natal: "Natal",
+    ano_novo: "Ano Novo",
+    caoniversario: "Caoniversario",
+  };
+  return map[theme] || theme;
+}
+
+function paymentStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    pendente: "Pendente",
+    processando: "Processando",
+    pago: "Pago",
+    falhou: "Falhou",
+    reembolsado: "Reembolsado",
+    expirado: "Expirado",
+  };
+  return map[status] || status;
+}
+
+function paymentStatusVariant(status: string): "default" | "outline" | "destructive" {
+  switch (status) {
+    case "pago":
+      return "default";
+    case "processando":
+      return "outline";
+    case "pendente":
+    case "falhou":
+    case "reembolsado":
+    case "expirado":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
+
+function paymentMethodLabel(method: string | null): string {
+  if (!method) return "";
+  const map: Record<string, string> = {
+    cartao: "Cartao",
+    pix: "PIX",
+    boleto: "Boleto",
+  };
+  return map[method] || method;
 }
 
 function getInitials(name: string): string {
@@ -686,81 +341,149 @@ function daysSince(date: string): number {
   return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function buildFullAddress(c: DbCustomer): string {
+  return [c.street, c.number, c.complement, c.neighborhood, c.city, c.state]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** Derive a status from customer data: active if ordered in last 90 days, new if created in last 30, else inactive */
+function deriveStatus(customer: DbCustomer, orders: DbOrder[]): "ativo" | "novo" | "inativo" {
+  const now = Date.now();
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+  const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+
+  const hasRecentOrder = orders.some(
+    (o) => now - new Date(o.created_at).getTime() < ninetyDays
+  );
+  if (hasRecentOrder) return "ativo";
+
+  const isNew = now - new Date(customer.created_at).getTime() < thirtyDays;
+  if (isNew) return "novo";
+
+  return "inativo";
+}
+
+type DerivedStatus = "ativo" | "novo" | "inativo";
+
+function statusColor(status: DerivedStatus) {
+  switch (status) {
+    case "ativo":
+      return "bg-green-100 text-green-700 border-green-200";
+    case "inativo":
+      return "bg-gray-100 text-gray-500 border-gray-200";
+    case "novo":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+  }
+}
+
+function statusLabel(status: DerivedStatus) {
+  switch (status) {
+    case "ativo": return "Ativo";
+    case "inativo": return "Inativo";
+    case "novo": return "Novo";
+  }
+}
+
+function getCustomerStats(orders: EnrichedOrder[]) {
+  let totalDogbooks = 0;
+  let totalSessions = 0;
+  let totalSpent = 0;
+  let delivered = 0;
+  let pending = 0;
+
+  orders.forEach((o) => {
+    totalDogbooks += o.dogbooks.length;
+    totalSessions += o.sessions.length;
+    totalSpent += o.total;
+    o.dogbooks.forEach((d) => {
+      if (d.stage === "concluido") delivered++;
+      else pending++;
+    });
+    o.sessions.forEach((s) => {
+      if (s.status === "entregue") delivered++;
+      else pending++;
+    });
+  });
+
+  return {
+    totalPurchases: orders.length,
+    totalDogbooks,
+    totalSessions,
+    totalSpentNum: totalSpent,
+    totalSpent: formatCurrency(totalSpent),
+    delivered,
+    pending,
+  };
+}
+
 /* ────────────────────── New Client Form State ────────────────────── */
 
 interface NewPetField {
   name: string;
   breed: string;
   birthDate: string;
-  size: string;
-  gender: string;
 }
 
-const emptyPet: NewPetField = { name: "", breed: "", birthDate: "", size: "", gender: "" };
+const emptyPet: NewPetField = { name: "", breed: "", birthDate: "" };
 
 /* ────────────────────── Client History Panel ────────────────────── */
 
-function ClientHistoryPanel({ client }: { client: Client }) {
-  const stats = getClientStats(client);
+function ClientHistoryPanel({
+  customer,
+  orders,
+  loadingDetail,
+}: {
+  customer: DbCustomer;
+  orders: EnrichedOrder[];
+  loadingDetail: boolean;
+}) {
+  const stats = getCustomerStats(orders);
   const [expandedPurchase, setExpandedPurchase] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"resumo" | "compras" | "timeline">("resumo");
+  const [activeTab, setActiveTab] = useState<"resumo" | "compras">("resumo");
+  const fullAddress = buildFullAddress(customer);
+  const lastOrder = orders.length > 0 ? orders[0] : null;
 
   return (
     <div className="space-y-6">
-      {/* ── Client Header ── */}
+      {/* Client Header */}
       <div className="flex items-start gap-5 rounded-xl border bg-muted/20 p-5">
         <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-[#8b5e5e]/10 text-lg font-bold text-[#8b5e5e]">
-          {getInitials(client.name)}
+          {getInitials(customer.name)}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <h3 className="text-xl font-semibold text-foreground">{client.name}</h3>
-            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusColor(client.status)}`}>
-              {statusLabel(client.status)}
-            </span>
+            <h3 className="text-xl font-semibold text-foreground">{customer.name}</h3>
           </div>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <Mail className="size-3.5 shrink-0" /> <span className="truncate">{client.email}</span>
+              <Mail className="size-3.5 shrink-0" /> <span className="truncate">{customer.email}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="size-3.5 shrink-0" /> {client.phone}
+              <Phone className="size-3.5 shrink-0" /> {customer.phone}
             </div>
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <MapPin className="size-3.5 shrink-0" /> {client.fullAddress}
-            </div>
+            {fullAddress && (
+              <div className="flex items-center gap-2 sm:col-span-2">
+                <MapPin className="size-3.5 shrink-0" /> {fullAddress}
+              </div>
+            )}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="text-xs px-2.5 py-0.5">
-              {client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}
-            </Badge>
-            <Badge variant="outline" className="text-xs px-2.5 py-0.5">
-              {client.clientType === "pf" ? `CPF: ${client.cpfCnpj}` : `CNPJ: ${client.cpfCnpj}`}
-            </Badge>
+            {customer.cpf && (
+              <Badge variant="outline" className="text-xs px-2.5 py-0.5">
+                CPF: {customer.cpf}
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">
-              Cliente desde {formatDate(client.createdAt)} · Origem: {client.source}
+              Cliente desde {formatDate(customer.created_at)}
             </span>
           </div>
-          {client.tags.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {client.tags.map((tag) => (
-                <span key={tag} className="inline-flex rounded-full bg-[#8b5e5e]/10 px-2.5 py-1 text-[10px] font-medium text-[#8b5e5e]">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {client.clientType === "pj" && (
-            <div className="mt-1.5 text-xs text-muted-foreground">
-              {client.razaoSocial} · {client.nomeFantasia}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1.5">
-        {(["resumo", "compras", "timeline"] as const).map((tab) => (
+        {(["resumo", "compras"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -770,13 +493,20 @@ function ClientHistoryPanel({ client }: { client: Client }) {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {tab === "resumo" ? "Resumo" : tab === "compras" ? "Compras" : "Timeline"}
+            {tab === "resumo" ? "Resumo" : "Compras"}
           </button>
         ))}
       </div>
 
-      {/* ── Tab: Resumo ── */}
-      {activeTab === "resumo" && (
+      {loadingDetail && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="size-6 animate-spin text-[#8b5e5e]" />
+          <span className="ml-2 text-sm text-muted-foreground">Carregando dados...</span>
+        </div>
+      )}
+
+      {/* Tab: Resumo */}
+      {!loadingDetail && activeTab === "resumo" && (
         <div className="space-y-6">
           {/* KPIs */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
@@ -813,11 +543,17 @@ function ClientHistoryPanel({ client }: { client: Client }) {
           </div>
 
           {/* Engagement */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border p-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Ultima Atividade</p>
-              <p className="mt-1.5 text-base font-semibold">{formatDate(client.lastActivity)}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">ha {daysSince(client.lastActivity)} dias</p>
+              {lastOrder ? (
+                <>
+                  <p className="mt-1.5 text-base font-semibold">{formatDate(lastOrder.date)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">ha {daysSince(lastOrder.date)} dias</p>
+                </>
+              ) : (
+                <p className="mt-1.5 text-base font-semibold text-muted-foreground">-</p>
+              )}
             </div>
             <div className="rounded-xl border p-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Ticket Medio</p>
@@ -828,83 +564,82 @@ function ClientHistoryPanel({ client }: { client: Client }) {
               </p>
             </div>
             <div className="rounded-xl border p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Origem</p>
-              <p className="mt-1.5 text-base font-semibold">{client.source}</p>
-            </div>
-            <div className="rounded-xl border p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</p>
-              <p className="mt-1.5 text-base font-semibold">{client.clientType === "pf" ? "Pessoa Fisica" : "Pessoa Juridica"}</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Cliente Desde</p>
+              <p className="mt-1.5 text-base font-semibold">{formatDate(customer.created_at)}</p>
             </div>
           </div>
 
           {/* Pets */}
           <div>
             <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Dog className="size-3.5" /> Pets ({client.pets.length})
+              <Dog className="size-3.5" /> Pets ({customer.pets.length})
             </h4>
             <div className="space-y-1.5">
-              {client.pets.map((pet, idx) => (
-                <div key={idx} className="flex items-center gap-3 rounded-lg border p-2.5">
+              {customer.pets.map((pet) => (
+                <div key={pet.id} className="flex items-center gap-3 rounded-lg border p-2.5">
                   <div className="flex size-9 items-center justify-center rounded-full bg-amber-100 text-sm">
                     🐾
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{pet.name}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {pet.breed} · {pet.gender} · {pet.size} · {calculateAge(pet.birthDate)}
+                      {pet.breed}{pet.birthday ? ` · ${calculateAge(pet.birthday)}` : ""}
                     </p>
                   </div>
                 </div>
               ))}
+              {customer.pets.length === 0 && (
+                <p className="py-2 text-center text-xs text-muted-foreground">Nenhum pet cadastrado</p>
+              )}
             </div>
           </div>
 
           {/* Notes */}
-          {client.notes && (
+          {customer.notes && (
             <div>
               <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Observacoes
               </h4>
               <p className="rounded-lg border bg-muted/20 p-2.5 text-xs text-foreground">
-                {client.notes}
+                {customer.notes}
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Tab: Compras ── */}
-      {activeTab === "compras" && (
+      {/* Tab: Compras */}
+      {!loadingDetail && activeTab === "compras" && (
         <div className="space-y-2">
-          {client.purchases.map((purchase) => {
-            const isExpanded = expandedPurchase === purchase.id;
-            const totalItems = purchase.dogbooks.length + purchase.sessions.length;
+          {orders.map((order) => {
+            const isExpanded = expandedPurchase === order.order_number;
+            const totalItems = order.dogbooks.length + order.sessions.length;
 
             return (
-              <div key={purchase.id} className="rounded-lg border">
+              <div key={order.order_number} className="rounded-lg border">
                 <button
-                  onClick={() => setExpandedPurchase(isExpanded ? null : purchase.id)}
+                  onClick={() => setExpandedPurchase(isExpanded ? null : order.order_number)}
                   className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/20"
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-primary">
-                      {purchase.id}
+                      {order.order_number}
                     </span>
                     <Badge variant="outline" className="text-[9px]">
-                      {purchase.type === "dogbook" ? "Dogbook" : purchase.type === "sessao" ? "Sessao" : "Misto"}
+                      {order.type === "dogbook" ? "Dogbook" : order.type === "sessao" ? "Sessao" : "Misto"}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground">
-                      {formatDate(purchase.date)} · {totalItems} item{totalItems > 1 ? "s" : ""}
+                      {formatDate(order.date)} · {totalItems} item{totalItems > 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={purchase.payment === "Pago" ? "default" : purchase.payment === "Parcial" ? "outline" : "destructive"}
+                      variant={paymentStatusVariant(order.payment_status)}
                       className="text-[9px]"
                     >
-                      {purchase.payment}
+                      {paymentStatusLabel(order.payment_status)}
                     </Badge>
-                    <span className="text-xs font-medium text-foreground">{purchase.total}</span>
+                    <span className="text-xs font-medium text-foreground">{formatCurrency(order.total)}</span>
                     {isExpanded ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
                   </div>
                 </button>
@@ -912,30 +647,31 @@ function ClientHistoryPanel({ client }: { client: Client }) {
                 {isExpanded && (
                   <div className="border-t px-3 pb-3 pt-2">
                     <div className="mb-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                      <span>Data: {formatDate(purchase.date)}</span>
-                      {purchase.paymentMethod && <span>· Pagamento: {purchase.paymentMethod}</span>}
-                      {purchase.coupon && <span>· Cupom: <span className="font-mono text-primary">{purchase.coupon}</span></span>}
+                      <span>Data: {formatDate(order.date)}</span>
+                      {order.payment_method && <span>· Pagamento: {paymentMethodLabel(order.payment_method)}</span>}
                     </div>
 
-                    {purchase.dogbooks.length > 0 && (
+                    {order.dogbooks.length > 0 && (
                       <div className="mb-2">
                         <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Dogbooks</p>
-                        {purchase.dogbooks.map((d) => (
-                          <div key={d.subId} className="mb-1 flex items-center justify-between rounded border-l-2 border-l-primary/30 bg-muted/10 px-2 py-1.5">
+                        {order.dogbooks.map((d) => (
+                          <div key={d.sub_number} className="mb-1 flex items-center justify-between rounded border-l-2 border-l-primary/30 bg-muted/10 px-2 py-1.5">
                             <div className="flex items-center gap-2">
                               <BookOpen className="size-3 text-primary/50" />
                               <div>
-                                <span className="font-mono text-[10px] text-primary/70">{d.subId}</span>
-                                <span className="ml-1.5 text-xs text-foreground">{d.theme} ({d.petName})</span>
+                                <span className="font-mono text-[10px] text-primary/70">{d.sub_number}</span>
+                                <span className="ml-1.5 text-xs text-foreground">
+                                  {themeLabel(d.theme)}{d.pet ? ` (${d.pet.name})` : ""}
+                                </span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                                 <ImageIcon className="size-2.5" />
-                                {d.photosUploaded}/{d.photosRequired}
+                                {d.photos_uploaded}/{d.photos_max}
                               </div>
                               <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${stageColor(d.stage)}`}>
-                                {d.stage}
+                                {stageLabel(d.stage)}
                               </span>
                             </div>
                           </div>
@@ -943,31 +679,33 @@ function ClientHistoryPanel({ client }: { client: Client }) {
                       </div>
                     )}
 
-                    {purchase.sessions.length > 0 && (
+                    {order.sessions.length > 0 && (
                       <div>
                         <p className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Sessoes Fotograficas</p>
-                        {purchase.sessions.map((s) => (
-                          <div key={s.subId} className="mb-1 flex items-center justify-between rounded border-l-2 border-l-purple-300 bg-muted/10 px-2 py-1.5">
+                        {order.sessions.map((s) => (
+                          <div key={s.session_number} className="mb-1 flex items-center justify-between rounded border-l-2 border-l-purple-300 bg-muted/10 px-2 py-1.5">
                             <div className="flex items-center gap-2">
                               <Camera className="size-3 text-purple-400" />
                               <div>
-                                <span className="font-mono text-[10px] text-primary/70">{s.subId}</span>
-                                <span className={`ml-1 inline-flex rounded-full px-1 py-0.5 text-[8px] font-medium ${sessionTypeBadge(s.type)}`}>{s.type}</span>
-                                <span className="ml-1 text-xs text-foreground">{s.petName}</span>
+                                <span className="font-mono text-[10px] text-primary/70">{s.session_number}</span>
+                                <span className={`ml-1 inline-flex rounded-full px-1 py-0.5 text-[8px] font-medium ${sessionTypeBadge(s.session_type)}`}>
+                                  {sessionTypeLabel(s.session_type)}
+                                </span>
+                                {s.pet && <span className="ml-1 text-xs text-foreground">{s.pet.name}</span>}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              {s.date && (
-                                <span className="text-[9px] text-muted-foreground">{formatDate(s.date)}</span>
+                              {s.scheduled_date && (
+                                <span className="text-[9px] text-muted-foreground">{formatDate(s.scheduled_date)}</span>
                               )}
-                              {s.photosDelivered > 0 && (
+                              {s.total_photos && s.total_photos > 0 && (
                                 <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                                   <ImageIcon className="size-2.5" />
-                                  {s.photosDelivered}
+                                  {s.total_photos}
                                 </div>
                               )}
-                              <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${stageColor(s.stage)}`}>
-                                {s.stage}
+                              <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${stageColor(s.status)}`}>
+                                {stageLabel(s.status)}
                               </span>
                             </div>
                           </div>
@@ -980,34 +718,9 @@ function ClientHistoryPanel({ client }: { client: Client }) {
             );
           })}
 
-          {client.purchases.length === 0 && (
+          {orders.length === 0 && (
             <p className="py-4 text-center text-xs text-muted-foreground">
               Nenhuma compra realizada
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Tab: Timeline ── */}
-      {activeTab === "timeline" && (
-        <div className="space-y-0">
-          {client.interactions.length > 0 ? (
-            <div className="relative ml-3 border-l border-muted-foreground/20 pl-5">
-              {client.interactions.map((interaction, idx) => (
-                <div key={idx} className="relative mb-4 last:mb-0">
-                  <div className="absolute -left-[23px] top-0.5 flex size-4 items-center justify-center rounded-full border bg-background">
-                    {interactionIcon(interaction.type)}
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-foreground">{interaction.description}</p>
-                    <p className="text-[10px] text-muted-foreground">{formatDate(interaction.date)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="py-4 text-center text-xs text-muted-foreground">
-              Nenhuma interacao registrada
             </p>
           )}
         </div>
@@ -1019,15 +732,33 @@ function ClientHistoryPanel({ client }: { client: Client }) {
 /* ────────────────────── Page ────────────────────── */
 
 export default function ClientesPage() {
+  const supabase = createClient();
+
+  const [customers, setCustomers] = useState<DbCustomer[]>([]);
+  const [allOrders, setAllOrders] = useState<DbOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Detail sheet state
+  const [detailCustomerId, setDetailCustomerId] = useState<string | null>(null);
+  const [detailOrders, setDetailOrders] = useState<EnrichedOrder[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");
-  const [deleteClient, setDeleteClient] = useState<Client | null>(null);
-  const [editClient, setEditClient] = useState<Client | null>(null);
+  const [statusFilter, setStatusFilter] = useState<DerivedStatus | "todos">("todos");
+  const [deleteClient, setDeleteClient] = useState<DbCustomer | null>(null);
+  const [deletingClient, setDeletingClient] = useState(false);
+  const [editClient, setEditClient] = useState<DbCustomer | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingNew, setSavingNew] = useState(false);
 
   // New client form state
-  const [clientType, setClientType] = useState<ClientType>("pf");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newCpf, setNewCpf] = useState("");
+  const [newNotes, setNewNotes] = useState("");
   const [newPets, setNewPets] = useState<NewPetField[]>([{ ...emptyPet }]);
 
   // Address form state
@@ -1038,6 +769,20 @@ export default function ClientesPage() {
   const [newNeighborhood, setNewNeighborhood] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newState, setNewState] = useState("");
+
+  // Edit form state
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editCpf, setEditCpf] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editCep, setEditCep] = useState("");
+  const [editStreet, setEditStreet] = useState("");
+  const [editNumber, setEditNumber] = useState("");
+  const [editComplement, setEditComplement] = useState("");
+  const [editNeighborhood, setEditNeighborhood] = useState("");
+  const [editCity, setEditCity] = useState("");
+  const [editState, setEditState] = useState("");
 
   const cepLookup = useCepLookup(
     useMemo(() => ({
@@ -1050,6 +795,125 @@ export default function ClientesPage() {
       },
     }), [])
   );
+
+  const editCepLookup = useCepLookup(
+    useMemo(() => ({
+      onSuccess: (data) => {
+        setEditStreet(data.logradouro || "");
+        setEditNeighborhood(data.bairro || "");
+        setEditCity(data.localidade || "");
+        setEditState(data.uf || "");
+        if (data.complemento) setEditComplement(data.complemento);
+      },
+    }), [])
+  );
+
+  /* ── Fetch customers with pets ── */
+  const fetchCustomers = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*, pets(*)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar clientes", { description: error.message });
+      setLoading(false);
+      return;
+    }
+
+    setCustomers((data as DbCustomer[]) || []);
+
+    // Also fetch all orders for KPI calculations
+    const { data: ordersData, error: ordersError } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!ordersError && ordersData) {
+      setAllOrders(ordersData as DbOrder[]);
+    }
+
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
+  /* ── Fetch detail data for a customer (lazy load) ── */
+  const fetchCustomerDetail = useCallback(async (customerId: string) => {
+    setLoadingDetail(true);
+    setDetailCustomerId(customerId);
+    setDetailOrders([]);
+
+    // Fetch orders
+    const { data: ordersData, error: ordersErr } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false });
+
+    if (ordersErr) {
+      toast.error("Erro ao carregar pedidos", { description: ordersErr.message });
+      setLoadingDetail(false);
+      return;
+    }
+
+    const orders = (ordersData as DbOrder[]) || [];
+
+    // Fetch dogbooks for this customer
+    const { data: dogbooksData } = await supabase
+      .from("dogbooks")
+      .select("*, pet:pets(*)")
+      .eq("customer_id", customerId);
+
+    // Fetch photo sessions for this customer
+    const { data: sessionsData } = await supabase
+      .from("photo_sessions")
+      .select("*, pet:pets(*)")
+      .eq("customer_id", customerId);
+
+    const dogbooks = (dogbooksData as DbDogbook[]) || [];
+    const sessions = (sessionsData as DbPhotoSession[]) || [];
+
+    // Group dogbooks and sessions by order
+    const enriched: EnrichedOrder[] = orders.map((order) => {
+      const orderDogbooks = dogbooks.filter((d) => d.order_id === order.id);
+      const orderSessions = sessions.filter((s) => s.order_id === order.id);
+      const hasDogbooks = orderDogbooks.length > 0;
+      const hasSessions = orderSessions.length > 0;
+      let type: "dogbook" | "sessao" | "misto" = "dogbook";
+      if (hasDogbooks && hasSessions) type = "misto";
+      else if (hasSessions) type = "sessao";
+
+      return {
+        id: order.id,
+        order_number: order.order_number,
+        date: order.created_at,
+        type,
+        total: Number(order.total) || 0,
+        payment_status: order.payment_status,
+        payment_method: order.payment_method,
+        coupon_id: order.coupon_id,
+        dogbooks: orderDogbooks,
+        sessions: orderSessions,
+      };
+    });
+
+    setDetailOrders(enriched);
+    setLoadingDetail(false);
+  }, [supabase]);
+
+  /* ── Derive orders per customer for table stats ── */
+  const customerOrdersMap = useMemo(() => {
+    const map = new Map<string, DbOrder[]>();
+    allOrders.forEach((o) => {
+      if (!map.has(o.customer_id)) map.set(o.customer_id, []);
+      map.get(o.customer_id)!.push(o);
+    });
+    return map;
+  }, [allOrders]);
 
   const addPet = () => {
     if (newPets.length < 10) {
@@ -1067,6 +931,165 @@ export default function ClientesPage() {
     );
   };
 
+  const resetNewForm = () => {
+    setNewName("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewCpf("");
+    setNewNotes("");
+    setNewPets([{ ...emptyPet }]);
+    setNewCep("");
+    setNewStreet("");
+    setNewNumber("");
+    setNewComplement("");
+    setNewNeighborhood("");
+    setNewCity("");
+    setNewState("");
+  };
+
+  /* ── Create customer ── */
+  const handleCreateCustomer = async () => {
+    if (!newName.trim()) {
+      toast.error("Nome e obrigatorio");
+      return;
+    }
+    if (!newPhone.trim()) {
+      toast.error("Telefone e obrigatorio");
+      return;
+    }
+
+    setSavingNew(true);
+    try {
+      const { data: customerData, error: customerErr } = await supabase
+        .from("customers")
+        .insert({
+          name: newName.trim(),
+          email: newEmail.trim(),
+          phone: newPhone.trim(),
+          cpf: newCpf.trim() || null,
+          cep: newCep.trim() || null,
+          street: newStreet.trim() || null,
+          number: newNumber.trim() || null,
+          complement: newComplement.trim() || null,
+          neighborhood: newNeighborhood.trim() || null,
+          city: newCity.trim() || null,
+          state: newState.trim() || null,
+          notes: newNotes.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (customerErr) throw customerErr;
+
+      // Insert pets
+      const validPets = newPets.filter((p) => p.name.trim());
+      if (validPets.length > 0 && customerData) {
+        const { error: petsErr } = await supabase.from("pets").insert(
+          validPets.map((p) => ({
+            customer_id: customerData.id,
+            name: p.name.trim(),
+            breed: p.breed.trim() || "",
+            birthday: p.birthDate || null,
+          }))
+        );
+        if (petsErr) {
+          toast.error("Cliente criado, mas erro ao cadastrar pets", { description: petsErr.message });
+        }
+      }
+
+      toast.success("Cliente cadastrado com sucesso!");
+      setShowNewClientModal(false);
+      resetNewForm();
+      fetchCustomers();
+    } catch (err: any) {
+      toast.error("Erro ao cadastrar cliente", { description: err.message });
+    } finally {
+      setSavingNew(false);
+    }
+  };
+
+  /* ── Edit customer ── */
+  const handleOpenEdit = (customer: DbCustomer) => {
+    setEditClient(customer);
+    setEditName(customer.name);
+    setEditEmail(customer.email);
+    setEditPhone(customer.phone);
+    setEditCpf(customer.cpf || "");
+    setEditNotes(customer.notes || "");
+    setEditCep(customer.cep || "");
+    setEditStreet(customer.street || "");
+    setEditNumber(customer.number || "");
+    setEditComplement(customer.complement || "");
+    setEditNeighborhood(customer.neighborhood || "");
+    setEditCity(customer.city || "");
+    setEditState(customer.state || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editClient) return;
+    if (!editName.trim()) {
+      toast.error("Nome e obrigatorio");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({
+          name: editName.trim(),
+          email: editEmail.trim(),
+          phone: editPhone.trim(),
+          cpf: editCpf.trim() || null,
+          notes: editNotes.trim() || null,
+          cep: editCep.trim() || null,
+          street: editStreet.trim() || null,
+          number: editNumber.trim() || null,
+          complement: editComplement.trim() || null,
+          neighborhood: editNeighborhood.trim() || null,
+          city: editCity.trim() || null,
+          state: editState.trim() || null,
+        })
+        .eq("id", editClient.id);
+
+      if (error) throw error;
+
+      toast.success("Cliente atualizado com sucesso!");
+      setEditClient(null);
+      fetchCustomers();
+    } catch (err: any) {
+      toast.error("Erro ao atualizar cliente", { description: err.message });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  /* ── Delete customer ── */
+  const handleDeleteCustomer = async () => {
+    if (!deleteClient) return;
+    setDeletingClient(true);
+    try {
+      // Delete pets first (cascade may handle this, but let's be safe)
+      await supabase.from("pets").delete().eq("customer_id", deleteClient.id);
+
+      const { error } = await supabase
+        .from("customers")
+        .delete()
+        .eq("id", deleteClient.id);
+
+      if (error) throw error;
+
+      toast.success("Cliente excluido com sucesso!");
+      setDeleteClient(null);
+      fetchCustomers();
+    } catch (err: any) {
+      toast.error("Erro ao excluir cliente", { description: err.message });
+    } finally {
+      setDeletingClient(false);
+    }
+  };
+
+  /* ── Reset password ── */
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<{ email: string; name: string } | null>(null);
 
@@ -1082,11 +1105,11 @@ export default function ClientesPage() {
         const data = await res.json();
         throw new Error(data.error || "Erro ao enviar email");
       }
-      toast.success(`Email de redefinição de senha enviado para ${name}!`, {
+      toast.success(`Email de redefinicao de senha enviado para ${name}!`, {
         description: `Um link foi enviado para ${email}.`,
       });
     } catch (err: any) {
-      toast.error("Erro ao enviar email de redefinição.", {
+      toast.error("Erro ao enviar email de redefinicao.", {
         description: err.message,
       });
     } finally {
@@ -1094,30 +1117,36 @@ export default function ClientesPage() {
     }
   };
 
-  const filteredClients = mockClients.filter((client) => {
-    const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm) ||
-      client.pets.some((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === "todos" || client.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  /* ── Filtering ── */
+  const customersWithStatus = useMemo(() => {
+    return customers.map((c) => ({
+      ...c,
+      _status: deriveStatus(c, customerOrdersMap.get(c.id) || []),
+      _orders: customerOrdersMap.get(c.id) || [],
+    }));
+  }, [customers, customerOrdersMap]);
+
+  const filteredClients = useMemo(() => {
+    return customersWithStatus.filter((customer) => {
+      const matchesSearch =
+        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone.includes(searchTerm) ||
+        customer.pets.some((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesStatus = statusFilter === "todos" || customer._status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [customersWithStatus, searchTerm, statusFilter]);
 
   /* KPIs - filtered by date range */
-  const clientsInRange = mockClients.filter((c) => isInRange(c.createdAt, dateRange));
+  const clientsInRange = customersWithStatus.filter((c) => isInRange(c.created_at, dateRange));
   const totalClients = clientsInRange.length;
   const totalPets = clientsInRange.reduce((sum, c) => sum + c.pets.length, 0);
-  const allPurchasesInRange = mockClients.flatMap((c) =>
-    c.purchases.filter((p) => isInRange(p.date, dateRange))
-  );
-  const totalPurchases = allPurchasesInRange.length;
-  const totalRevenue = allPurchasesInRange.reduce((sum, p) => sum + parseCurrency(p.total), 0);
-  const activeClients = mockClients.filter((c) =>
-    c.purchases.some((p) => isInRange(p.date, dateRange))
-  ).length;
-  const newClients = mockClients.filter(
-    (c) => c.status === "novo" && isInRange(c.createdAt, dateRange)
+  const ordersInRange = allOrders.filter((o) => isInRange(o.created_at, dateRange));
+  const totalPurchases = ordersInRange.length;
+  const totalRevenue = ordersInRange.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  const activeClients = customersWithStatus.filter((c) =>
+    c._orders.some((o) => isInRange(o.created_at, dateRange))
   ).length;
 
   return (
@@ -1132,8 +1161,11 @@ export default function ClientesPage() {
           </p>
         </div>
 
-        {/* ── New Client Button ── */}
-        <Dialog open={showNewClientModal} onOpenChange={setShowNewClientModal}>
+        {/* New Client Button */}
+        <Dialog open={showNewClientModal} onOpenChange={(open) => {
+          setShowNewClientModal(open);
+          if (!open) resetNewForm();
+        }}>
           <DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#8b5e5e] px-4 text-sm font-medium text-white hover:bg-[#7a4f4f]">
             <UserPlus className="size-4" />
             Novo Cliente
@@ -1150,95 +1182,51 @@ export default function ClientesPage() {
             </DialogHeader>
 
             <div className="space-y-5 py-2">
-              {/* Photo */}
-              <div className="rounded-lg border bg-muted/20 p-4 text-center">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Foto do Cliente
-                </p>
-                <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-muted">
-                  <Users className="size-6 text-muted-foreground" />
-                </div>
-                <button className="mt-2 text-[10px] font-medium text-[#8b5e5e] hover:underline">
-                  Escolher foto
-                </button>
-              </div>
-
-              {/* Client Type */}
-              <div className="rounded-lg border p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Tipo de Cliente
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setClientType("pf")}
-                    className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                      clientType === "pf"
-                        ? "bg-[#8b5e5e] text-white"
-                        : "border bg-background text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    Pessoa Fisica
-                  </button>
-                  <button
-                    onClick={() => setClientType("pj")}
-                    className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                      clientType === "pj"
-                        ? "bg-[#8b5e5e] text-white"
-                        : "border bg-background text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    Pessoa Juridica
-                  </button>
-                </div>
-              </div>
-
-              {/* PF-specific: CPF */}
-              {clientType === "pf" && (
-                <div className="grid gap-1">
-                  <Label className="text-xs">CPF</Label>
-                  <Input placeholder="000.000.000-00" />
-                </div>
-              )}
-
-              {/* PJ-specific fields */}
-              {clientType === "pj" && (
-                <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
-                  <div className="grid gap-1">
-                    <Label className="text-xs">Razao Social</Label>
-                    <Input placeholder="Razao Social" />
-                  </div>
-                  <div className="grid gap-1">
-                    <Label className="text-xs">Nome Fantasia</Label>
-                    <Input placeholder="Nome Fantasia" />
-                  </div>
-                  <div className="grid gap-1 sm:col-span-2">
-                    <Label className="text-xs">CNPJ</Label>
-                    <Input placeholder="00.000.000/0000-00" />
-                  </div>
-                </div>
-              )}
-
               {/* Basic info */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <Label className="text-xs">
                     Nome <span className="text-red-500">*</span>
                   </Label>
-                  <Input placeholder="Nome do cliente" />
+                  <Input
+                    placeholder="Nome do cliente"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
                 </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Email</Label>
-                  <Input type="email" placeholder="email@exemplo.com" />
+                  <Input
+                    type="email"
+                    placeholder="email@exemplo.com"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                  />
                 </div>
               </div>
 
-              <div className="grid gap-1">
-                <Label className="text-xs">
-                  Telefone/WhatsApp <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input className="pl-9" placeholder="(11) 99999-9999" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <Label className="text-xs">
+                    Telefone/WhatsApp <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      placeholder="(11) 99999-9999"
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">CPF</Label>
+                  <Input
+                    placeholder="000.000.000-00"
+                    value={newCpf}
+                    onChange={(e) => setNewCpf(e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -1328,7 +1316,14 @@ export default function ClientesPage() {
                       placeholder="Preenchido automaticamente"
                       className="bg-muted/30 pr-9"
                     />
-                    <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        const addr = [newStreet, newNumber, newComplement, newNeighborhood, newCity, newState, newCep].filter(Boolean).join(", ");
+                        navigator.clipboard.writeText(addr);
+                        toast.success("Endereco copiado!");
+                      }}
+                    >
                       <Copy className="size-3.5" />
                     </button>
                   </div>
@@ -1401,33 +1396,6 @@ export default function ClientesPage() {
                           />
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-xs">Porte</Label>
-                          <select
-                            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                            value={pet.size}
-                            onChange={(e) => updatePet(idx, "size", e.target.value)}
-                          >
-                            <option value="">Selecione</option>
-                            <option value="Mini">Mini</option>
-                            <option value="Pequeno">Pequeno</option>
-                            <option value="Medio">Medio</option>
-                            <option value="Grande">Grande</option>
-                            <option value="Gigante">Gigante</option>
-                          </select>
-                        </div>
-                        <div className="grid gap-1">
-                          <Label className="text-xs">Sexo</Label>
-                          <select
-                            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                            value={pet.gender}
-                            onChange={(e) => updatePet(idx, "gender", e.target.value)}
-                          >
-                            <option value="">Selecione</option>
-                            <option value="Macho">Macho</option>
-                            <option value="Femea">Femea</option>
-                          </select>
-                        </div>
-                        <div className="grid gap-1">
                           <Label className="text-xs">Idade</Label>
                           <Input
                             readOnly
@@ -1442,26 +1410,14 @@ export default function ClientesPage() {
                 ))}
               </div>
 
-              {/* Source */}
-              <div className="grid gap-1">
-                <Label className="text-xs">Como conheceu a PAM?</Label>
-                <select className="h-9 w-full rounded-md border bg-background px-3 text-sm">
-                  <option value="">Selecione</option>
-                  <option value="Instagram">Instagram</option>
-                  <option value="Google">Google</option>
-                  <option value="Indicacao">Indicacao</option>
-                  <option value="Influenciador">Influenciador</option>
-                  <option value="TikTok">TikTok</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-
               {/* Notes */}
               <div className="grid gap-1">
                 <Label className="text-xs">Observacoes</Label>
                 <textarea
                   placeholder="Observacoes sobre o cliente..."
                   className="min-h-[80px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
                 />
               </div>
             </div>
@@ -1469,11 +1425,16 @@ export default function ClientesPage() {
             <DialogFooter className="gap-2">
               <Button
                 variant="outline"
-                onClick={() => setShowNewClientModal(false)}
+                onClick={() => { setShowNewClientModal(false); resetNewForm(); }}
               >
                 Cancelar
               </Button>
-              <Button className="bg-[#8b5e5e] hover:bg-[#7a4f4f]">
+              <Button
+                className="bg-[#8b5e5e] hover:bg-[#7a4f4f]"
+                onClick={handleCreateCustomer}
+                disabled={savingNew}
+              >
+                {savingNew && <Loader2 className="mr-2 size-4 animate-spin" />}
                 Cadastrar
               </Button>
             </DialogFooter>
@@ -1481,10 +1442,10 @@ export default function ClientesPage() {
         </Dialog>
       </div>
 
-      {/* ── Date Filter ── */}
+      {/* Date Filter */}
       <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
-      {/* ── KPIs ── */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardContent className="p-4">
@@ -1556,7 +1517,7 @@ export default function ClientesPage() {
         </Card>
       </div>
 
-      {/* ── Client Table ── */}
+      {/* Client Table */}
       <Card>
         <CardHeader>
           <CardTitle className="sr-only">Lista de Clientes</CardTitle>
@@ -1588,243 +1549,243 @@ export default function ClientesPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Contato</TableHead>
-                  <TableHead className="hidden md:table-cell">Pets</TableHead>
-                  <TableHead className="hidden lg:table-cell">Cidade</TableHead>
-                  <TableHead className="text-center">Pedidos</TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">Total Gasto</TableHead>
-                  <TableHead className="hidden xl:table-cell">Ultimo Pedido</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredClients.map((client) => {
-                  const stats = getClientStats(client);
-                  const lastPurchase = client.purchases.length > 0
-                    ? client.purchases.reduce((latest, p) =>
-                        new Date(p.date) > new Date(latest.date) ? p : latest
-                      )
-                    : null;
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="size-8 animate-spin text-[#8b5e5e]" />
+              <span className="ml-3 text-sm text-muted-foreground">Carregando clientes...</span>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Contato</TableHead>
+                      <TableHead className="hidden md:table-cell">Pets</TableHead>
+                      <TableHead className="hidden lg:table-cell">Cidade</TableHead>
+                      <TableHead className="text-center">Pedidos</TableHead>
+                      <TableHead className="text-right hidden sm:table-cell">Total Gasto</TableHead>
+                      <TableHead className="hidden xl:table-cell">Ultimo Pedido</TableHead>
+                      <TableHead className="text-right">Acoes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClients.map((customer) => {
+                      const orders = customer._orders;
+                      const totalSpent = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+                      const lastOrder = orders.length > 0 ? orders[0] : null;
 
-                  return (
-                    <TableRow key={client.id}>
-                      {/* Client avatar + name + status */}
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-9 items-center justify-center rounded-full bg-[#8b5e5e]/10 text-xs font-bold text-[#8b5e5e]">
-                            {getInitials(client.name)}
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {client.name}
-                            </p>
-                            <div className="mt-0.5 flex items-center gap-1">
-                              <Badge variant="outline" className="text-[9px]">
-                                {client.clientType === "pf" ? "PF" : "PJ"}
-                              </Badge>
-                              <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[8px] font-medium ${statusColor(client.status)}`}>
-                                {statusLabel(client.status)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Contact */}
-                      <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="flex items-center gap-1 text-xs text-foreground">
-                            <Phone className="size-3 text-muted-foreground" />
-                            {client.phone}
-                          </span>
-                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Mail className="size-3" />
-                            {client.email}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Pets */}
-                      <TableCell className="hidden md:table-cell">
-                        <div className="flex flex-wrap gap-1">
-                          {client.pets.map((pet, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800"
-                            >
-                              🐾 {pet.name}
-                              <span className="text-amber-600/60">
-                                ({pet.breed})
-                              </span>
-                            </span>
-                          ))}
-                        </div>
-                      </TableCell>
-
-                      {/* City */}
-                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                        {client.city}, {client.state}
-                      </TableCell>
-
-                      {/* Orders */}
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-sm font-semibold text-foreground">
-                            {stats.totalPurchases}
-                          </span>
-                          <div className="flex gap-1">
-                            {stats.totalDogbooks > 0 && (
-                              <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary">
-                                <BookOpen className="size-2.5" />
-                                {stats.totalDogbooks}
-                              </span>
-                            )}
-                            {stats.totalSessions > 0 && (
-                              <span className="inline-flex items-center gap-0.5 rounded bg-purple-100 px-1 py-0.5 text-[9px] font-medium text-purple-700">
-                                <Camera className="size-2.5" />
-                                {stats.totalSessions}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Total Spent */}
-                      <TableCell className="text-right hidden sm:table-cell">
-                        <span className="text-sm font-semibold text-foreground">
-                          {stats.totalSpent}
-                        </span>
-                      </TableCell>
-
-                      {/* Last Order */}
-                      <TableCell className="hidden xl:table-cell">
-                        {lastPurchase ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-mono text-[10px] text-primary/70">{lastPurchase.id}</span>
-                            <span className="text-[10px] text-muted-foreground">{formatDate(lastPurchase.date)}</span>
-                            <Badge
-                              variant={lastPurchase.payment === "Pago" ? "default" : lastPurchase.payment === "Parcial" ? "outline" : "destructive"}
-                              className="w-fit text-[8px]"
-                            >
-                              {lastPurchase.payment}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-
-                      {/* Actions */}
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {/* History Sheet */}
-                          <Sheet>
-                            <SheetTrigger className="inline-flex size-7 items-center justify-center rounded-md text-[#8b5e5e] hover:bg-muted" title="Investigar cliente">
-                              <FileSearch className="size-3.5" />
-                            </SheetTrigger>
-                            <SheetContent className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-[70vw] p-0">
-                              <div className="mx-auto w-[90%] py-6">
-                                <SheetHeader>
-                                  <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
-                                    <FileSearch className="size-4" />
-                                    Historico do Cliente
-                                  </SheetTitle>
-                                </SheetHeader>
-                                <div className="mt-4">
-                                  <ClientHistoryPanel client={client} />
+                      return (
+                        <TableRow key={customer.id}>
+                          {/* Client avatar + name + status */}
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-9 items-center justify-center rounded-full bg-[#8b5e5e]/10 text-xs font-bold text-[#8b5e5e]">
+                                {getInitials(customer.name)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {customer.name}
+                                </p>
+                                <div className="mt-0.5 flex items-center gap-1">
+                                  <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[8px] font-medium ${statusColor(customer._status)}`}>
+                                    {statusLabel(customer._status)}
+                                  </span>
                                 </div>
                               </div>
-                            </SheetContent>
-                          </Sheet>
+                            </div>
+                          </TableCell>
 
-                          {/* Edit */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-[#8b5e5e]"
-                            title="Editar cliente"
-                            onClick={() => setEditClient(client)}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
+                          {/* Contact */}
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="flex items-center gap-1 text-xs text-foreground">
+                                <Phone className="size-3 text-muted-foreground" />
+                                {customer.phone}
+                              </span>
+                              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <Mail className="size-3" />
+                                {customer.email}
+                              </span>
+                            </div>
+                          </TableCell>
 
-                          {/* WhatsApp */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-green-600"
-                            title="Enviar mensagem via WhatsApp"
-                            onClick={() => {
-                              const phone = client.phone.replace(/\D/g, "");
-                              const fullPhone = phone.startsWith("55") ? phone : `55${phone}`;
-                              const message = encodeURIComponent(
-                                `Ola ${client.name.split(" ")[0]}, tudo bem? Aqui e a equipe Patas, Amor e Memorias! 🐾`
-                              );
-                              window.open(`https://wa.me/${fullPhone}?text=${message}`, "_blank");
-                            }}
-                          >
-                            <MessageSquare className="size-3.5" />
-                          </Button>
+                          {/* Pets */}
+                          <TableCell className="hidden md:table-cell">
+                            <div className="flex flex-wrap gap-1">
+                              {customer.pets.map((pet) => (
+                                <span
+                                  key={pet.id}
+                                  className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800"
+                                >
+                                  🐾 {pet.name}
+                                  {pet.breed && (
+                                    <span className="text-amber-600/60">
+                                      ({pet.breed})
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                              {customer.pets.length === 0 && (
+                                <span className="text-[10px] text-muted-foreground">-</span>
+                              )}
+                            </div>
+                          </TableCell>
 
-                          {/* Reset Password */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-amber-600"
-                            title="Resetar senha do cliente"
-                            disabled={resettingEmail === client.email}
-                            onClick={() => setResetTarget({ email: client.email, name: client.name })}
-                          >
-                            {resettingEmail === client.email ? (
-                              <Loader2 className="size-3.5 animate-spin" />
+                          {/* City */}
+                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                            {customer.city && customer.state
+                              ? `${customer.city}, ${customer.state}`
+                              : customer.city || customer.state || "-"}
+                          </TableCell>
+
+                          {/* Orders */}
+                          <TableCell className="text-center">
+                            <span className="text-sm font-semibold text-foreground">
+                              {orders.length}
+                            </span>
+                          </TableCell>
+
+                          {/* Total Spent */}
+                          <TableCell className="text-right hidden sm:table-cell">
+                            <span className="text-sm font-semibold text-foreground">
+                              {formatCurrency(totalSpent)}
+                            </span>
+                          </TableCell>
+
+                          {/* Last Order */}
+                          <TableCell className="hidden xl:table-cell">
+                            {lastOrder ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-mono text-[10px] text-primary/70">{lastOrder.order_number}</span>
+                                <span className="text-[10px] text-muted-foreground">{formatDate(lastOrder.created_at)}</span>
+                                <Badge
+                                  variant={paymentStatusVariant(lastOrder.payment_status)}
+                                  className="w-fit text-[8px]"
+                                >
+                                  {paymentStatusLabel(lastOrder.payment_status)}
+                                </Badge>
+                              </div>
                             ) : (
-                              <KeyRound className="size-3.5" />
+                              <span className="text-[10px] text-muted-foreground">-</span>
                             )}
-                          </Button>
+                          </TableCell>
 
-                          {/* Delete */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-red-500"
-                            title="Excluir cliente"
-                            onClick={() => setDeleteClient(client)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                          {/* Actions */}
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              {/* History Sheet */}
+                              <Sheet onOpenChange={(open) => {
+                                if (open) fetchCustomerDetail(customer.id);
+                              }}>
+                                <SheetTrigger className="inline-flex size-7 items-center justify-center rounded-md text-[#8b5e5e] hover:bg-muted" title="Investigar cliente">
+                                  <FileSearch className="size-3.5" />
+                                </SheetTrigger>
+                                <SheetContent className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-[70vw] p-0">
+                                  <div className="mx-auto w-[90%] py-6">
+                                    <SheetHeader>
+                                      <SheetTitle className="flex items-center gap-2 text-[#8b5e5e]">
+                                        <FileSearch className="size-4" />
+                                        Historico do Cliente
+                                      </SheetTitle>
+                                    </SheetHeader>
+                                    <div className="mt-4">
+                                      <ClientHistoryPanel
+                                        customer={customer}
+                                        orders={detailCustomerId === customer.id ? detailOrders : []}
+                                        loadingDetail={detailCustomerId === customer.id && loadingDetail}
+                                      />
+                                    </div>
+                                  </div>
+                                </SheetContent>
+                              </Sheet>
 
-          {filteredClients.length === 0 && (
-            <div className="py-12 text-center">
-              <Users className="mx-auto size-8 text-muted-foreground/40" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                Nenhum cliente encontrado
-              </p>
-            </div>
+                              {/* Edit */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-[#8b5e5e]"
+                                title="Editar cliente"
+                                onClick={() => handleOpenEdit(customer)}
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+
+                              {/* WhatsApp */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-green-600"
+                                title="Enviar mensagem via WhatsApp"
+                                onClick={() => {
+                                  const phone = customer.phone.replace(/\D/g, "");
+                                  const fullPhone = phone.startsWith("55") ? phone : `55${phone}`;
+                                  const message = encodeURIComponent(
+                                    `Ola ${customer.name.split(" ")[0]}, tudo bem? Aqui e a equipe Patas, Amor e Memorias! 🐾`
+                                  );
+                                  window.open(`https://wa.me/${fullPhone}?text=${message}`, "_blank");
+                                }}
+                              >
+                                <MessageSquare className="size-3.5" />
+                              </Button>
+
+                              {/* Reset Password */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-amber-600"
+                                title="Resetar senha do cliente"
+                                disabled={resettingEmail === customer.email}
+                                onClick={() => setResetTarget({ email: customer.email, name: customer.name })}
+                              >
+                                {resettingEmail === customer.email ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <KeyRound className="size-3.5" />
+                                )}
+                              </Button>
+
+                              {/* Delete */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-red-500"
+                                title="Excluir cliente"
+                                onClick={() => setDeleteClient(customer)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {filteredClients.length === 0 && !loading && (
+                <div className="py-12 text-center">
+                  <Users className="mx-auto size-8 text-muted-foreground/40" />
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Nenhum cliente encontrado
+                  </p>
+                </div>
+              )}
+
+              {/* Results count */}
+              <div className="border-t px-4 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {filteredClients.length} de {customers.length} clientes
+                </p>
+              </div>
+            </>
           )}
-
-          {/* Results count */}
-          <div className="border-t px-4 py-2">
-            <p className="text-[11px] text-muted-foreground">
-              {filteredClients.length} de {mockClients.length} clientes
-            </p>
-          </div>
         </CardContent>
       </Card>
 
-      {/* ════════════════════ Delete Confirmation Modal ════════════════════ */}
+      {/* Delete Confirmation Modal */}
       <Dialog open={!!deleteClient} onOpenChange={(open) => !open && setDeleteClient(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1842,7 +1803,7 @@ export default function ClientesPage() {
             <div className="rounded-lg border border-red-200 bg-red-50 p-3">
               <p className="text-xs text-red-700">
                 Ao excluir este cliente, todos os dados associados serao removidos permanentemente,
-                incluindo historico de compras, pets cadastrados e interacoes.
+                incluindo pets cadastrados.
               </p>
             </div>
           )}
@@ -1852,11 +1813,10 @@ export default function ClientesPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                // TODO: API call to delete client
-                setDeleteClient(null);
-              }}
+              onClick={handleDeleteCustomer}
+              disabled={deletingClient}
             >
+              {deletingClient && <Loader2 className="mr-2 size-4 animate-spin" />}
               <Trash2 className="mr-2 size-4" />
               Excluir Cliente
             </Button>
@@ -1864,7 +1824,7 @@ export default function ClientesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ════════════════════ Edit Client Modal ════════════════════ */}
+      {/* Edit Client Modal */}
       <Dialog open={!!editClient} onOpenChange={(open) => !open && setEditClient(null)}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1886,32 +1846,37 @@ export default function ClientesPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label>Nome Completo *</Label>
-                    <Input defaultValue={editClient.name} className="mt-1" />
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="mt-1"
+                    />
                   </div>
                   <div>
-                    <Label>E-mail *</Label>
-                    <Input defaultValue={editClient.email} type="email" className="mt-1" />
+                    <Label>E-mail</Label>
+                    <Input
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      type="email"
+                      className="mt-1"
+                    />
                   </div>
                   <div>
-                    <Label>Telefone *</Label>
-                    <Input defaultValue={editClient.phone} className="mt-1" />
+                    <Label>Telefone</Label>
+                    <Input
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="mt-1"
+                    />
                   </div>
                   <div>
-                    <Label>{editClient.clientType === "pf" ? "CPF" : "CNPJ"}</Label>
-                    <Input defaultValue={editClient.cpfCnpj} className="mt-1" disabled />
+                    <Label>CPF</Label>
+                    <Input
+                      value={editCpf}
+                      onChange={(e) => setEditCpf(e.target.value)}
+                      className="mt-1"
+                    />
                   </div>
-                  {editClient.clientType === "pj" && (
-                    <>
-                      <div>
-                        <Label>Razao Social</Label>
-                        <Input defaultValue={editClient.razaoSocial || ""} className="mt-1" />
-                      </div>
-                      <div>
-                        <Label>Nome Fantasia</Label>
-                        <Input defaultValue={editClient.nomeFantasia || ""} className="mt-1" />
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
 
@@ -1920,32 +1885,70 @@ export default function ClientesPage() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Endereco
                 </p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <Label>Endereco Completo</Label>
-                    <Input defaultValue={editClient.fullAddress} className="mt-1" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label>CEP</Label>
+                    <div className="relative">
+                      <Input
+                        value={editCep}
+                        onChange={(e) => setEditCep(e.target.value)}
+                        onBlur={() => editCepLookup.fetchCep(editCep)}
+                        className="mt-1"
+                        placeholder="00000-000"
+                      />
+                      {editCepLookup.loading && (
+                        <Loader2 className="absolute right-2 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Status
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {(["ativo", "novo", "inativo"] as const).map((s) => (
-                    <button
-                      key={s}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                        editClient.status === s
-                          ? "border-[#8b5e5e] bg-[#8b5e5e] text-white"
-                          : "border-border bg-background text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {s === "ativo" ? "Ativo" : s === "novo" ? "Novo" : "Inativo"}
-                    </button>
-                  ))}
+                  <div>
+                    <Label>Rua</Label>
+                    <Input
+                      value={editStreet}
+                      onChange={(e) => setEditStreet(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Numero</Label>
+                    <Input
+                      value={editNumber}
+                      onChange={(e) => setEditNumber(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Complemento</Label>
+                    <Input
+                      value={editComplement}
+                      onChange={(e) => setEditComplement(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Bairro</Label>
+                    <Input
+                      value={editNeighborhood}
+                      onChange={(e) => setEditNeighborhood(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Cidade</Label>
+                    <Input
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Estado</Label>
+                    <Input
+                      value={editState}
+                      onChange={(e) => setEditState(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1955,7 +1958,8 @@ export default function ClientesPage() {
                   Observacoes
                 </p>
                 <textarea
-                  defaultValue={editClient.notes || ""}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   rows={3}
                   placeholder="Observacoes sobre o cliente..."
@@ -1969,11 +1973,10 @@ export default function ClientesPage() {
             </Button>
             <Button
               className="bg-[#8b5e5e] text-white hover:bg-[#7a5050]"
-              onClick={() => {
-                // TODO: API call to save client
-                setEditClient(null);
-              }}
+              onClick={handleSaveEdit}
+              disabled={savingEdit}
             >
+              {savingEdit && <Loader2 className="mr-2 size-4 animate-spin" />}
               Salvar Alteracoes
             </Button>
           </DialogFooter>

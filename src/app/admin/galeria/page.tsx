@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -15,144 +15,284 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Heart, Shield, Search, Image as ImageIcon, ExternalLink } from "lucide-react";
+import {
+  Heart,
+  Search,
+  Image as ImageIcon,
+  ExternalLink,
+  Loader2,
+  Camera,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Star,
+} from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
-/* ────────────────────── Types & Data ────────────────────── */
+/* ────────────────────── Types ────────────────────── */
 
-interface GalleryItem {
-  id: number;
-  client: string;
-  pet: string;
-  phone: string;
-  date: string;
-  status: "Aprovada" | "Pendente";
+type PermissionStatus = "pendente" | "solicitada" | "aprovada" | "recusada";
+
+interface GalleryPhoto {
+  id: string;
+  customer_id: string;
+  dogbook_id: string | null;
+  storage_path: string;
+  url: string;
+  file_name: string;
+  file_size: number;
+  pet_name: string;
   favorited: boolean;
+  permission_status: PermissionStatus;
+  permission_requested_at: string | null;
+  uploaded_at: string;
+  customers: {
+    name: string;
+    phone: string;
+  } | null;
+  dogbooks: {
+    sub_number: string;
+    theme: string;
+  } | null;
 }
 
-const initialGalleryItems: GalleryItem[] = [
-  {
-    id: 1,
-    client: "Ana Souza",
-    pet: "Thor",
-    phone: "5511999990001",
-    date: "10/03/2026",
-    status: "Aprovada",
-    favorited: true,
-  },
-  {
-    id: 2,
-    client: "Carlos Mendes",
-    pet: "Bob",
-    phone: "5511999990002",
-    date: "08/03/2026",
-    status: "Pendente",
-    favorited: false,
-  },
-  {
-    id: 3,
-    client: "Fernanda Lima",
-    pet: "Mel",
-    phone: "5511999990003",
-    date: "05/03/2026",
-    status: "Aprovada",
-    favorited: true,
-  },
-  {
-    id: 4,
-    client: "Mariana Costa",
-    pet: "Pipoca",
-    phone: "5511999990004",
-    date: "03/03/2026",
-    status: "Pendente",
-    favorited: false,
-  },
-  {
-    id: 5,
-    client: "Pedro Santos",
-    pet: "Max",
-    phone: "5511999990005",
-    date: "01/03/2026",
-    status: "Aprovada",
-    favorited: false,
-  },
-  {
-    id: 6,
-    client: "Rodrigo Alves",
-    pet: "Nina",
-    phone: "5511999990006",
-    date: "28/02/2026",
-    status: "Aprovada",
-    favorited: true,
-  },
-  {
-    id: 7,
-    client: "Julia Ferreira",
-    pet: "Bolinha",
-    phone: "5511999990007",
-    date: "25/02/2026",
-    status: "Pendente",
-    favorited: false,
-  },
-  {
-    id: 8,
-    client: "Bruno Oliveira",
-    pet: "Toby",
-    phone: "5511999990008",
-    date: "22/02/2026",
-    status: "Aprovada",
-    favorited: true,
-  },
-];
+/* ────────────────────── Helpers ────────────────────── */
+
+const statusLabels: Record<PermissionStatus, string> = {
+  pendente: "Pendente",
+  solicitada: "Solicitada",
+  aprovada: "Aprovada",
+  recusada: "Recusada",
+};
+
+const statusBadgeVariant: Record<PermissionStatus, "default" | "outline" | "secondary" | "destructive"> = {
+  pendente: "outline",
+  solicitada: "secondary",
+  aprovada: "default",
+  recusada: "destructive",
+};
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
 /* ────────────────────── Component ────────────────────── */
 
 export default function GaleriaPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [items, setItems] = useState<GalleryItem[]>(initialGalleryItems);
+  const [favoritedFilter, setFavoritedFilter] = useState("all");
+  const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.pet.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const supabase = useMemo(() => createClient(), []);
 
-  const handleToggleFavorite = useCallback((id: number) => {
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        const newFavorited = !item.favorited;
-        toast.success(
-          newFavorited
-            ? `Foto de ${item.pet} (${item.client}) adicionada aos favoritos!`
-            : `Foto de ${item.pet} (${item.client}) removida dos favoritos.`
-        );
-        return { ...item, favorited: newFavorited };
-      })
-    );
-  }, []);
+  /* ────── Fetch ────── */
 
-  const handleSolicitarPermissao = useCallback((item: GalleryItem) => {
-    const message = encodeURIComponent(
-      `Olá ${item.client}! 🐾\n\n` +
-      `Aqui é a equipe da *Patas, Amor e Memórias*.\n\n` +
-      `As fotos do(a) *${item.pet}* estão incríveis! ` +
-      `Gostaríamos de solicitar sua autorização para compartilharmos as imagens ` +
-      `em nosso site e redes sociais.\n\n` +
-      `As fotos serão usadas exclusivamente em nossa querida cãomunidade ` +
-      `para continuar espalhando amor uma foto de cada vez, ` +
-      `e sempre com carinho e respeito. 💛\n\n` +
-      `Podemos contar com sua autorização?\n` +
-      `Desde já, nosso muitíssimo obrigado por fazer parte desse projeto!`
-    );
-    const whatsappUrl = `https://wa.me/${item.phone}?text=${message}`;
-    window.open(whatsappUrl, "_blank");
-    toast.success(`Solicitação de permissão enviada para ${item.client} via WhatsApp.`);
-  }, []);
+  const fetchPhotos = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("gallery_photos")
+      .select(
+        `
+        *,
+        customers ( name, phone ),
+        dogbooks ( sub_number, theme )
+        `
+      )
+      .order("uploaded_at", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar galeria: " + error.message);
+      setLoading(false);
+      return;
+    }
+
+    setPhotos((data as GalleryPhoto[]) ?? []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchPhotos();
+  }, [fetchPhotos]);
+
+  /* ────── Filters ────── */
+
+  const filteredItems = useMemo(() => {
+    return photos.filter((photo) => {
+      const clientName = photo.customers?.name ?? "";
+      const petName = photo.pet_name ?? "";
+      const matchesSearch =
+        clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        petName.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "all" || photo.permission_status === statusFilter;
+
+      const matchesFavorited =
+        favoritedFilter === "all" ||
+        (favoritedFilter === "favorited" && photo.favorited) ||
+        (favoritedFilter === "not_favorited" && !photo.favorited);
+
+      return matchesSearch && matchesStatus && matchesFavorited;
+    });
+  }, [photos, searchTerm, statusFilter, favoritedFilter]);
+
+  /* ────── KPI data ────── */
+
+  const kpis = useMemo(() => {
+    const total = photos.length;
+    const pending = photos.filter((p) => p.permission_status === "pendente").length;
+    const requested = photos.filter((p) => p.permission_status === "solicitada").length;
+    const approved = photos.filter((p) => p.permission_status === "aprovada").length;
+    const rejected = photos.filter((p) => p.permission_status === "recusada").length;
+    const favorited = photos.filter((p) => p.favorited).length;
+    return { total, pending, requested, approved, rejected, favorited };
+  }, [photos]);
+
+  /* ────── Actions ────── */
+
+  const addUpdating = (id: string) =>
+    setUpdatingIds((prev) => new Set(prev).add(id));
+  const removeUpdating = (id: string) =>
+    setUpdatingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+  const handleToggleFavorite = useCallback(
+    async (photo: GalleryPhoto) => {
+      const newFavorited = !photo.favorited;
+      const clientName = photo.customers?.name ?? "Cliente";
+
+      addUpdating(photo.id);
+      const { error } = await supabase
+        .from("gallery_photos")
+        .update({ favorited: newFavorited })
+        .eq("id", photo.id);
+
+      removeUpdating(photo.id);
+
+      if (error) {
+        toast.error("Erro ao atualizar favorito: " + error.message);
+        return;
+      }
+
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photo.id ? { ...p, favorited: newFavorited } : p
+        )
+      );
+      toast.success(
+        newFavorited
+          ? `Foto de ${photo.pet_name} (${clientName}) adicionada aos favoritos!`
+          : `Foto de ${photo.pet_name} (${clientName}) removida dos favoritos.`
+      );
+    },
+    [supabase]
+  );
+
+  const handleUpdatePermission = useCallback(
+    async (photo: GalleryPhoto, newStatus: PermissionStatus) => {
+      const clientName = photo.customers?.name ?? "Cliente";
+
+      addUpdating(photo.id);
+      const { error } = await supabase
+        .from("gallery_photos")
+        .update({ permission_status: newStatus })
+        .eq("id", photo.id);
+
+      removeUpdating(photo.id);
+
+      if (error) {
+        toast.error("Erro ao atualizar status: " + error.message);
+        return;
+      }
+
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photo.id ? { ...p, permission_status: newStatus } : p
+        )
+      );
+
+      const label = statusLabels[newStatus];
+      toast.success(
+        `Foto de ${photo.pet_name} (${clientName}): status alterado para "${label}".`
+      );
+    },
+    [supabase]
+  );
+
+  const handleSolicitarPermissao = useCallback(
+    async (photo: GalleryPhoto) => {
+      const clientName = photo.customers?.name ?? "Cliente";
+      const phone = photo.customers?.phone ?? "";
+
+      if (!phone) {
+        toast.error("Telefone do cliente nao encontrado.");
+        return;
+      }
+
+      const message = encodeURIComponent(
+        `Ola ${clientName}!\n\n` +
+          `Aqui e a equipe da *Patas, Amor e Memorias*.\n\n` +
+          `As fotos do(a) *${photo.pet_name}* estao incriveis! ` +
+          `Gostariamos de solicitar sua autorizacao para compartilharmos as imagens ` +
+          `em nosso site e redes sociais.\n\n` +
+          `As fotos serao usadas exclusivamente em nossa querida caomunidade ` +
+          `para continuar espalhando amor uma foto de cada vez, ` +
+          `e sempre com carinho e respeito.\n\n` +
+          `Podemos contar com sua autorizacao?\n` +
+          `Desde ja, nosso muitissimo obrigado por fazer parte desse projeto!`
+      );
+      const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+      window.open(whatsappUrl, "_blank");
+
+      // Update status to "solicitada" and record timestamp
+      addUpdating(photo.id);
+      const { error } = await supabase
+        .from("gallery_photos")
+        .update({
+          permission_status: "solicitada" as PermissionStatus,
+          permission_requested_at: new Date().toISOString(),
+        })
+        .eq("id", photo.id);
+
+      removeUpdating(photo.id);
+
+      if (error) {
+        toast.error("Erro ao atualizar status: " + error.message);
+        return;
+      }
+
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photo.id
+            ? {
+                ...p,
+                permission_status: "solicitada" as PermissionStatus,
+                permission_requested_at: new Date().toISOString(),
+              }
+            : p
+        )
+      );
+
+      toast.success(
+        `Solicitacao de permissao enviada para ${clientName} via WhatsApp.`
+      );
+    },
+    [supabase]
+  );
+
+  /* ────── Render ────── */
 
   return (
     <div className="space-y-6">
@@ -163,6 +303,76 @@ export default function GaleriaPage() {
         <p className="text-sm text-[#6b4c4c]">
           Feed de fotos dos clientes e pets
         </p>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <Camera className="size-5 text-[#8b5e5e]" />
+            <div>
+              <p className="text-xs text-[#6b4c4c]/70">Total</p>
+              <p className="text-lg font-bold text-[#6b4c4c]">
+                {loading ? "-" : kpis.total}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <Clock className="size-5 text-yellow-600" />
+            <div>
+              <p className="text-xs text-[#6b4c4c]/70">Pendentes</p>
+              <p className="text-lg font-bold text-[#6b4c4c]">
+                {loading ? "-" : kpis.pending}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <ExternalLink className="size-5 text-blue-500" />
+            <div>
+              <p className="text-xs text-[#6b4c4c]/70">Solicitadas</p>
+              <p className="text-lg font-bold text-[#6b4c4c]">
+                {loading ? "-" : kpis.requested}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <CheckCircle2 className="size-5 text-green-600" />
+            <div>
+              <p className="text-xs text-[#6b4c4c]/70">Aprovadas</p>
+              <p className="text-lg font-bold text-[#6b4c4c]">
+                {loading ? "-" : kpis.approved}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <XCircle className="size-5 text-red-500" />
+            <div>
+              <p className="text-xs text-[#6b4c4c]/70">Recusadas</p>
+              <p className="text-lg font-bold text-[#6b4c4c]">
+                {loading ? "-" : kpis.rejected}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-4">
+            <Star className="size-5 text-amber-500" />
+            <div>
+              <p className="text-xs text-[#6b4c4c]/70">Favoritas</p>
+              <p className="text-lg font-bold text-[#6b4c4c]">
+                {loading ? "-" : kpis.favorited}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -176,76 +386,200 @@ export default function GaleriaPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val ?? "all")}>
+        <Select
+          value={statusFilter}
+          onValueChange={(val) => setStatusFilter(val ?? "all")}
+        >
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filtrar status" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="pendente">Pendente</SelectItem>
+            <SelectItem value="solicitada">Solicitada</SelectItem>
+            <SelectItem value="aprovada">Aprovada</SelectItem>
+            <SelectItem value="recusada">Recusada</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={favoritedFilter}
+          onValueChange={(val) => setFavoritedFilter(val ?? "all")}
+        >
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Favoritos" />
+          </SelectTrigger>
+          <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="Aprovada">Aprovada</SelectItem>
-            <SelectItem value="Pendente">Pendente</SelectItem>
+            <SelectItem value="favorited">Favoritos</SelectItem>
+            <SelectItem value="not_favorited">Nao favoritos</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="size-8 animate-spin text-[#8b5e5e]" />
+          <p className="mt-3 text-sm text-[#6b4c4c]">Carregando galeria...</p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && filteredItems.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20">
+          <ImageIcon className="size-16 text-[#c4a0a0]" />
+          <p className="mt-4 text-lg font-medium text-[#6b4c4c]">
+            Nenhuma foto encontrada
+          </p>
+          <p className="mt-1 text-sm text-[#6b4c4c]/70">
+            {photos.length === 0
+              ? "A galeria ainda nao possui fotos."
+              : "Tente ajustar os filtros de busca."}
+          </p>
+        </div>
+      )}
+
       {/* Gallery Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredItems.map((item) => (
-          <Card key={item.id} className="overflow-hidden">
-            {/* Image Placeholder */}
-            <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#e8d4d4] to-[#fdf8f4]">
-              <ImageIcon className="size-16 text-[#c4a0a0]" />
-            </div>
-            <CardContent className="pt-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-medium text-[#6b4c4c]">{item.client}</p>
-                  <p className="text-xs text-[#6b4c4c]/70">
-                    Pet: {item.pet}
-                  </p>
-                  <p className="text-xs text-[#6b4c4c]/50">{item.date}</p>
-                </div>
-                <Badge
-                  variant={
-                    item.status === "Aprovada" ? "default" : "outline"
-                  }
-                >
-                  {item.status}
-                </Badge>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant={item.favorited ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    item.favorited
-                      ? "bg-[#8b5e5e] hover:bg-[#7a4f4f]"
-                      : ""
-                  }
-                  onClick={() => handleToggleFavorite(item.id)}
-                >
-                  <Heart
-                    className={`size-3.5 ${
-                      item.favorited ? "fill-current" : ""
-                    }`}
-                  />
-                  Favoritar
-                </Button>
-                {item.status === "Pendente" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSolicitarPermissao(item)}
-                  >
-                    <ExternalLink className="size-3.5" />
-                    Solicitar Permissao
-                  </Button>
+      {!loading && filteredItems.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredItems.map((photo) => {
+            const clientName = photo.customers?.name ?? "Cliente desconhecido";
+            const isUpdating = updatingIds.has(photo.id);
+
+            return (
+              <Card key={photo.id} className="overflow-hidden">
+                {/* Photo / Image */}
+                {photo.url ? (
+                  <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-[#e8d4d4] to-[#fdf8f4]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={`Foto de ${photo.pet_name}`}
+                      className="size-full object-cover"
+                      loading="lazy"
+                    />
+                    {photo.favorited && (
+                      <div className="absolute right-2 top-2">
+                        <Heart className="size-5 fill-red-500 text-red-500 drop-shadow" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#e8d4d4] to-[#fdf8f4]">
+                    <ImageIcon className="size-16 text-[#c4a0a0]" />
+                  </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <CardContent className="pt-3">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-[#6b4c4c]">
+                        {clientName}
+                      </p>
+                      <p className="text-xs text-[#6b4c4c]/70">
+                        Pet: {photo.pet_name}
+                      </p>
+                      {photo.dogbooks && (
+                        <p className="text-xs text-[#6b4c4c]/50">
+                          Dogbook: {photo.dogbooks.theme} (#{photo.dogbooks.sub_number})
+                        </p>
+                      )}
+                      <p className="text-xs text-[#6b4c4c]/50">
+                        {formatDate(photo.uploaded_at)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={statusBadgeVariant[photo.permission_status]}
+                      className="ml-2 shrink-0"
+                    >
+                      {statusLabels[photo.permission_status]}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {/* Favorite toggle */}
+                    <Button
+                      variant={photo.favorited ? "default" : "outline"}
+                      size="sm"
+                      className={
+                        photo.favorited
+                          ? "bg-[#8b5e5e] hover:bg-[#7a4f4f]"
+                          : ""
+                      }
+                      disabled={isUpdating}
+                      onClick={() => handleToggleFavorite(photo)}
+                    >
+                      {isUpdating ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Heart
+                          className={`size-3.5 ${
+                            photo.favorited ? "fill-current" : ""
+                          }`}
+                        />
+                      )}
+                      Favoritar
+                    </Button>
+
+                    {/* Request permission via WhatsApp (for pendente) */}
+                    {photo.permission_status === "pendente" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isUpdating}
+                        onClick={() => handleSolicitarPermissao(photo)}
+                      >
+                        <ExternalLink className="size-3.5" />
+                        Solicitar Permissao
+                      </Button>
+                    )}
+
+                    {/* Approve (for pendente or solicitada) */}
+                    {(photo.permission_status === "pendente" ||
+                      photo.permission_status === "solicitada") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-green-300 text-green-700 hover:bg-green-50"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          handleUpdatePermission(photo, "aprovada")
+                        }
+                      >
+                        {isUpdating ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="size-3.5" />
+                        )}
+                        Aprovar
+                      </Button>
+                    )}
+
+                    {/* Reject (for pendente or solicitada) */}
+                    {(photo.permission_status === "pendente" ||
+                      photo.permission_status === "solicitada") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          handleUpdatePermission(photo, "recusada")
+                        }
+                      >
+                        {isUpdating ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <XCircle className="size-3.5" />
+                        )}
+                        Recusar
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

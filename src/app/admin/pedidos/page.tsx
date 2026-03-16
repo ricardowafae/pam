@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -40,10 +40,24 @@ import {
   ShoppingBag,
   DollarSign,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 /* ────────────────────── Types ────────────────────── */
 
+/** DB enum values for dogbook stage */
+type DogbookStageDB =
+  | "aguardando_pagamento"
+  | "aguardando_fotos"
+  | "em_criacao"
+  | "em_aprovacao"
+  | "em_producao"
+  | "enviado"
+  | "concluido";
+
+/** Display labels used in the UI */
 type OrderStage =
   | "Aguardando Pagamento"
   | "Aguardando Fotos"
@@ -52,19 +66,22 @@ type OrderStage =
   | "Enviado"
   | "Entregue";
 
-type PaymentStatus = "Pago" | "Pendente" | "Reembolsado";
+type PaymentStatus = "Pago" | "Pendente" | "Reembolsado" | "Processando" | "Falhou" | "Expirado";
 
 interface DogbookItem {
-  subId: string;        // e.g. "#PAM-001-1"
+  id: string;          // dogbook UUID
+  subId: string;       // e.g. "#PAM-001-1"
   theme: string;
   petName: string;
-  stage: OrderStage;    // each sub-order has its own stage
+  stage: OrderStage;   // each sub-order has its own stage
+  stageDB: DogbookStageDB; // raw DB value for updates
   tracking: string;
   nf: string;
 }
 
 interface Order {
-  id: string;           // e.g. "#PAM-001"
+  id: string;           // order UUID
+  orderNumber: string;  // e.g. "#PAM-001"
   client: string;
   email: string;
   date: string;
@@ -75,108 +92,43 @@ interface Order {
   coupon: string;
 }
 
-/* ────────────────────── Mock Data ────────────────────── */
+/* ────────────────────── Stage mappings ────────────────────── */
 
-const initialOrders: Order[] = [
-  {
-    id: "#PAM-001",
-    client: "Ana Souza",
-    email: "ana@email.com",
-    date: "2026-03-10",
-    items: [
-      { subId: "#PAM-001-1", theme: "Verao", petName: "Thor", stage: "Em Producao", tracking: "BR123456789", nf: "NF-001234" },
-    ],
-    total: "R$ 490,00",
-    payment: "Pago",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#PAM-002",
-    client: "Carlos Mendes",
-    email: "carlos@email.com",
-    date: "2026-03-09",
-    items: [
-      { subId: "#PAM-002-1", theme: "Natal", petName: "Luna", stage: "Aprovacao Layout", tracking: "-", nf: "-" },
-      { subId: "#PAM-002-2", theme: "Caoniversario", petName: "Luna", stage: "Aguardando Fotos", tracking: "-", nf: "-" },
-    ],
-    total: "R$ 931,00",
-    payment: "Pago",
-    influencer: "Camila Pet",
-    coupon: "CAMILA10",
-  },
-  {
-    id: "#PAM-003",
-    client: "Fernanda Lima",
-    email: "fernanda@email.com",
-    date: "2026-03-08",
-    items: [
-      { subId: "#PAM-003-1", theme: "Inverno", petName: "Max", stage: "Aprovacao Layout", tracking: "-", nf: "-" },
-    ],
-    total: "R$ 490,00",
-    payment: "Pago",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#PAM-004",
-    client: "Mariana Costa",
-    email: "mariana@email.com",
-    date: "2026-03-05",
-    items: [
-      { subId: "#PAM-004-1", theme: "Caoniversario", petName: "Mel", stage: "Enviado", tracking: "BR987654321", nf: "NF-001237" },
-      { subId: "#PAM-004-2", theme: "Verao", petName: "Bob", stage: "Em Producao", tracking: "-", nf: "-" },
-      { subId: "#PAM-004-3", theme: "Natal", petName: "Mel", stage: "Aguardando Fotos", tracking: "-", nf: "-" },
-    ],
-    total: "R$ 1.323,00",
-    payment: "Pago",
-    influencer: "Doglovers SP",
-    coupon: "DOG15",
-  },
-  {
-    id: "#PAM-005",
-    client: "Pedro Santos",
-    email: "pedro@email.com",
-    date: "2026-02-28",
-    items: [
-      { subId: "#PAM-005-1", theme: "Ano Novo", petName: "Pipoca", stage: "Entregue", tracking: "BR456789123", nf: "NF-001238" },
-    ],
-    total: "R$ 490,00",
-    payment: "Pago",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#PAM-006",
-    client: "Rodrigo Alves",
-    email: "rodrigo@email.com",
-    date: "2026-03-12",
-    items: [
-      { subId: "#PAM-006-1", theme: "Verao", petName: "Simba", stage: "Aguardando Pagamento", tracking: "-", nf: "-" },
-      { subId: "#PAM-006-2", theme: "Inverno", petName: "Simba", stage: "Aguardando Pagamento", tracking: "-", nf: "-" },
-    ],
-    total: "R$ 931,00",
-    payment: "Pendente",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#PAM-007",
-    client: "Juliana Ferreira",
-    email: "juliana@email.com",
-    date: "2026-03-11",
-    items: [
-      { subId: "#PAM-007-1", theme: "Natal", petName: "Amora", stage: "Entregue", tracking: "BR111222333", nf: "NF-001240" },
-      { subId: "#PAM-007-2", theme: "Verao", petName: "Amora", stage: "Em Producao", tracking: "-", nf: "-" },
-      { subId: "#PAM-007-3", theme: "Caoniversario", petName: "Flor", stage: "Aprovacao Layout", tracking: "-", nf: "-" },
-      { subId: "#PAM-007-4", theme: "Inverno", petName: "Flor", stage: "Aguardando Fotos", tracking: "-", nf: "-" },
-    ],
-    total: "R$ 1.764,00",
-    payment: "Pago",
-    influencer: "Vida Animal",
-    coupon: "VIDA5",
-  },
-];
+const dbStageToDisplay: Record<DogbookStageDB, OrderStage> = {
+  aguardando_pagamento: "Aguardando Pagamento",
+  aguardando_fotos: "Aguardando Fotos",
+  em_criacao: "Aprovacao Layout",
+  em_aprovacao: "Aprovacao Layout",
+  em_producao: "Em Producao",
+  enviado: "Enviado",
+  concluido: "Entregue",
+};
+
+const displayStageToDb: Record<OrderStage, DogbookStageDB> = {
+  "Aguardando Pagamento": "aguardando_pagamento",
+  "Aguardando Fotos": "aguardando_fotos",
+  "Aprovacao Layout": "em_aprovacao",
+  "Em Producao": "em_producao",
+  "Enviado": "enviado",
+  "Entregue": "concluido",
+};
+
+const paymentStatusMap: Record<string, PaymentStatus> = {
+  pendente: "Pendente",
+  processando: "Processando",
+  pago: "Pago",
+  falhou: "Falhou",
+  reembolsado: "Reembolsado",
+  expirado: "Expirado",
+};
+
+const themeDisplayMap: Record<string, string> = {
+  verao: "Verao",
+  inverno: "Inverno",
+  natal: "Natal",
+  ano_novo: "Ano Novo",
+  caoniversario: "Caoniversario",
+};
 
 /* ────────────────────── Helpers ────────────────────── */
 
@@ -233,6 +185,13 @@ function formatDate(date: string): string {
   });
 }
 
+function formatCurrency(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 /** Derive a summary stage for the order based on its items' individual stages */
 function deriveOrderStage(items: DogbookItem[]): string {
   const stageOrder = allStages;
@@ -265,27 +224,151 @@ const kanbanColumns = [
 /* ────────────────────── Page ────────────────────── */
 
 export default function PedidosPage() {
-  const [orderList, setOrderList] = useState<Order[]>(initialOrders);
+  const [orderList, setOrderList] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<OrderStage | "todos">("todos");
   const [qtyFilter, setQtyFilter] = useState<"todos" | "1" | "2+">("todos");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
 
-  /** Change the stage of an individual sub-order (dogbook item) */
-  const changeItemStage = (orderId: string, subId: string, newStage: OrderStage) => {
-    setOrderList((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              items: o.items.map((item) =>
-                item.subId === subId ? { ...item, stage: newStage } : item
-              ),
-            }
-          : o
-      )
-    );
+  const supabase = createClient();
+
+  /* ─── Fetch all orders with nested data ─── */
+  const fetchOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          order_number,
+          subtotal,
+          discount_amount,
+          total,
+          status,
+          payment_method,
+          payment_status,
+          tracking_code,
+          nf_number,
+          notes,
+          created_at,
+          updated_at,
+          paid_at,
+          shipped_at,
+          delivered_at,
+          customers ( id, name, email, phone ),
+          dogbooks ( id, order_item_id, sub_number, theme, stage, total_pages, photos_uploaded, photos_max, pets ( id, name, breed ) ),
+          coupons ( id, code ),
+          influencers ( id, name, slug )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (ordersError) {
+        console.error("Error fetching orders:", ordersError);
+        toast.error("Erro ao carregar pedidos: " + ordersError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!orders || orders.length === 0) {
+        setOrderList([]);
+        setLoading(false);
+        return;
+      }
+
+      const mapped: Order[] = orders.map((o: any) => {
+        const customer = o.customers;
+        const dogbooks = o.dogbooks || [];
+        const coupon = o.coupons;
+        const influencer = o.influencers;
+
+        const items: DogbookItem[] = dogbooks.map((db: any) => ({
+          id: db.id,
+          subId: db.sub_number || "-",
+          theme: themeDisplayMap[db.theme] || db.theme || "-",
+          petName: db.pets?.name || "-",
+          stage: dbStageToDisplay[db.stage as DogbookStageDB] || "Aguardando Pagamento",
+          stageDB: db.stage as DogbookStageDB,
+          tracking: o.tracking_code || "-",
+          nf: o.nf_number || "-",
+        }));
+
+        return {
+          id: o.id,
+          orderNumber: o.order_number || "-",
+          client: customer?.name || "-",
+          email: customer?.email || "-",
+          date: o.created_at,
+          items,
+          total: formatCurrency(Number(o.total) || 0),
+          payment: paymentStatusMap[o.payment_status] || "Pendente",
+          influencer: influencer?.name || "-",
+          coupon: coupon?.code || "-",
+        };
+      });
+
+      setOrderList(mapped);
+    } catch (err: any) {
+      console.error("Unexpected error fetching orders:", err);
+      toast.error("Erro inesperado ao carregar pedidos.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  /** Change the stage of an individual sub-order (dogbook item) in Supabase */
+  const changeItemStage = async (
+    orderId: string,
+    dogbookId: string,
+    newStage: OrderStage
+  ) => {
+    const newStageDB = displayStageToDb[newStage];
+    if (!newStageDB) return;
+
+    setUpdatingId(dogbookId);
+
+    try {
+      const { error } = await supabase
+        .from("dogbooks")
+        .update({ stage: newStageDB })
+        .eq("id", dogbookId);
+
+      if (error) {
+        console.error("Error updating dogbook stage:", error);
+        toast.error("Erro ao atualizar etapa: " + error.message);
+        return;
+      }
+
+      // Optimistic update in local state
+      setOrderList((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                items: o.items.map((item) =>
+                  item.id === dogbookId
+                    ? { ...item, stage: newStage, stageDB: newStageDB }
+                    : item
+                ),
+              }
+            : o
+        )
+      );
+
+      toast.success("Etapa atualizada com sucesso!");
+    } catch (err: any) {
+      console.error("Unexpected error updating stage:", err);
+      toast.error("Erro inesperado ao atualizar etapa.");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   /* ─── KPIs (filtered by date range) ─── */
@@ -300,7 +383,7 @@ export default function PedidosPage() {
   const filteredOrders = orderList.filter((o) => {
     const matchesSearch =
       searchTerm === "" ||
-      o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.items.some(
@@ -317,6 +400,16 @@ export default function PedidosPage() {
       (qtyFilter === "2+" && o.items.length >= 2);
     return matchesSearch && matchesStage && matchesQty;
   });
+
+  /* ─── Loading state ─── */
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Carregando pedidos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -462,8 +555,10 @@ export default function PedidosPage() {
                     {filteredOrders.map((order) => {
                       const isExpanded = expandedOrderId === order.id;
                       const hasMultiple = order.items.length > 1;
-                      const summaryStage = deriveOrderStage(order.items);
-                      const allSameStage = order.items.every(
+                      const summaryStage = order.items.length > 0
+                        ? deriveOrderStage(order.items)
+                        : "Aguardando Pagamento";
+                      const allSameStage = order.items.length > 0 && order.items.every(
                         (i) => i.stage === order.items[0].stage
                       );
 
@@ -496,7 +591,7 @@ export default function PedidosPage() {
                               </Button>
                             </TableCell>
                             <TableCell className="font-mono text-xs font-medium text-primary">
-                              {order.id}
+                              {order.orderNumber}
                             </TableCell>
                             <TableCell>
                               <div>
@@ -524,7 +619,11 @@ export default function PedidosPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {allSameStage ? (
+                              {order.items.length === 0 ? (
+                                <Badge variant="outline" className="text-[10px]">
+                                  Sem dogbooks
+                                </Badge>
+                              ) : allSameStage ? (
                                 <Badge variant={stageBadgeVariant(summaryStage)}>
                                   {summaryStage}
                                 </Badge>
@@ -572,7 +671,7 @@ export default function PedidosPage() {
                           {isExpanded &&
                             order.items.map((item) => (
                               <TableRow
-                                key={item.subId}
+                                key={item.id}
                                 className="bg-muted/20 border-l-2 border-l-primary/20"
                               >
                                 <TableCell className="w-8 px-2" />
@@ -596,23 +695,29 @@ export default function PedidosPage() {
                                 </TableCell>
                                 <TableCell />
                                 <TableCell>
-                                  <select
-                                    value={item.stage}
-                                    onChange={(e) =>
-                                      changeItemStage(
-                                        order.id,
-                                        item.subId,
-                                        e.target.value as OrderStage
-                                      )
-                                    }
-                                    className={`h-7 rounded-md border border-input px-2 text-[11px] font-medium ${stageColor(item.stage)}`}
-                                  >
-                                    {allStages.map((s) => (
-                                      <option key={s} value={s}>
-                                        {s}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={item.stage}
+                                      onChange={(e) =>
+                                        changeItemStage(
+                                          order.id,
+                                          item.id,
+                                          e.target.value as OrderStage
+                                        )
+                                      }
+                                      disabled={updatingId === item.id}
+                                      className={`h-7 rounded-md border border-input px-2 text-[11px] font-medium ${stageColor(item.stage)} ${updatingId === item.id ? "opacity-50" : ""}`}
+                                    >
+                                      {allStages.map((s) => (
+                                        <option key={s} value={s}>
+                                          {s}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    {updatingId === item.id && (
+                                      <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                                    )}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
                                   {item.tracking !== "-" && (
@@ -696,7 +801,7 @@ export default function PedidosPage() {
                 </Table>
               </div>
 
-              {filteredOrders.length === 0 && (
+              {filteredOrders.length === 0 && !loading && (
                 <div className="py-12 text-center">
                   <BookOpen className="mx-auto size-8 text-muted-foreground/40" />
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -720,7 +825,7 @@ export default function PedidosPage() {
               const subOrders = orderList.flatMap((o) =>
                 o.items
                   .filter((item) => item.stage === column.title)
-                  .map((item) => ({ ...item, orderId: o.id, client: o.client }))
+                  .map((item) => ({ ...item, orderId: o.orderNumber, client: o.client }))
               );
 
               return (
@@ -740,7 +845,7 @@ export default function PedidosPage() {
                   <div className="space-y-2">
                     {subOrders.map((sub) => (
                       <div
-                        key={sub.subId}
+                        key={sub.id}
                         className="rounded-lg border bg-background p-2"
                       >
                         <div className="flex items-center justify-between">

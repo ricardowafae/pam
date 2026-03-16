@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import {
   Card,
   CardContent,
@@ -47,245 +49,97 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
 
 type ValeStatus =
   | "ativo"
-  | "usado"
-  | "vencido"
+  | "utilizado"
+  | "expirado"
   | "cancelado"
   | "a_vencer";
+
+interface GiftCardRow {
+  id: string;
+  code: string;
+  purchaser_name: string | null;
+  purchaser_email: string | null;
+  recipient_name: string | null;
+  recipient_email: string | null;
+  amount: number;
+  balance: number;
+  message: string | null;
+  order_id: string | null;
+  redeemed_by: string | null;
+  redeemed_at: string | null;
+  expires_at: string | null;
+  active: boolean;
+  created_at: string;
+  orders: {
+    order_number: string | null;
+    payment_method: string | null;
+    created_at: string | null;
+  } | null;
+}
 
 interface ValePresente {
   id: string;
   code: string;
-  product: string;
-  couponValue: string;
-  discountType: "valor" | "100_off";
+  amount: number;
+  balance: number;
   buyer: string;
   buyerEmail: string;
   recipient: string;
   recipientEmail: string;
+  message: string | null;
   purchaseDate: string;
   expiryDate: string;
-  usedDate: string | null;
+  redeemedAt: string | null;
   status: ValeStatus;
-  paymentMethod: "cartao" | "pix";
+  paymentMethod: string;
   orderId: string;
+  active: boolean;
 }
 
-/* ────────────────────── Mock Data ────────────────────── */
-
-const mockVales: ValePresente[] = [
-  {
-    id: "1",
-    code: "VP-DGB-A1B2C3",
-    product: "Dogbook",
-    couponValue: "R$ 200,00",
-    discountType: "valor",
-    buyer: "Ana Souza",
-    buyerEmail: "ana@email.com",
-    recipient: "Carlos Mendes",
-    recipientEmail: "carlos@email.com",
-    purchaseDate: "2026-01-15",
-    expiryDate: "2027-01-10",
-    usedDate: null,
-    status: "ativo",
-    paymentMethod: "pix",
-    orderId: "PED-001234",
-  },
-  {
-    id: "2",
-    code: "VP-SPK-D4E5F6",
-    product: "Sessao Pocket",
-    couponValue: "R$ 300,00",
-    discountType: "valor",
-    buyer: "Fernanda Lima",
-    buyerEmail: "fernanda@email.com",
-    recipient: "Mariana Costa",
-    recipientEmail: "mariana@email.com",
-    purchaseDate: "2026-02-20",
-    expiryDate: "2027-02-15",
-    usedDate: "2026-03-05",
-    status: "usado",
-    paymentMethod: "cartao",
-    orderId: "PED-001289",
-  },
-  {
-    id: "3",
-    code: "VP-DGB-G7H8I9",
-    product: "Dogbook",
-    couponValue: "R$ 50,00",
-    discountType: "valor",
-    buyer: "Pedro Santos",
-    buyerEmail: "pedro@email.com",
-    recipient: "Julia Oliveira",
-    recipientEmail: "julia@email.com",
-    purchaseDate: "2025-02-01",
-    expiryDate: "2026-01-27",
-    usedDate: null,
-    status: "vencido",
-    paymentMethod: "pix",
-    orderId: "PED-000987",
-  },
-  {
-    id: "4",
-    code: "VP-EST-J1K2L3",
-    product: "Sessao Estudio",
-    couponValue: "R$ 900,00",
-    discountType: "valor",
-    buyer: "Roberto Almeida",
-    buyerEmail: "roberto@email.com",
-    recipient: "Camila Dias",
-    recipientEmail: "camila@email.com",
-    purchaseDate: "2026-03-01",
-    expiryDate: "2027-02-24",
-    usedDate: null,
-    status: "ativo",
-    paymentMethod: "cartao",
-    orderId: "PED-001345",
-  },
-  {
-    id: "5",
-    code: "VP-CMP-M4N5O6",
-    product: "Sessao Completa",
-    couponValue: "100% OFF",
-    discountType: "100_off",
-    buyer: "Lucia Ferreira",
-    buyerEmail: "lucia@email.com",
-    recipient: "Marcos Silva",
-    recipientEmail: "marcos@email.com",
-    purchaseDate: "2026-02-10",
-    expiryDate: "2027-02-05",
-    usedDate: null,
-    status: "ativo",
-    paymentMethod: "pix",
-    orderId: "PED-001301",
-  },
-  {
-    id: "6",
-    code: "VP-DGB-P7Q8R9",
-    product: "Dogbook",
-    couponValue: "R$ 100,00",
-    discountType: "valor",
-    buyer: "Tatiana Rocha",
-    buyerEmail: "tatiana@email.com",
-    recipient: "Gabriel Lopes",
-    recipientEmail: "gabriel@email.com",
-    purchaseDate: "2026-03-10",
-    expiryDate: "2027-03-06",
-    usedDate: null,
-    status: "a_vencer",
-    paymentMethod: "cartao",
-    orderId: "PED-001390",
-  },
-  {
-    id: "7",
-    code: "VP-SPK-S1T2U3",
-    product: "Sessao Pocket",
-    couponValue: "R$ 100,00",
-    discountType: "valor",
-    buyer: "Amanda Ribeiro",
-    buyerEmail: "amanda@email.com",
-    recipient: "Diego Nunes",
-    recipientEmail: "diego@email.com",
-    purchaseDate: "2026-01-05",
-    expiryDate: "2026-12-31",
-    usedDate: null,
-    status: "cancelado",
-    paymentMethod: "pix",
-    orderId: "PED-001200",
-  },
-  {
-    id: "8",
-    code: "VP-EST-V4W5X6",
-    product: "Sessao Estudio",
-    couponValue: "R$ 500,00",
-    discountType: "valor",
-    buyer: "Ricardo Martins",
-    buyerEmail: "ricardo@email.com",
-    recipient: "Patricia Gomes",
-    recipientEmail: "patricia@email.com",
-    purchaseDate: "2026-02-28",
-    expiryDate: "2027-02-23",
-    usedDate: "2026-03-12",
-    status: "usado",
-    paymentMethod: "cartao",
-    orderId: "PED-001333",
-  },
-  {
-    id: "9",
-    code: "VP-CMP-Y7Z8A1",
-    product: "Sessao Completa",
-    couponValue: "R$ 800,00",
-    discountType: "valor",
-    buyer: "Empresa PetShop Amor",
-    buyerEmail: "contato@petshopamor.com",
-    recipient: "Claudia Torres",
-    recipientEmail: "claudia@email.com",
-    purchaseDate: "2026-03-08",
-    expiryDate: "2027-03-03",
-    usedDate: null,
-    status: "ativo",
-    paymentMethod: "pix",
-    orderId: "PED-001378",
-  },
-  {
-    id: "10",
-    code: "VP-DGB-B2C3D4",
-    product: "Dogbook",
-    couponValue: "R$ 200,00",
-    discountType: "valor",
-    buyer: "Empresa PetShop Amor",
-    buyerEmail: "contato@petshopamor.com",
-    recipient: "Fabiana Luz",
-    recipientEmail: "fabiana@email.com",
-    purchaseDate: "2026-03-08",
-    expiryDate: "2027-03-03",
-    usedDate: null,
-    status: "ativo",
-    paymentMethod: "pix",
-    orderId: "PED-001379",
-  },
-  {
-    id: "11",
-    code: "VP-SPK-E5F6G7",
-    product: "Sessao Pocket",
-    couponValue: "R$ 200,00",
-    discountType: "valor",
-    buyer: "Helena Braga",
-    buyerEmail: "helena@email.com",
-    recipient: "Renato Pires",
-    recipientEmail: "renato@email.com",
-    purchaseDate: "2025-06-15",
-    expiryDate: "2026-06-10",
-    usedDate: "2025-12-20",
-    status: "usado",
-    paymentMethod: "cartao",
-    orderId: "PED-000850",
-  },
-  {
-    id: "12",
-    code: "VP-DGB-H8I9J0",
-    product: "Dogbook",
-    couponValue: "100% OFF",
-    discountType: "100_off",
-    buyer: "Empresa VetCare",
-    buyerEmail: "compras@vetcare.com",
-    recipient: "Simone Carvalho",
-    recipientEmail: "simone@email.com",
-    purchaseDate: "2026-01-20",
-    expiryDate: "2027-01-15",
-    usedDate: null,
-    status: "ativo",
-    paymentMethod: "pix",
-    orderId: "PED-001250",
-  },
-];
-
 /* ────────────────────── Helpers ────────────────────── */
+
+function deriveStatus(row: GiftCardRow): ValeStatus {
+  const now = new Date();
+  if (!row.active) return "cancelado";
+  if (row.redeemed_at) return "utilizado";
+  if (row.expires_at && new Date(row.expires_at) < now) return "expirado";
+  if (row.expires_at) {
+    const days = Math.ceil(
+      (new Date(row.expires_at).getTime() - now.getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    if (days > 0 && days <= 30) return "a_vencer";
+  }
+  return "ativo";
+}
+
+function mapRowToVale(row: GiftCardRow): ValePresente {
+  return {
+    id: row.id,
+    code: row.code,
+    amount: Number(row.amount) || 0,
+    balance: Number(row.balance) || 0,
+    buyer: row.purchaser_name || "—",
+    buyerEmail: row.purchaser_email || "—",
+    recipient: row.recipient_name || "—",
+    recipientEmail: row.recipient_email || "—",
+    message: row.message,
+    purchaseDate: row.orders?.created_at || row.created_at,
+    expiryDate: row.expires_at || "",
+    redeemedAt: row.redeemed_at,
+    status: deriveStatus(row),
+    paymentMethod: row.orders?.payment_method || "—",
+    orderId: row.orders?.order_number || "—",
+    active: row.active,
+  };
+}
 
 function getStatusConfig(status: ValeStatus) {
   switch (status) {
@@ -296,16 +150,16 @@ function getStatusConfig(status: ValeStatus) {
         icon: CheckCircle2,
         color: "text-green-600",
       };
-    case "usado":
+    case "utilizado":
       return {
-        label: "Usado",
+        label: "Utilizado",
         variant: "secondary" as const,
         icon: CheckCircle2,
         color: "text-blue-600",
       };
-    case "vencido":
+    case "expirado":
       return {
-        label: "Vencido",
+        label: "Expirado",
         variant: "destructive" as const,
         icon: XCircle,
         color: "text-red-600",
@@ -328,6 +182,7 @@ function getStatusConfig(status: ValeStatus) {
 }
 
 function formatDate(date: string): string {
+  if (!date) return "—";
   return new Date(date).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -335,46 +190,179 @@ function formatDate(date: string): string {
   });
 }
 
+function formatCurrency(value: number): string {
+  return value
+    .toFixed(2)
+    .replace(".", ",")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 function daysUntilExpiry(expiryDate: string): number {
+  if (!expiryDate) return 0;
   const now = new Date();
   const expiry = new Date(expiryDate);
-  return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.ceil(
+    (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  );
 }
 
 /* ────────────────────── Page ────────────────────── */
 
 export default function GestaoValesPage() {
+  const [vales, setVales] = useState<ValePresente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<ValeStatus | "todos">(
     "todos"
   );
-  const [productFilter, setProductFilter] = useState<string>("todos");
   const [selectedVale, setSelectedVale] = useState<ValePresente | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
 
+  const supabase = createClient();
+
+  /* ─── Fetch data ─── */
+  const fetchVales = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("gift_cards")
+        .select(
+          `
+          id,
+          code,
+          purchaser_name,
+          purchaser_email,
+          recipient_name,
+          recipient_email,
+          amount,
+          balance,
+          message,
+          order_id,
+          redeemed_by,
+          redeemed_at,
+          expires_at,
+          active,
+          created_at,
+          orders (
+            order_number,
+            payment_method,
+            created_at
+          )
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = (data as unknown as GiftCardRow[]).map(mapRowToVale);
+      setVales(mapped);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Erro ao carregar vales";
+      toast.error("Erro ao carregar vales", { description: message });
+      console.error("fetchVales error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVales();
+  }, [fetchVales]);
+
+  /* ─── Actions ─── */
+  const handleCancelVale = async (vale: ValePresente) => {
+    setActionLoading(vale.id);
+    try {
+      const { error } = await supabase
+        .from("gift_cards")
+        .update({ active: false })
+        .eq("id", vale.id);
+
+      if (error) throw error;
+
+      setVales((prev) =>
+        prev.map((v) =>
+          v.id === vale.id ? { ...v, active: false, status: "cancelado" } : v
+        )
+      );
+
+      if (selectedVale?.id === vale.id) {
+        setSelectedVale((prev) =>
+          prev ? { ...prev, active: false, status: "cancelado" } : null
+        );
+      }
+
+      toast.success("Vale cancelado com sucesso");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Erro ao cancelar vale";
+      toast.error("Erro ao cancelar vale", { description: message });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRefundVale = async (vale: ValePresente) => {
+    setActionLoading(vale.id);
+    try {
+      const { error } = await supabase
+        .from("gift_cards")
+        .update({ active: false, balance: 0 })
+        .eq("id", vale.id);
+
+      if (error) throw error;
+
+      setVales((prev) =>
+        prev.map((v) =>
+          v.id === vale.id
+            ? { ...v, active: false, balance: 0, status: "cancelado" }
+            : v
+        )
+      );
+
+      if (selectedVale?.id === vale.id) {
+        setSelectedVale((prev) =>
+          prev
+            ? { ...prev, active: false, balance: 0, status: "cancelado" }
+            : null
+        );
+      }
+
+      toast.success("Vale estornado com sucesso");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Erro ao estornar vale";
+      toast.error("Erro ao estornar vale", { description: message });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   /* ─── Computed KPIs (filtered by date range) ─── */
-  const valesInRange = mockVales.filter((v) => isInRange(v.purchaseDate, dateRange));
+  const valesInRange = vales.filter((v) =>
+    isInRange(v.purchaseDate, dateRange)
+  );
   const totalEmitidos = valesInRange.length;
   const totalAtivos = valesInRange.filter((v) => v.status === "ativo").length;
-  const totalUsados = valesInRange.filter((v) => v.status === "usado").length;
-  const totalVencidos = valesInRange.filter((v) => v.status === "vencido").length;
+  const totalUsados = valesInRange.filter(
+    (v) => v.status === "utilizado"
+  ).length;
+  const totalVencidos = valesInRange.filter(
+    (v) => v.status === "expirado"
+  ).length;
   const totalCancelados = valesInRange.filter(
     (v) => v.status === "cancelado"
   ).length;
-  const aVencer30dias = valesInRange.filter((v) => {
-    if (v.status !== "ativo") return false;
-    const days = daysUntilExpiry(v.expiryDate);
-    return days > 0 && days <= 30;
-  }).length;
+  const aVencer30dias = valesInRange.filter(
+    (v) => v.status === "a_vencer"
+  ).length;
 
-  const valorTotalEmitido = valesInRange
-    .filter((v) => v.discountType === "valor")
-    .reduce((sum, v) => {
-      const num = parseFloat(
-        v.couponValue.replace("R$ ", "").replace(/\./g, "").replace(",", ".")
-      );
-      return sum + (isNaN(num) ? 0 : num);
-    }, 0);
+  const valorTotalEmitido = valesInRange.reduce(
+    (sum, v) => sum + v.amount,
+    0
+  );
 
   const taxaUtilizacao =
     totalEmitidos > 0
@@ -382,7 +370,7 @@ export default function GestaoValesPage() {
       : "0";
 
   /* ─── Filtered list ─── */
-  const filteredVales = mockVales.filter((vale) => {
+  const filteredVales = vales.filter((vale) => {
     const matchesSearch =
       searchTerm === "" ||
       vale.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -394,13 +382,8 @@ export default function GestaoValesPage() {
     const matchesStatus =
       statusFilter === "todos" || vale.status === statusFilter;
 
-    const matchesProduct =
-      productFilter === "todos" || vale.product === productFilter;
-
-    return matchesSearch && matchesStatus && matchesProduct;
+    return matchesSearch && matchesStatus;
   });
-
-  const products = [...new Set(mockVales.map((v) => v.product))];
 
   return (
     <div className="space-y-6">
@@ -434,7 +417,7 @@ export default function GestaoValesPage() {
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-foreground">
-              {totalEmitidos}
+              {loading ? "—" : totalEmitidos}
             </p>
           </CardContent>
         </Card>
@@ -448,7 +431,7 @@ export default function GestaoValesPage() {
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-green-600">
-              {totalAtivos}
+              {loading ? "—" : totalAtivos}
             </p>
           </CardContent>
         </Card>
@@ -458,11 +441,11 @@ export default function GestaoValesPage() {
             <div className="flex items-center gap-2">
               <CheckCircle2 className="size-4 text-blue-600" />
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Usados
+                Utilizados
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-blue-600">
-              {totalUsados}
+              {loading ? "—" : totalUsados}
             </p>
           </CardContent>
         </Card>
@@ -472,11 +455,11 @@ export default function GestaoValesPage() {
             <div className="flex items-center gap-2">
               <XCircle className="size-4 text-red-600" />
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Vencidos
+                Expirados
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-red-600">
-              {totalVencidos}
+              {loading ? "—" : totalVencidos}
             </p>
           </CardContent>
         </Card>
@@ -490,7 +473,7 @@ export default function GestaoValesPage() {
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-gray-500">
-              {totalCancelados}
+              {loading ? "—" : totalCancelados}
             </p>
           </CardContent>
         </Card>
@@ -504,7 +487,7 @@ export default function GestaoValesPage() {
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-amber-600">
-              {aVencer30dias}
+              {loading ? "—" : aVencer30dias}
             </p>
           </CardContent>
         </Card>
@@ -518,7 +501,7 @@ export default function GestaoValesPage() {
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-foreground">
-              {taxaUtilizacao}%
+              {loading ? "—" : `${taxaUtilizacao}%`}
             </p>
           </CardContent>
         </Card>
@@ -531,22 +514,26 @@ export default function GestaoValesPage() {
             <DollarSign className="size-5 text-primary" />
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Valor Total Emitido (cupons de desconto)
+                Valor Total Emitido
               </p>
               <p className="text-xl font-bold text-foreground">
-                R${" "}
-                {valorTotalEmitido
-                  .toFixed(2)
-                  .replace(".", ",")
-                  .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                {loading ? "—" : `R$ ${formatCurrency(valorTotalEmitido)}`}
               </p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">
-              +{" "}
-              {mockVales.filter((v) => v.discountType === "100_off").length}{" "}
-              vale(s) 100% OFF
+              Saldo restante: R${" "}
+              {loading
+                ? "—"
+                : formatCurrency(
+                    valesInRange
+                      .filter(
+                        (v) =>
+                          v.status === "ativo" || v.status === "a_vencer"
+                      )
+                      .reduce((sum, v) => sum + v.balance, 0)
+                  )}
             </p>
           </div>
         </CardContent>
@@ -578,23 +565,10 @@ export default function GestaoValesPage() {
               >
                 <option value="todos">Todos os Status</option>
                 <option value="ativo">Ativo</option>
-                <option value="usado">Usado</option>
-                <option value="vencido">Vencido</option>
+                <option value="utilizado">Utilizado</option>
+                <option value="expirado">Expirado</option>
                 <option value="cancelado">Cancelado</option>
                 <option value="a_vencer">A Vencer</option>
-              </select>
-
-              <select
-                value={productFilter}
-                onChange={(e) => setProductFilter(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="todos">Todos os Produtos</option>
-                {products.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
               </select>
             </div>
           </div>
@@ -610,11 +584,21 @@ export default function GestaoValesPage() {
                 Vales Emitidos
               </CardTitle>
               <CardDescription>
-                {filteredVales.length} vale(s) encontrado(s)
+                {loading
+                  ? "Carregando..."
+                  : `${filteredVales.length} vale(s) encontrado(s)`}
               </CardDescription>
             </div>
-            <Button variant="ghost" size="icon" className="size-8">
-              <RefreshCw className="size-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={fetchVales}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`size-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
         </CardHeader>
@@ -624,8 +608,8 @@ export default function GestaoValesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[140px]">Codigo</TableHead>
-                  <TableHead>Produto</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Saldo</TableHead>
                   <TableHead className="hidden lg:table-cell">
                     Comprador
                   </TableHead>
@@ -643,130 +627,143 @@ export default function GestaoValesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredVales.map((vale) => {
-                  const statusCfg = getStatusConfig(vale.status);
-                  const StatusIcon = statusCfg.icon;
-                  const days = daysUntilExpiry(vale.expiryDate);
-                  const isExpiringSoon =
-                    vale.status === "ativo" && days > 0 && days <= 30;
-
-                  return (
-                    <TableRow
-                      key={vale.id}
-                      className="cursor-pointer transition-colors hover:bg-muted/30"
-                      onClick={() => setSelectedVale(vale)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-medium text-primary">
-                            {vale.code}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(vale.code);
-                            }}
-                            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                          >
-                            <Copy className="size-3" />
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <Package className="size-3.5 text-muted-foreground" />
-                          <span className="text-sm">{vale.product}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`text-sm font-medium ${
-                            vale.discountType === "100_off"
-                              ? "text-purple-700"
-                              : "text-foreground"
-                          }`}
-                        >
-                          {vale.couponValue}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div>
-                          <p className="text-sm">{vale.buyer}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {vale.buyerEmail}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div>
-                          <p className="text-sm">{vale.recipient}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {vale.recipientEmail}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-sm">
-                          {formatDate(vale.purchaseDate)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <div>
-                          <span className="text-sm">
-                            {formatDate(vale.expiryDate)}
-                          </span>
-                          {isExpiringSoon && (
-                            <p className="text-[10px] font-medium text-amber-600">
-                              {days} dia(s) restante(s)
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={statusCfg.variant}
-                          className="gap-1 text-[10px]"
-                        >
-                          <StatusIcon className="size-3" />
-                          {statusCfg.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedVale(vale);
-                            }}
-                          >
-                            <Eye className="size-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="size-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-
-                {filteredVales.length === 0 && (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-12 text-center">
+                      <Loader2 className="mx-auto size-8 animate-spin text-muted-foreground/40" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Carregando vales...
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredVales.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="py-12 text-center">
                       <Gift className="mx-auto size-8 text-muted-foreground/40" />
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Nenhum vale encontrado com os filtros atuais
+                        {vales.length === 0
+                          ? "Nenhum vale-presente cadastrado"
+                          : "Nenhum vale encontrado com os filtros atuais"}
                       </p>
                     </TableCell>
                   </TableRow>
+                ) : (
+                  filteredVales.map((vale) => {
+                    const statusCfg = getStatusConfig(vale.status);
+                    const StatusIcon = statusCfg.icon;
+                    const days = daysUntilExpiry(vale.expiryDate);
+                    const isExpiringSoon =
+                      (vale.status === "ativo" || vale.status === "a_vencer") &&
+                      days > 0 &&
+                      days <= 30;
+
+                    return (
+                      <TableRow
+                        key={vale.id}
+                        className="cursor-pointer transition-colors hover:bg-muted/30"
+                        onClick={() => setSelectedVale(vale)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-medium text-primary">
+                              {vale.code}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(vale.code);
+                                toast.success("Codigo copiado!");
+                              }}
+                              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                            >
+                              <Copy className="size-3" />
+                            </button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium text-foreground">
+                            R$ {formatCurrency(vale.amount)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`text-sm font-medium ${
+                              vale.balance < vale.amount
+                                ? "text-amber-600"
+                                : "text-foreground"
+                            }`}
+                          >
+                            R$ {formatCurrency(vale.balance)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div>
+                            <p className="text-sm">{vale.buyer}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {vale.buyerEmail}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div>
+                            <p className="text-sm">{vale.recipient}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {vale.recipientEmail}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <span className="text-sm">
+                            {formatDate(vale.purchaseDate)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <div>
+                            <span className="text-sm">
+                              {formatDate(vale.expiryDate)}
+                            </span>
+                            {isExpiringSoon && (
+                              <p className="text-[10px] font-medium text-amber-600">
+                                {days} dia(s) restante(s)
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={statusCfg.variant}
+                            className="gap-1 text-[10px]"
+                          >
+                            <StatusIcon className="size-3" />
+                            {statusCfg.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVale(vale);
+                              }}
+                            >
+                              <Eye className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="size-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -775,16 +772,26 @@ export default function GestaoValesPage() {
           {/* Pagination placeholder */}
           <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
             <p className="text-xs text-muted-foreground">
-              Mostrando {filteredVales.length} de {mockVales.length} vales
+              Mostrando {filteredVales.length} de {vales.length} vales
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="size-7" disabled>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7"
+                disabled
+              >
                 <ChevronLeft className="size-3.5" />
               </Button>
               <span className="text-xs text-muted-foreground">
                 Pagina 1 de 1
               </span>
-              <Button variant="outline" size="icon" className="size-7" disabled>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7"
+                disabled
+              >
                 <ChevronRight className="size-3.5" />
               </Button>
             </div>
@@ -836,18 +843,24 @@ export default function GestaoValesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Produto
+                    Valor Original
                   </p>
                   <p className="mt-0.5 text-sm font-medium text-foreground">
-                    {selectedVale.product}
+                    R$ {formatCurrency(selectedVale.amount)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Valor do Cupom
+                    Saldo Restante
                   </p>
-                  <p className="mt-0.5 text-sm font-medium text-foreground">
-                    {selectedVale.couponValue}
+                  <p
+                    className={`mt-0.5 text-sm font-medium ${
+                      selectedVale.balance < selectedVale.amount
+                        ? "text-amber-600"
+                        : "text-foreground"
+                    }`}
+                  >
+                    R$ {formatCurrency(selectedVale.balance)}
                   </p>
                 </div>
                 <div>
@@ -887,7 +900,8 @@ export default function GestaoValesPage() {
                   <p className="mt-0.5 text-sm text-foreground">
                     {formatDate(selectedVale.expiryDate)}
                   </p>
-                  {selectedVale.status === "ativo" && (
+                  {(selectedVale.status === "ativo" ||
+                    selectedVale.status === "a_vencer") && (
                     <p className="text-[11px] text-muted-foreground">
                       {daysUntilExpiry(selectedVale.expiryDate)} dia(s)
                       restante(s)
@@ -901,7 +915,10 @@ export default function GestaoValesPage() {
                   <p className="mt-0.5 text-sm text-foreground">
                     {selectedVale.paymentMethod === "pix"
                       ? "PIX"
-                      : "Cartao de Credito"}
+                      : selectedVale.paymentMethod === "cartao" ||
+                          selectedVale.paymentMethod === "credit_card"
+                        ? "Cartao de Credito"
+                        : selectedVale.paymentMethod}
                   </p>
                 </div>
                 <div>
@@ -912,13 +929,23 @@ export default function GestaoValesPage() {
                     {selectedVale.orderId}
                   </p>
                 </div>
-                {selectedVale.usedDate && (
+                {selectedVale.message && (
                   <div className="col-span-2">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Data de Uso
+                      Mensagem
+                    </p>
+                    <p className="mt-0.5 text-sm italic text-foreground">
+                      &ldquo;{selectedVale.message}&rdquo;
+                    </p>
+                  </div>
+                )}
+                {selectedVale.redeemedAt && (
+                  <div className="col-span-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Data de Utilizacao
                     </p>
                     <p className="mt-0.5 text-sm text-foreground">
-                      {formatDate(selectedVale.usedDate)}
+                      {formatDate(selectedVale.redeemedAt)}
                     </p>
                   </div>
                 )}
@@ -926,15 +953,36 @@ export default function GestaoValesPage() {
 
               {/* Actions */}
               <div className="flex gap-2 border-t border-border pt-4">
-                {selectedVale.status === "ativo" && (
+                {(selectedVale.status === "ativo" ||
+                  selectedVale.status === "a_vencer") && (
                   <>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Ban className="size-3.5" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={actionLoading === selectedVale.id}
+                      onClick={() => handleCancelVale(selectedVale)}
+                    >
+                      {actionLoading === selectedVale.id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Ban className="size-3.5" />
+                      )}
                       Cancelar Vale
                     </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <RefreshCw className="size-3.5" />
-                      Reenviar Email
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={actionLoading === selectedVale.id}
+                      onClick={() => handleRefundVale(selectedVale)}
+                    >
+                      {actionLoading === selectedVale.id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-3.5" />
+                      )}
+                      Estornar Vale
                     </Button>
                   </>
                 )}
@@ -942,7 +990,10 @@ export default function GestaoValesPage() {
                   variant="ghost"
                   size="sm"
                   className="ml-auto gap-1.5"
-                  onClick={() => navigator.clipboard.writeText(selectedVale.code)}
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedVale.code);
+                    toast.success("Codigo copiado!");
+                  }}
                 >
                   <Copy className="size-3.5" />
                   Copiar Codigo

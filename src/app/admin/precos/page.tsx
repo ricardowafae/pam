@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { PRICING, PAYMENT_CONFIG, formatBRL as formatBRLShared, FIXED_COUPONS, REDEMPTION_SETTINGS, type FixedCouponConfig } from "@/lib/pricing-config";
+import { formatBRL as formatBRLShared, type FixedCouponConfig } from "@/lib/pricing-config";
 import { persistPaymentConfig } from "@/hooks/usePaymentConfig";
+import { createClient } from "@/lib/supabase/client";
 import {
   Card,
   CardContent,
@@ -62,6 +63,7 @@ import {
   Ban,
   Pencil,
   Receipt,
+  Loader2,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -87,23 +89,49 @@ interface GiftCardConfig {
 }
 
 interface DiscountTier {
+  id?: string; // UUID from volume_discounts table
   minQty: string;
   discountPct: string;
 }
 
 interface ProductConfig {
-  id: number;
+  id: string; // UUID from products table
+  numericId: number; // for UI expand/collapse
   name: string;
+  slug: string;
   price: string;
   active: boolean;
   influencerDiscount: string;
-  discountTiers: [DiscountTier, DiscountTier, DiscountTier];
+  discountTiers: DiscountTier[];
 }
 
 interface PaymentConfig {
   maxInstallments: string;
   pixDiscount: string;
   boletoDiscount: string;
+}
+
+/* ────────────────────── Supabase row types ────────────────────── */
+
+interface SupabaseProduct {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  base_price: number;
+  max_installments: number;
+  pix_discount_pct: number;
+  active: boolean;
+  sort_order: number;
+}
+
+interface SupabaseVolumeDiscount {
+  id: string;
+  product_id: string;
+  min_qty: number;
+  max_qty: number | null;
+  discount_pct: number;
+  active: boolean;
 }
 
 /* ────────────────────── Helpers ────────────────────── */
@@ -116,154 +144,31 @@ function formatBRL(value: number): string {
   return value.toFixed(2).replace(".", ",");
 }
 
-/* ────────────────────── Initial Data ────────────────────── */
+/* ────────────────────── Fallback defaults ────────────────────── */
 
-const initialProducts: ProductConfig[] = [
-  {
-    id: 1,
-    name: "Dogbook",
-    price: formatBRL(PRICING.dogbook.price),
-    active: true,
-    influencerDiscount: String(PRICING.dogbook.influencerDiscountPct),
-    discountTiers: PRICING.dogbook.discountTiers.map((t) => ({
-      minQty: String(t.minQty),
-      discountPct: String(t.discountPct),
-    })) as [DiscountTier, DiscountTier, DiscountTier],
-  },
-  {
-    id: 2,
-    name: "Sessão Pocket",
-    price: formatBRL(PRICING.pocket.price),
-    active: true,
-    influencerDiscount: String(PRICING.pocket.influencerDiscountPct),
-    discountTiers: PRICING.pocket.discountTiers.map((t) => ({
-      minQty: String(t.minQty),
-      discountPct: String(t.discountPct),
-    })) as [DiscountTier, DiscountTier, DiscountTier],
-  },
-  {
-    id: 3,
-    name: "Sessão Estúdio",
-    price: formatBRL(PRICING.estudio.price),
-    active: true,
-    influencerDiscount: String(PRICING.estudio.influencerDiscountPct),
-    discountTiers: PRICING.estudio.discountTiers.map((t) => ({
-      minQty: String(t.minQty),
-      discountPct: String(t.discountPct),
-    })) as [DiscountTier, DiscountTier, DiscountTier],
-  },
-  {
-    id: 4,
-    name: "Sessão Completa",
-    price: formatBRL(PRICING.completa.price),
-    active: true,
-    influencerDiscount: String(PRICING.completa.influencerDiscountPct),
-    discountTiers: PRICING.completa.discountTiers.map((t) => ({
-      minQty: String(t.minQty),
-      discountPct: String(t.discountPct),
-    })) as [DiscountTier, DiscountTier, DiscountTier],
-  },
-];
-
-const initialPayment: PaymentConfig = {
-  maxInstallments: String(PAYMENT_CONFIG.maxInstallments),
-  pixDiscount: String(PAYMENT_CONFIG.pixDiscountPct),
-  boletoDiscount: String(PAYMENT_CONFIG.boletoDiscountPct),
+const FALLBACK_PAYMENT: PaymentConfig = {
+  maxInstallments: "10",
+  pixDiscount: "5",
+  boletoDiscount: "3",
 };
-
-const initialGiftCards: GiftCardConfig[] = [
-  {
-    id: 1,
-    productName: "Dogbook",
-    active: true,
-    has100PercentOff: true,
-    couponOptions: [
-      { value: "50,00", active: true },
-      { value: "100,00", active: true },
-      { value: "200,00", active: true },
-    ],
-    volumeDiscounts: [
-      { minQty: "5", discountPct: "10" },
-      { minQty: "10", discountPct: "15" },
-      { minQty: "25", discountPct: "17.5" },
-      { minQty: "50", discountPct: "20" },
-    ],
-    validity: "360",
-  },
-  {
-    id: 2,
-    productName: "Sessão Pocket",
-    active: true,
-    has100PercentOff: true,
-    couponOptions: [
-      { value: "100,00", active: true },
-      { value: "200,00", active: true },
-      { value: "300,00", active: true },
-    ],
-    volumeDiscounts: [
-      { minQty: "5", discountPct: "10" },
-      { minQty: "10", discountPct: "15" },
-      { minQty: "25", discountPct: "17.5" },
-      { minQty: "50", discountPct: "20" },
-    ],
-    validity: "360",
-  },
-  {
-    id: 3,
-    productName: "Sessão Estúdio",
-    active: true,
-    has100PercentOff: true,
-    couponOptions: [
-      { value: "200,00", active: true },
-      { value: "500,00", active: true },
-      { value: "900,00", active: true },
-    ],
-    volumeDiscounts: [
-      { minQty: "5", discountPct: "10" },
-      { minQty: "10", discountPct: "15" },
-      { minQty: "25", discountPct: "20" },
-      { minQty: "50", discountPct: "25" },
-    ],
-    validity: "360",
-  },
-  {
-    id: 4,
-    productName: "Sessão Completa",
-    active: true,
-    has100PercentOff: true,
-    couponOptions: [
-      { value: "400,00", active: true },
-      { value: "800,00", active: true },
-      { value: "1.200,00", active: true },
-    ],
-    volumeDiscounts: [
-      { minQty: "5", discountPct: "10" },
-      { minQty: "10", discountPct: "15" },
-      { minQty: "25", discountPct: "20" },
-      { minQty: "50", discountPct: "25" },
-    ],
-    validity: "360",
-  },
-];
 
 /* ────────────────────── Page ────────────────────── */
 
 export default function PrecosPage() {
-  const [products, setProducts] =
-    useState<ProductConfig[]>(initialProducts);
-  const [giftCards, setGiftCards] =
-    useState<GiftCardConfig[]>(initialGiftCards);
+  const [products, setProducts] = useState<ProductConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [giftCards, setGiftCards] = useState<GiftCardConfig[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [expandedGiftIds, setExpandedGiftIds] = useState<Set<number>>(
     new Set()
   );
   const [saving, setSaving] = useState(false);
-  const [savedProducts, setSavedProducts] = useState<ProductConfig[]>(initialProducts);
-  const [savedGiftCards, setSavedGiftCards] = useState<GiftCardConfig[]>(initialGiftCards);
+  const [savedProducts, setSavedProducts] = useState<ProductConfig[]>([]);
+  const [savedGiftCards, setSavedGiftCards] = useState<GiftCardConfig[]>([]);
 
   /* ─── Coupons state ─── */
-  const [fixedCoupons, setFixedCoupons] = useState<FixedCouponConfig[]>(FIXED_COUPONS);
-  const [savedCoupons, setSavedCoupons] = useState<FixedCouponConfig[]>(FIXED_COUPONS);
+  const [fixedCoupons, setFixedCoupons] = useState<FixedCouponConfig[]>([]);
+  const [savedCoupons, setSavedCoupons] = useState<FixedCouponConfig[]>([]);
   const [editCoupon, setEditCoupon] = useState<FixedCouponConfig | null>(null);
   const [editCouponForm, setEditCouponForm] = useState({
     code: "",
@@ -271,69 +176,155 @@ export default function PrecosPage() {
     type: "fixed" as "fixed" | "percentage",
     active: true,
   });
-  const [redemptionSettings, setRedemptionSettings] = useState(REDEMPTION_SETTINGS);
-  const [savedRedemptionSettings, setSavedRedemptionSettings] = useState(REDEMPTION_SETTINGS);
+  const [redemptionSettings, setRedemptionSettings] = useState({
+    uniquePerLead: true,
+    validityDays: 7,
+    cumulativeWithOtherDiscounts: false,
+  });
+  const [savedRedemptionSettings, setSavedRedemptionSettings] = useState({
+    uniquePerLead: true,
+    validityDays: 7,
+    cumulativeWithOtherDiscounts: false,
+  });
 
-  /* ─── Payment state (fetches from Supabase on mount) ─── */
-  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(initialPayment);
-  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(initialPayment);
+  /* ─── Payment state ─── */
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(FALLBACK_PAYMENT);
+  const [savedPaymentConfig, setSavedPaymentConfig] = useState<PaymentConfig>(FALLBACK_PAYMENT);
 
-  // Load saved payment config AND product prices from Supabase on mount
+  // ─── Load ALL data from Supabase on mount ───
   useEffect(() => {
-    // Load payment config
-    fetch("/api/settings?key=payment_config")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.value) {
-          const loaded: PaymentConfig = {
-            maxInstallments: String(data.value.maxInstallments ?? PAYMENT_CONFIG.maxInstallments),
-            pixDiscount: String(data.value.pixDiscountPct ?? PAYMENT_CONFIG.pixDiscountPct),
-            boletoDiscount: String(data.value.boletoDiscountPct ?? PAYMENT_CONFIG.boletoDiscountPct),
-          };
-          setPaymentConfig(loaded);
-          setSavedPaymentConfig(loaded);
-        }
-      })
-      .catch(() => { /* use defaults */ });
+    const supabase = createClient();
 
-    // Load product prices from Supabase
-    fetch("/api/settings?key=product_prices")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.products && Array.isArray(data.products)) {
-          const slugToName: Record<string, string> = {
-            dogbook: "Dogbook",
-            "sessao-pocket": "Sessão Pocket",
-            "sessao-estudio": "Sessão Estúdio",
-            "sessao-completa": "Sessão Completa",
-          };
-          setProducts((prev) =>
-            prev.map((p) => {
-              const match = data.products.find(
-                (sp: { slug: string; base_price: number }) =>
-                  slugToName[sp.slug] === p.name
-              );
-              if (match) {
-                return { ...p, price: formatBRL(match.base_price) };
-              }
-              return p;
-            })
-          );
-          setSavedProducts((prev) =>
-            prev.map((p) => {
-              const match = data.products.find(
-                (sp: { slug: string; base_price: number }) =>
-                  slugToName[sp.slug] === p.name
-              );
-              if (match) {
-                return { ...p, price: formatBRL(match.base_price) };
-              }
-              return p;
-            })
-          );
+    async function loadData() {
+      setLoading(true);
+      try {
+        // 1. Fetch products
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select("*")
+          .order("sort_order", { ascending: true });
+
+        if (productsError) throw productsError;
+
+        // 2. Fetch volume discounts
+        const { data: volumeData, error: volumeError } = await supabase
+          .from("volume_discounts")
+          .select("*")
+          .eq("active", true)
+          .order("min_qty", { ascending: true });
+
+        if (volumeError) throw volumeError;
+
+        // Group volume discounts by product_id
+        const volumeByProduct: Record<string, SupabaseVolumeDiscount[]> = {};
+        for (const vd of (volumeData || []) as SupabaseVolumeDiscount[]) {
+          if (!volumeByProduct[vd.product_id]) {
+            volumeByProduct[vd.product_id] = [];
+          }
+          volumeByProduct[vd.product_id].push(vd);
         }
-      })
-      .catch(() => { /* use defaults */ });
+
+        // Build product configs from DB data
+        const dbProducts: ProductConfig[] = ((productsData || []) as SupabaseProduct[]).map(
+          (p, idx) => {
+            const tiers: DiscountTier[] = (volumeByProduct[p.id] || []).map((vd) => ({
+              id: vd.id,
+              minQty: String(vd.min_qty),
+              discountPct: String(vd.discount_pct),
+            }));
+            // Ensure at least 3 tier slots for the UI
+            while (tiers.length < 3) {
+              tiers.push({ minQty: "", discountPct: "" });
+            }
+
+            return {
+              id: p.id,
+              numericId: idx + 1,
+              name: p.name,
+              slug: p.slug,
+              price: formatBRL(p.base_price),
+              active: p.active,
+              influencerDiscount: "10", // influencer discount not in DB yet, default
+              discountTiers: tiers,
+            };
+          }
+        );
+
+        setProducts(dbProducts);
+        setSavedProducts(JSON.parse(JSON.stringify(dbProducts)));
+
+        // 3. Fetch payment config from /api/settings
+        try {
+          const res = await fetch("/api/settings?key=payment_config", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.value) {
+              const loaded: PaymentConfig = {
+                maxInstallments: String(data.value.maxInstallments ?? 10),
+                pixDiscount: String(data.value.pixDiscountPct ?? 5),
+                boletoDiscount: String(data.value.boletoDiscountPct ?? 3),
+              };
+              setPaymentConfig(loaded);
+              setSavedPaymentConfig(loaded);
+            }
+          }
+        } catch {
+          // use defaults
+        }
+
+        // 4. Fetch coupons from /api/settings
+        try {
+          const res = await fetch("/api/settings?key=fixed_coupons", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.value && Array.isArray(data.value)) {
+              setFixedCoupons(data.value);
+              setSavedCoupons(JSON.parse(JSON.stringify(data.value)));
+            }
+          }
+        } catch {
+          // use defaults
+        }
+
+        // 5. Fetch redemption settings from /api/settings
+        try {
+          const res = await fetch("/api/settings?key=redemption_settings", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.value) {
+              setRedemptionSettings(data.value);
+              setSavedRedemptionSettings(JSON.parse(JSON.stringify(data.value)));
+            }
+          }
+        } catch {
+          // use defaults
+        }
+
+        // 6. Build gift cards from products data (gift card config is product-derived)
+        const giftCardProducts = dbProducts.filter(
+          (p) => p.slug === "dogbook" || p.slug.startsWith("sessao-")
+        );
+        const initialGifts: GiftCardConfig[] = giftCardProducts.map((p, idx) => ({
+          id: idx + 1,
+          productName: p.name,
+          active: true,
+          has100PercentOff: true,
+          couponOptions: getDefaultCouponOptions(p.slug),
+          volumeDiscounts: getDefaultGiftVolumeDiscounts(p.slug),
+          validity: "360",
+        }));
+        setGiftCards(initialGifts);
+        setSavedGiftCards(JSON.parse(JSON.stringify(initialGifts)));
+
+      } catch (err) {
+        console.error("[PrecosPage] Error loading data:", err);
+        toast.error("Erro ao carregar dados. Verifique a conexão com o banco de dados.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
   }, []);
 
   const hasChanges = useMemo(() => {
@@ -346,36 +337,92 @@ export default function PrecosPage() {
 
   const handleSaveAll = useCallback(async () => {
     setSaving(true);
+    const supabase = createClient();
     try {
-      // Save payment config to Supabase via API
+      // 1. Save payment config to Supabase via API
       const saved = await persistPaymentConfig({
-        maxInstallments: parseInt(paymentConfig.maxInstallments) || PAYMENT_CONFIG.maxInstallments,
-        pixDiscountPct: parseFloat(paymentConfig.pixDiscount) || PAYMENT_CONFIG.pixDiscountPct,
-        boletoDiscountPct: parseFloat(paymentConfig.boletoDiscount) || PAYMENT_CONFIG.boletoDiscountPct,
+        maxInstallments: parseInt(paymentConfig.maxInstallments) || 10,
+        pixDiscountPct: parseFloat(paymentConfig.pixDiscount) || 5,
+        boletoDiscountPct: parseFloat(paymentConfig.boletoDiscount) || 3,
       });
       if (!saved) {
         throw new Error("Falha ao salvar formas de pagamento");
       }
 
-      // Save product prices to Supabase via API
-      const slugMap: Record<string, string> = {
-        Dogbook: "dogbook",
-        "Sessão Pocket": "sessao-pocket",
-        "Sessão Estúdio": "sessao-estudio",
-        "Sessão Completa": "sessao-completa",
-      };
-      const productUpdates = products.map((p) => ({
-        slug: slugMap[p.name] || p.name.toLowerCase(),
-        name: p.name,
-        price: parsePrice(p.price),
-      }));
-      const priceRes = await fetch("/api/admin/save-products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ products: productUpdates }),
-      });
-      if (!priceRes.ok) {
-        throw new Error("Falha ao salvar preços dos produtos");
+      // 2. Save product prices + active status directly to Supabase
+      for (const p of products) {
+        const { error } = await supabase
+          .from("products")
+          .update({
+            base_price: parsePrice(p.price),
+            active: p.active,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", p.id);
+
+        if (error) {
+          throw new Error(`Erro ao salvar ${p.name}: ${error.message}`);
+        }
+      }
+
+      // 3. Save volume discounts to Supabase
+      for (const p of products) {
+        for (const tier of p.discountTiers) {
+          const minQty = parseInt(tier.minQty);
+          const discountPct = parseFloat(tier.discountPct);
+          if (!minQty || !discountPct) continue;
+
+          if (tier.id) {
+            // Update existing
+            const { error } = await supabase
+              .from("volume_discounts")
+              .update({
+                min_qty: minQty,
+                discount_pct: discountPct,
+              })
+              .eq("id", tier.id);
+
+            if (error) {
+              console.error(`Error updating volume discount ${tier.id}:`, error);
+            }
+          } else {
+            // Insert new
+            const { error } = await supabase
+              .from("volume_discounts")
+              .insert({
+                product_id: p.id,
+                min_qty: minQty,
+                discount_pct: discountPct,
+                active: true,
+              });
+
+            if (error) {
+              console.error(`Error inserting volume discount for ${p.name}:`, error);
+            }
+          }
+        }
+      }
+
+      // 4. Save coupons to /api/settings
+      try {
+        await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "fixed_coupons", value: fixedCoupons }),
+        });
+      } catch {
+        console.error("Failed to save coupons");
+      }
+
+      // 5. Save redemption settings to /api/settings
+      try {
+        await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "redemption_settings", value: redemptionSettings }),
+        });
+      } catch {
+        console.error("Failed to save redemption settings");
       }
 
       setSavedProducts(JSON.parse(JSON.stringify(products)));
@@ -386,21 +433,56 @@ export default function PrecosPage() {
       toast.success("Modificações salvas com sucesso!", {
         description: "Preços, formas de pagamento, cupons e condições foram atualizados em todo o site.",
       });
-    } catch {
-      toast.error("Erro ao salvar modificações. Tente novamente.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar modificações. Tente novamente.");
     } finally {
       setSaving(false);
     }
   }, [products, giftCards, fixedCoupons, redemptionSettings, paymentConfig]);
 
-  const handleSaveProduct = useCallback(async (productName: string) => {
+  const handleSaveProduct = useCallback(async (product: ProductConfig) => {
     setSaving(true);
+    const supabase = createClient();
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Update product in Supabase
+      const { error } = await supabase
+        .from("products")
+        .update({
+          base_price: parsePrice(product.price),
+          active: product.active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", product.id);
+
+      if (error) throw error;
+
+      // Update volume discounts
+      for (const tier of product.discountTiers) {
+        const minQty = parseInt(tier.minQty);
+        const discountPct = parseFloat(tier.discountPct);
+        if (!minQty || !discountPct) continue;
+
+        if (tier.id) {
+          await supabase
+            .from("volume_discounts")
+            .update({ min_qty: minQty, discount_pct: discountPct })
+            .eq("id", tier.id);
+        } else {
+          await supabase
+            .from("volume_discounts")
+            .insert({
+              product_id: product.id,
+              min_qty: minQty,
+              discount_pct: discountPct,
+              active: true,
+            });
+        }
+      }
+
       setSavedProducts(JSON.parse(JSON.stringify(products)));
-      toast.success(`${productName} salvo com sucesso!`);
-    } catch {
-      toast.error("Erro ao salvar. Tente novamente.");
+      toast.success(`${product.name} salvo com sucesso!`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar. Tente novamente.");
     } finally {
       setSaving(false);
     }
@@ -555,34 +637,42 @@ export default function PrecosPage() {
   };
 
   const updateProduct = (
-    id: number,
+    numericId: number,
     field: keyof ProductConfig,
     value: string | boolean
   ) => {
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+      prev.map((p) => (p.numericId === numericId ? { ...p, [field]: value } : p))
     );
   };
 
   const updateTier = (
-    productId: number,
+    numericId: number,
     tierIndex: number,
     field: keyof DiscountTier,
     value: string
   ) => {
     setProducts((prev) =>
       prev.map((p) => {
-        if (p.id !== productId) return p;
-        const newTiers = [...p.discountTiers] as [
-          DiscountTier,
-          DiscountTier,
-          DiscountTier,
-        ];
+        if (p.numericId !== numericId) return p;
+        const newTiers = [...p.discountTiers];
         newTiers[tierIndex] = { ...newTiers[tierIndex], [field]: value };
         return { ...p, discountTiers: newTiers };
       })
     );
   };
+
+  /* ─── Loading state ─── */
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="size-8 animate-spin text-[#8b5e5e]" />
+          <p className="text-sm text-muted-foreground">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -601,7 +691,7 @@ export default function PrecosPage() {
           className="shrink-0 bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
           size="lg"
         >
-          <Save className="size-4" />
+          {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           {saving ? "Salvando..." : "Salvar Modificações"}
         </Button>
       </div>
@@ -617,8 +707,15 @@ export default function PrecosPage() {
         {/* ════════════════════ Produtos e Serviços Tab ════════════════════ */}
         <TabsContent value="produtos">
           <div className="mt-4 space-y-4">
+            {products.length === 0 && (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  Nenhum produto encontrado no banco de dados.
+                </CardContent>
+              </Card>
+            )}
             {products.map((product) => {
-              const isExpanded = expandedIds.has(product.id);
+              const isExpanded = expandedIds.has(product.numericId);
               const basePrice = parsePrice(product.price);
               const installmentValue =
                 basePrice / (parseInt(paymentConfig.maxInstallments) || 1);
@@ -633,7 +730,7 @@ export default function PrecosPage() {
                   {/* ─── Collapsed summary (always visible) ─── */}
                   <CardHeader
                     className="cursor-pointer select-none space-y-0 py-4 transition-colors hover:bg-muted/30"
-                    onClick={() => toggleExpanded(product.id)}
+                    onClick={() => toggleExpanded(product.numericId)}
                   >
                     {/* Top row: name + chevron */}
                     <div className="flex items-center justify-between">
@@ -656,7 +753,7 @@ export default function PrecosPage() {
                         className="size-8 shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleExpanded(product.id);
+                          toggleExpanded(product.numericId);
                         }}
                       >
                         {isExpanded ? (
@@ -741,7 +838,7 @@ export default function PrecosPage() {
                         <Switch
                           checked={product.active}
                           onCheckedChange={(checked) =>
-                            updateProduct(product.id, "active", !!checked)
+                            updateProduct(product.numericId, "active", !!checked)
                           }
                         />
                       </div>
@@ -755,15 +852,15 @@ export default function PrecosPage() {
                           </h3>
                         </div>
                         <div className="max-w-xs">
-                          <Label htmlFor={`price-${product.id}`}>
+                          <Label htmlFor={`price-${product.numericId}`}>
                             Preço Base (R$)
                           </Label>
                           <Input
-                            id={`price-${product.id}`}
+                            id={`price-${product.numericId}`}
                             value={product.price}
                             onChange={(e) =>
                               updateProduct(
-                                product.id,
+                                product.numericId,
                                 "price",
                                 e.target.value
                               )
@@ -790,21 +887,21 @@ export default function PrecosPage() {
                         </p>
                         <div className="max-w-xs">
                           <Label
-                            htmlFor={`influencer-${product.id}`}
+                            htmlFor={`influencer-${product.numericId}`}
                             className="text-xs"
                           >
                             Desconto (%)
                           </Label>
                           <div className="mt-1 flex items-center gap-2">
                             <Input
-                              id={`influencer-${product.id}`}
+                              id={`influencer-${product.numericId}`}
                               type="number"
                               min="0"
                               max="100"
                               value={product.influencerDiscount}
                               onChange={(e) =>
                                 updateProduct(
-                                  product.id,
+                                  product.numericId,
                                   "influencerDiscount",
                                   e.target.value
                                 )
@@ -847,7 +944,7 @@ export default function PrecosPage() {
                         </p>
 
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                          {product.discountTiers.map((tier, idx) => (
+                          {product.discountTiers.slice(0, 3).map((tier, idx) => (
                             <div
                               key={idx}
                               className="rounded-lg border border-border p-4"
@@ -858,19 +955,19 @@ export default function PrecosPage() {
                               <div className="space-y-3">
                                 <div>
                                   <Label
-                                    htmlFor={`qty-${product.id}-${idx}`}
+                                    htmlFor={`qty-${product.numericId}-${idx}`}
                                     className="text-xs"
                                   >
                                     Quantidade mínima
                                   </Label>
                                   <Input
-                                    id={`qty-${product.id}-${idx}`}
+                                    id={`qty-${product.numericId}-${idx}`}
                                     type="number"
                                     min="1"
                                     value={tier.minQty}
                                     onChange={(e) =>
                                       updateTier(
-                                        product.id,
+                                        product.numericId,
                                         idx,
                                         "minQty",
                                         e.target.value
@@ -882,20 +979,20 @@ export default function PrecosPage() {
                                 </div>
                                 <div>
                                   <Label
-                                    htmlFor={`disc-${product.id}-${idx}`}
+                                    htmlFor={`disc-${product.numericId}-${idx}`}
                                     className="text-xs"
                                   >
                                     Desconto (%)
                                   </Label>
                                   <Input
-                                    id={`disc-${product.id}-${idx}`}
+                                    id={`disc-${product.numericId}-${idx}`}
                                     type="number"
                                     min="0"
                                     max="100"
                                     value={tier.discountPct}
                                     onChange={(e) =>
                                       updateTier(
-                                        product.id,
+                                        product.numericId,
                                         idx,
                                         "discountPct",
                                         e.target.value
@@ -920,11 +1017,11 @@ export default function PrecosPage() {
                       {/* Save button per product */}
                       <div className="flex justify-end">
                         <Button
-                          onClick={() => handleSaveProduct(product.name)}
+                          onClick={() => handleSaveProduct(product)}
                           disabled={saving}
                           className="bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
                         >
-                          <Save className="size-4" />
+                          {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                           {saving ? "Salvando..." : `Salvar ${product.name}`}
                         </Button>
                       </div>
@@ -1175,7 +1272,7 @@ export default function PrecosPage() {
                 className="bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
                 size="lg"
               >
-                <Save className="size-4" />
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 {saving ? "Salvando..." : "Salvar Formas de Pagamento"}
               </Button>
             </div>
@@ -1793,7 +1890,7 @@ export default function PrecosPage() {
                               disabled={saving}
                               className="bg-[#8b5e5e] hover:bg-[#7a5050] text-white"
                             >
-                              <Save className="size-4" />
+                              {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                               {saving ? "Salvando..." : `Salvar ${gc.productName}`}
                             </Button>
                           </div>
@@ -1915,4 +2012,63 @@ export default function PrecosPage() {
       </Dialog>
     </div>
   );
+}
+
+/* ────────────────────── Gift Card Defaults ────────────────────── */
+
+function getDefaultCouponOptions(slug: string): GiftCouponOption[] {
+  switch (slug) {
+    case "dogbook":
+      return [
+        { value: "50,00", active: true },
+        { value: "100,00", active: true },
+        { value: "200,00", active: true },
+      ];
+    case "sessao-pocket":
+      return [
+        { value: "100,00", active: true },
+        { value: "200,00", active: true },
+        { value: "300,00", active: true },
+      ];
+    case "sessao-estudio":
+      return [
+        { value: "200,00", active: true },
+        { value: "500,00", active: true },
+        { value: "900,00", active: true },
+      ];
+    case "sessao-completa":
+      return [
+        { value: "400,00", active: true },
+        { value: "800,00", active: true },
+        { value: "1.200,00", active: true },
+      ];
+    default:
+      return [
+        { value: "50,00", active: true },
+        { value: "100,00", active: true },
+        { value: "200,00", active: true },
+      ];
+  }
+}
+
+function getDefaultGiftVolumeDiscounts(
+  slug: string
+): [GiftVolumeDiscount, GiftVolumeDiscount, GiftVolumeDiscount, GiftVolumeDiscount] {
+  switch (slug) {
+    case "sessao-estudio":
+    case "sessao-completa":
+      return [
+        { minQty: "5", discountPct: "10" },
+        { minQty: "10", discountPct: "15" },
+        { minQty: "25", discountPct: "20" },
+        { minQty: "50", discountPct: "25" },
+      ];
+    default:
+      return [
+        { minQty: "5", discountPct: "10" },
+        { minQty: "10", discountPct: "15" },
+        { minQty: "25", discountPct: "17.5" },
+        { minQty: "50", discountPct: "20" },
+      ];
+  }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -47,119 +47,127 @@ import {
   Loader2,
 } from "lucide-react";
 import { useCepLookup } from "@/hooks/useCepLookup";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import type { TeamMember } from "@/types";
 
-/* ────────────────────── Types ────────────────────── */
+/* ────────────────────── Permission mapping ────────────────────── */
 
-interface MemberPermissions {
-  analytics: boolean;
-  clientes: boolean;
-  comissoes: boolean;
-  dashboard: boolean;
-  usuarios: boolean;
-  influenciadores: boolean;
-  interacoes: boolean;
-  dogbook: boolean;
-  precos: boolean;
-  sessoesFoto: boolean;
-  fotolivros: boolean;
-}
-
-interface TeamMember {
-  id: number;
-  name: string;
-  email: string;
-  role: "Administrador" | "Equipe";
-  active: boolean;
-  permissions: MemberPermissions;
-}
-
-/* ────────────────────── Constants ────────────────────── */
-
-const permissionModules: { key: keyof MemberPermissions; label: string }[] = [
+/** Maps UI keys to database column names */
+const permissionModules: {
+  key: keyof typeof permKeyToColumn;
+  label: string;
+}[] = [
   { key: "analytics", label: "Analytics" },
   { key: "clientes", label: "Clientes" },
-  { key: "comissoes", label: "Comissões" },
+  { key: "sessoes", label: "Sessões" },
+  { key: "pedidos", label: "Pedidos" },
+  { key: "galeria", label: "Galeria" },
   { key: "dashboard", label: "Dashboard" },
-  { key: "usuarios", label: "Usuários" },
   { key: "influenciadores", label: "Influenciadores" },
-  { key: "interacoes", label: "Interações" },
-  { key: "dogbook", label: "Dogbook" },
+  { key: "fotografos", label: "Fotógrafos" },
   { key: "precos", label: "Preços" },
-  { key: "sessoesFoto", label: "Sessões Foto" },
-  { key: "fotolivros", label: "Fotolivros" },
+  { key: "equipe", label: "Equipe" },
+  { key: "comunicacao", label: "Comunicação" },
+  { key: "conversao", label: "Conversão" },
 ];
 
-const allPermissionsTrue: MemberPermissions = {
-  analytics: true,
-  clientes: true,
-  comissoes: true,
-  dashboard: true,
-  usuarios: true,
-  influenciadores: true,
-  interacoes: true,
-  dogbook: true,
-  precos: true,
-  sessoesFoto: true,
-  fotolivros: true,
+const permKeyToColumn: Record<string, keyof TeamMember> = {
+  analytics: "perm_analytics",
+  clientes: "perm_clientes",
+  sessoes: "perm_sessoes",
+  pedidos: "perm_pedidos",
+  galeria: "perm_galeria",
+  dashboard: "perm_dashboard",
+  influenciadores: "perm_influenciadores",
+  fotografos: "perm_fotografos",
+  precos: "perm_precos",
+  equipe: "perm_equipe",
+  comunicacao: "perm_comunicacao",
+  conversao: "perm_conversao",
 };
 
-/* ────────────────────── Mock data ────────────────────── */
+type PermKey = keyof typeof permKeyToColumn;
 
-const initialMembers: TeamMember[] = [
-  {
-    id: 1,
-    name: "ricardo.wafse",
-    email: "ricardo.wafse@gmail.com",
-    role: "Administrador",
-    active: true,
-    permissions: { ...allPermissionsTrue },
-  },
-  {
-    id: 2,
-    name: "teste.equipe",
-    email: "teste.equipe@petasamor.com",
-    role: "Equipe",
-    active: true,
-    permissions: {
-      analytics: true,
-      clientes: true,
-      comissoes: true,
-      dashboard: true,
-      usuarios: false,
-      influenciadores: true,
-      interacoes: true,
-      dogbook: true,
-      precos: false,
-      sessoesFoto: true,
-      fotolivros: true,
-    },
-  },
-  {
-    id: 3,
-    name: "maria.designer",
-    email: "maria.designer@petasamor.com",
-    role: "Equipe",
-    active: false,
-    permissions: {
-      analytics: false,
-      clientes: true,
-      comissoes: false,
-      dashboard: true,
-      usuarios: false,
-      influenciadores: false,
-      interacoes: false,
-      dogbook: true,
-      precos: false,
-      sessoesFoto: false,
-      fotolivros: true,
-    },
-  },
-];
+/** Get a permission value from a TeamMember */
+function getMemberPerm(member: TeamMember, key: PermKey): boolean {
+  return !!member[permKeyToColumn[key] as keyof TeamMember];
+}
+
+/* ────────────────────── Default new member permissions ────────────────────── */
+
+const defaultNewPerms: Record<PermKey, boolean> = {
+  analytics: true,
+  clientes: true,
+  sessoes: true,
+  pedidos: false,
+  galeria: true,
+  dashboard: true,
+  influenciadores: false,
+  fotografos: false,
+  precos: false,
+  equipe: false,
+  comunicacao: false,
+  conversao: false,
+};
+
+/* ────────────────────── Empty form state ────────────────────── */
+
+interface NewMemberForm {
+  email: string;
+  password: string;
+  name: string;
+  role: "admin" | "equipe";
+  phone: string;
+  cpf: string;
+  rg: string;
+  birth_date: string;
+  work_start_date: string;
+  work_end_date: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  bank: string;
+  agency: string;
+  account: string;
+  pix_key: string;
+}
+
+const emptyForm: NewMemberForm = {
+  email: "",
+  password: "",
+  name: "",
+  role: "equipe",
+  phone: "",
+  cpf: "",
+  rg: "",
+  birth_date: "",
+  work_start_date: "",
+  work_end_date: "",
+  cep: "",
+  street: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "",
+  state: "",
+  bank: "",
+  agency: "",
+  account: "",
+  pix_key: "",
+};
 
 /* ────────────────────── Page ────────────────────── */
 
 export default function EquipePage() {
-  const [members, setMembers] = useState<TeamMember[]>(initialMembers);
+  const supabase = useMemo(() => createClient(), []);
+
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [permDialogMember, setPermDialogMember] = useState<TeamMember | null>(
@@ -170,81 +178,259 @@ export default function EquipePage() {
   const [resetDialogMember, setResetDialogMember] =
     useState<TeamMember | null>(null);
 
-  // New member form permissions state
-  const [newMemberPerms, setNewMemberPerms] = useState<MemberPermissions>({
-    analytics: true,
-    clientes: true,
-    comissoes: false,
-    dashboard: true,
-    usuarios: false,
-    influenciadores: false,
-    interacoes: false,
-    dogbook: true,
-    precos: false,
-    sessoesFoto: true,
-    fotolivros: true,
+  // Loading states for specific operations
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [updatingPermId, setUpdatingPermId] = useState<string | null>(null);
+
+  // New member form state
+  const [form, setForm] = useState<NewMemberForm>({ ...emptyForm });
+  const [newMemberPerms, setNewMemberPerms] = useState<Record<PermKey, boolean>>({
+    ...defaultNewPerms,
   });
 
-  // Address fields state (for CEP auto-fill)
-  const [newMemberCep, setNewMemberCep] = useState("");
-  const [newMemberStreet, setNewMemberStreet] = useState("");
-  const [newMemberComplement, setNewMemberComplement] = useState("");
-  const [newMemberNeighborhood, setNewMemberNeighborhood] = useState("");
-  const [newMemberCity, setNewMemberCity] = useState("");
-  const [newMemberState, setNewMemberState] = useState("");
+  const updateForm = useCallback(
+    (field: keyof NewMemberForm, value: string) => {
+      setForm((prev) => ({ ...prev, [field]: value }));
+    },
+    []
+  );
 
+  // CEP auto-fill for new member form
   const cepLookup = useCepLookup(
     useMemo(
       () => ({
         onSuccess: (data) => {
-          setNewMemberStreet(data.logradouro || "");
-          setNewMemberComplement(data.complemento || "");
-          setNewMemberNeighborhood(data.bairro || "");
-          setNewMemberCity(data.localidade || "");
-          setNewMemberState(data.uf || "");
+          setForm((prev) => ({
+            ...prev,
+            street: data.logradouro || "",
+            complement: data.complemento || "",
+            neighborhood: data.bairro || "",
+            city: data.localidade || "",
+            state: data.uf || "",
+          }));
         },
       }),
       []
     )
   );
 
-  const adminCount = members.filter((m) => m.role === "Administrador").length;
-  const equipeCount = members.filter((m) => m.role === "Equipe").length;
+  /* ─── Fetch members ─── */
+
+  const fetchMembers = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching team members:", error);
+      toast.error("Erro ao carregar membros da equipe.");
+    } else {
+      setMembers(data ?? []);
+    }
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
+
+  /* ─── KPI computed values ─── */
+
+  const adminCount = members.filter((m) => m.role === "admin").length;
+  const equipeCount = members.filter((m) => m.role === "equipe").length;
   const activeCount = members.filter((m) => m.active).length;
 
   /* ─── Handlers ─── */
 
-  const handleToggleActive = (id: number) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, active: !m.active } : m))
-    );
+  const handleToggleActive = async (member: TeamMember) => {
+    setTogglingId(member.id);
+    const newActive = !member.active;
+
+    const { error } = await supabase
+      .from("team_members")
+      .update({ active: newActive })
+      .eq("id", member.id);
+
+    if (error) {
+      toast.error("Erro ao alterar status do membro.");
+      console.error(error);
+    } else {
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === member.id ? { ...m, active: newActive } : m
+        )
+      );
+      toast.success(
+        newActive ? "Membro ativado com sucesso." : "Membro desativado."
+      );
+    }
+    setTogglingId(null);
   };
 
-  const handleDelete = (id: number) => {
-    setMembers((prev) => prev.filter((m) => m.id !== id));
+  const handleDelete = async (member: TeamMember) => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/admin/delete-team-member", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: member.id }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(result.error || "Erro ao excluir membro.");
+      } else {
+        setMembers((prev) => prev.filter((m) => m.id !== member.id));
+        toast.success("Membro excluído com sucesso.");
+      }
+    } catch {
+      toast.error("Erro de conexão ao excluir membro.");
+    }
+    setDeleting(false);
     setDeleteDialogMember(null);
   };
 
-  const handlePermissionChange = (
-    memberId: number,
-    key: keyof MemberPermissions,
+  const handlePermissionChange = async (
+    member: TeamMember,
+    key: PermKey,
     value: boolean
   ) => {
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId
-          ? { ...m, permissions: { ...m.permissions, [key]: value } }
-          : m
-      )
-    );
+    const column = permKeyToColumn[key] as string;
+    setUpdatingPermId(member.id);
+
+    const { error } = await supabase
+      .from("team_members")
+      .update({ [column]: value })
+      .eq("id", member.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar permissão.");
+      console.error(error);
+    } else {
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === member.id ? { ...m, [column]: value } : m
+        )
+      );
+      // Also update the dialog member state
+      setPermDialogMember((prev) =>
+        prev && prev.id === member.id
+          ? { ...prev, [column]: value }
+          : prev
+      );
+    }
+    setUpdatingPermId(null);
   };
 
-  /* ─── Member Card (shared between grid/list) ─── */
+  const handleResetPassword = async (member: TeamMember) => {
+    setResetting(true);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: member.email }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(result.error || "Erro ao enviar email de reset.");
+      } else {
+        toast.success("Email de redefinição de senha enviado!");
+      }
+    } catch {
+      toast.error("Erro de conexão ao resetar senha.");
+    }
+    setResetting(false);
+    setResetDialogMember(null);
+  };
+
+  const handleAddMember = async () => {
+    if (!form.email || !form.password || !form.name) {
+      toast.error("Email, senha e nome são obrigatórios.");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      toast.error("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
+    setSaving(true);
+
+    // Build permission fields
+    const permFields: Record<string, boolean> = {};
+    for (const mod of permissionModules) {
+      permFields[permKeyToColumn[mod.key] as string] =
+        newMemberPerms[mod.key];
+    }
+
+    try {
+      const res = await fetch("/api/admin/create-team-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          name: form.name,
+          role: form.role,
+          active: true,
+          phone: form.phone || null,
+          cpf: form.cpf || null,
+          rg: form.rg || null,
+          birth_date: form.birth_date || null,
+          work_start_date: form.work_start_date || null,
+          work_end_date: form.work_end_date || null,
+          cep: form.cep || null,
+          street: form.street || null,
+          number: form.number || null,
+          complement: form.complement || null,
+          neighborhood: form.neighborhood || null,
+          city: form.city || null,
+          state: form.state || null,
+          bank: form.bank || null,
+          agency: form.agency || null,
+          account: form.account || null,
+          pix_key: form.pix_key || null,
+          ...permFields,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(result.error || "Erro ao criar membro.");
+      } else {
+        toast.success("Membro adicionado com sucesso!");
+        if (result.member) {
+          setMembers((prev) => [...prev, result.member]);
+        } else {
+          // Refetch to be safe
+          await fetchMembers();
+        }
+        setAddDialogOpen(false);
+        setForm({ ...emptyForm });
+        setNewMemberPerms({ ...defaultNewPerms });
+      }
+    } catch {
+      toast.error("Erro de conexão ao criar membro.");
+    }
+
+    setSaving(false);
+  };
+
+  /* ─── Member Card Actions ─── */
 
   const MemberActions = ({ member }: { member: TeamMember }) => (
     <div className="flex items-center gap-1.5">
       {/* Permissions */}
-      {member.role === "Equipe" && (
+      {member.role === "equipe" && (
         <Button
           variant="outline"
           size="sm"
@@ -255,8 +441,6 @@ export default function EquipePage() {
           Permissões
         </Button>
       )}
-
-      {/* Toggle Active - now handled directly in the card */}
 
       {/* Reset Password */}
       <Button
@@ -282,6 +466,19 @@ export default function EquipePage() {
     </div>
   );
 
+  /* ─── Loading state ─── */
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <span className="ml-3 text-muted-foreground">
+          Carregando equipe...
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* ════════════════════ Header ════════════════════ */}
@@ -300,7 +497,16 @@ export default function EquipePage() {
         </div>
 
         {/* ─── Add Member Dialog ─── */}
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <Dialog
+          open={addDialogOpen}
+          onOpenChange={(open) => {
+            setAddDialogOpen(open);
+            if (!open) {
+              setForm({ ...emptyForm });
+              setNewMemberPerms({ ...defaultNewPerms });
+            }
+          }}
+        >
           <DialogTrigger className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Plus className="size-4" />
             Adicionar Membro
@@ -329,6 +535,8 @@ export default function EquipePage() {
                       id="acc-email"
                       type="email"
                       placeholder="email@exemplo.com"
+                      value={form.email}
+                      onChange={(e) => updateForm("email", e.target.value)}
                     />
                   </div>
                   <div className="grid gap-1.5">
@@ -337,19 +545,24 @@ export default function EquipePage() {
                       id="acc-password"
                       type="password"
                       placeholder="Mínimo 6 caracteres"
+                      value={form.password}
+                      onChange={(e) => updateForm("password", e.target.value)}
                     />
                   </div>
                   <div className="grid gap-1.5">
                     <Label>Role</Label>
-                    <Select defaultValue="Equipe">
+                    <Select
+                      value={form.role}
+                      onValueChange={(v) =>
+                        updateForm("role", v as "admin" | "equipe")
+                      }
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Administrador">
-                          Administrador
-                        </SelectItem>
-                        <SelectItem value="Equipe">Equipe</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="equipe">Equipe</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -366,30 +579,49 @@ export default function EquipePage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5 sm:col-span-2">
                     <Label htmlFor="p-name">Nome Completo *</Label>
-                    <Input id="p-name" placeholder="Nome completo" />
+                    <Input
+                      id="p-name"
+                      placeholder="Nome completo"
+                      value={form.name}
+                      onChange={(e) => updateForm("name", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="p-birth">Data de Nascimento</Label>
-                    <Input id="p-birth" type="date" />
+                    <Input
+                      id="p-birth"
+                      type="date"
+                      value={form.birth_date}
+                      onChange={(e) =>
+                        updateForm("birth_date", e.target.value)
+                      }
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="p-cpf">CPF</Label>
-                    <Input id="p-cpf" placeholder="000.000.000-00" />
+                    <Input
+                      id="p-cpf"
+                      placeholder="000.000.000-00"
+                      value={form.cpf}
+                      onChange={(e) => updateForm("cpf", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="p-rg">RG</Label>
-                    <Input id="p-rg" placeholder="RG" />
+                    <Input
+                      id="p-rg"
+                      placeholder="RG"
+                      value={form.rg}
+                      onChange={(e) => updateForm("rg", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="p-phone">Telefone</Label>
-                    <Input id="p-phone" placeholder="(00) 00000-0000" />
-                  </div>
-                  <div className="grid gap-1.5 sm:col-span-2">
-                    <Label htmlFor="p-contact-email">Email de Contato</Label>
                     <Input
-                      id="p-contact-email"
-                      type="email"
-                      placeholder="contato@email.com"
+                      id="p-phone"
+                      placeholder="(00) 00000-0000"
+                      value={form.phone}
+                      onChange={(e) => updateForm("phone", e.target.value)}
                     />
                   </div>
                 </div>
@@ -405,11 +637,25 @@ export default function EquipePage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5">
                     <Label htmlFor="w-start">Data de Início</Label>
-                    <Input id="w-start" type="date" />
+                    <Input
+                      id="w-start"
+                      type="date"
+                      value={form.work_start_date}
+                      onChange={(e) =>
+                        updateForm("work_start_date", e.target.value)
+                      }
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="w-end">Data de Fim</Label>
-                    <Input id="w-end" type="date" />
+                    <Input
+                      id="w-end"
+                      type="date"
+                      value={form.work_end_date}
+                      onChange={(e) =>
+                        updateForm("work_end_date", e.target.value)
+                      }
+                    />
                   </div>
                 </div>
               </div>
@@ -428,9 +674,9 @@ export default function EquipePage() {
                       <Input
                         id="a-cep"
                         placeholder="00000-000"
-                        value={newMemberCep}
-                        onChange={(e) => setNewMemberCep(e.target.value)}
-                        onBlur={() => cepLookup.fetchCep(newMemberCep)}
+                        value={form.cep}
+                        onChange={(e) => updateForm("cep", e.target.value)}
+                        onBlur={() => cepLookup.fetchCep(form.cep)}
                       />
                       {cepLookup.loading && (
                         <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -442,21 +688,28 @@ export default function EquipePage() {
                     <Input
                       id="a-street"
                       placeholder="Rua, Avenida..."
-                      value={newMemberStreet}
-                      onChange={(e) => setNewMemberStreet(e.target.value)}
+                      value={form.street}
+                      onChange={(e) => updateForm("street", e.target.value)}
                     />
                   </div>
                   <div className="grid gap-1.5 sm:col-span-1">
                     <Label htmlFor="a-number">Número</Label>
-                    <Input id="a-number" placeholder="Nº" />
+                    <Input
+                      id="a-number"
+                      placeholder="Nº"
+                      value={form.number}
+                      onChange={(e) => updateForm("number", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5 sm:col-span-2">
                     <Label htmlFor="a-complement">Complemento</Label>
                     <Input
                       id="a-complement"
                       placeholder="Apto, Sala..."
-                      value={newMemberComplement}
-                      onChange={(e) => setNewMemberComplement(e.target.value)}
+                      value={form.complement}
+                      onChange={(e) =>
+                        updateForm("complement", e.target.value)
+                      }
                     />
                   </div>
                   <div className="grid gap-1.5 sm:col-span-3">
@@ -464,8 +717,10 @@ export default function EquipePage() {
                     <Input
                       id="a-neighborhood"
                       placeholder="Bairro"
-                      value={newMemberNeighborhood}
-                      onChange={(e) => setNewMemberNeighborhood(e.target.value)}
+                      value={form.neighborhood}
+                      onChange={(e) =>
+                        updateForm("neighborhood", e.target.value)
+                      }
                     />
                   </div>
                   <div className="grid gap-1.5 sm:col-span-4">
@@ -473,8 +728,8 @@ export default function EquipePage() {
                     <Input
                       id="a-city"
                       placeholder="Cidade"
-                      value={newMemberCity}
-                      onChange={(e) => setNewMemberCity(e.target.value)}
+                      value={form.city}
+                      onChange={(e) => updateForm("city", e.target.value)}
                     />
                   </div>
                   <div className="grid gap-1.5 sm:col-span-2">
@@ -482,8 +737,8 @@ export default function EquipePage() {
                     <Input
                       id="a-state"
                       placeholder="UF"
-                      value={newMemberState}
-                      onChange={(e) => setNewMemberState(e.target.value)}
+                      value={form.state}
+                      onChange={(e) => updateForm("state", e.target.value)}
                     />
                   </div>
                 </div>
@@ -518,21 +773,38 @@ export default function EquipePage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5">
                     <Label htmlFor="b-bank">Banco</Label>
-                    <Input id="b-bank" placeholder="Nome do banco" />
+                    <Input
+                      id="b-bank"
+                      placeholder="Nome do banco"
+                      value={form.bank}
+                      onChange={(e) => updateForm("bank", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="b-agency">Agência</Label>
-                    <Input id="b-agency" placeholder="0000" />
+                    <Input
+                      id="b-agency"
+                      placeholder="0000"
+                      value={form.agency}
+                      onChange={(e) => updateForm("agency", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="b-account">Conta</Label>
-                    <Input id="b-account" placeholder="00000-0" />
+                    <Input
+                      id="b-account"
+                      placeholder="00000-0"
+                      value={form.account}
+                      onChange={(e) => updateForm("account", e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="b-pix">Chave Pix</Label>
                     <Input
                       id="b-pix"
                       placeholder="CPF, email, telefone ou aleatória"
+                      value={form.pix_key}
+                      onChange={(e) => updateForm("pix_key", e.target.value)}
                     />
                   </div>
                 </div>
@@ -574,10 +846,12 @@ export default function EquipePage() {
               <Button
                 variant="outline"
                 onClick={() => setAddDialogOpen(false)}
+                disabled={saving}
               >
                 Cancelar
               </Button>
-              <Button onClick={() => setAddDialogOpen(false)}>
+              <Button onClick={handleAddMember} disabled={saving}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
                 Adicionar Membro
               </Button>
             </DialogFooter>
@@ -651,7 +925,17 @@ export default function EquipePage() {
           </div>
         </CardHeader>
         <CardContent>
-          {viewMode === "grid" ? (
+          {members.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Users className="mb-4 size-12 text-muted-foreground/30" />
+              <p className="text-lg font-medium text-muted-foreground">
+                Nenhum membro cadastrado
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground/70">
+                Clique em &quot;Adicionar Membro&quot; para começar.
+              </p>
+            </div>
+          ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {members.map((member) => (
                 <div
@@ -667,25 +951,23 @@ export default function EquipePage() {
                       <p className="font-semibold text-foreground">
                         {member.name}
                       </p>
-                      {member.id === 1 && (
-                        <p className="text-xs text-muted-foreground">(você)</p>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       {!member.active && (
-                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-muted-foreground"
+                        >
                           Inativo
                         </Badge>
                       )}
                       <Badge
                         variant={
-                          member.role === "Administrador"
-                            ? "destructive"
-                            : "default"
+                          member.role === "admin" ? "destructive" : "default"
                         }
                         className="text-xs"
                       >
-                        {member.role === "Administrador" ? (
+                        {member.role === "admin" ? (
                           <>
                             <Shield className="mr-1 size-3" />
                             Admin
@@ -725,15 +1007,16 @@ export default function EquipePage() {
                     </div>
                     <Switch
                       checked={member.active}
-                      onCheckedChange={() => handleToggleActive(member.id)}
+                      disabled={togglingId === member.id}
+                      onCheckedChange={() => handleToggleActive(member)}
                     />
                   </div>
 
                   {/* Individual permissions summary for Equipe */}
-                  {member.role === "Equipe" && (
+                  {member.role === "equipe" && (
                     <div className="flex flex-wrap gap-1">
                       {permissionModules
-                        .filter((mod) => member.permissions[mod.key])
+                        .filter((mod) => getMemberPerm(member, mod.key))
                         .map((mod) => (
                           <span
                             key={mod.key}
@@ -768,13 +1051,13 @@ export default function EquipePage() {
                         </p>
                         <Badge
                           variant={
-                            member.role === "Administrador"
-                              ? "destructive"
-                              : "default"
+                            member.role === "admin" ? "destructive" : "default"
                           }
                           className="text-xs"
                         >
-                          {member.role}
+                          {member.role === "admin"
+                            ? "Administrador"
+                            : "Equipe"}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -801,7 +1084,8 @@ export default function EquipePage() {
                       </span>
                       <Switch
                         checked={member.active}
-                        onCheckedChange={() => handleToggleActive(member.id)}
+                        disabled={togglingId === member.id}
+                        onCheckedChange={() => handleToggleActive(member)}
                       />
                     </div>
                     <MemberActions member={member} />
@@ -838,24 +1122,13 @@ export default function EquipePage() {
                 >
                   <Label className="text-sm font-medium">{mod.label}</Label>
                   <Switch
-                    checked={permDialogMember.permissions[mod.key]}
+                    checked={getMemberPerm(permDialogMember, mod.key)}
+                    disabled={updatingPermId === permDialogMember.id}
                     onCheckedChange={(checked) => {
                       handlePermissionChange(
-                        permDialogMember.id,
+                        permDialogMember,
                         mod.key,
                         !!checked
-                      );
-                      // Update the dialog state too
-                      setPermDialogMember((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              permissions: {
-                                ...prev.permissions,
-                                [mod.key]: !!checked,
-                              },
-                            }
-                          : null
                       );
                     }}
                   />
@@ -901,10 +1174,17 @@ export default function EquipePage() {
             <Button
               variant="outline"
               onClick={() => setResetDialogMember(null)}
+              disabled={resetting}
             >
               Cancelar
             </Button>
-            <Button onClick={() => setResetDialogMember(null)}>
+            <Button
+              onClick={() =>
+                resetDialogMember && handleResetPassword(resetDialogMember)
+              }
+              disabled={resetting}
+            >
+              {resetting && <Loader2 className="mr-2 size-4 animate-spin" />}
               Enviar Email de Reset
             </Button>
           </DialogFooter>
@@ -943,15 +1223,18 @@ export default function EquipePage() {
             <Button
               variant="outline"
               onClick={() => setDeleteDialogMember(null)}
+              disabled={deleting}
             >
               Cancelar
             </Button>
             <Button
               variant="destructive"
+              disabled={deleting}
               onClick={() =>
-                deleteDialogMember && handleDelete(deleteDialogMember.id)
+                deleteDialogMember && handleDelete(deleteDialogMember)
               }
             >
+              {deleting && <Loader2 className="mr-2 size-4 animate-spin" />}
               Excluir Permanentemente
             </Button>
           </DialogFooter>

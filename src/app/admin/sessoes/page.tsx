@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -54,7 +54,15 @@ import {
   Mail,
   CreditCard,
   Tag,
+  Loader2,
+  XCircle,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type {
+  SessionType as DBSessionType,
+  SessionStatus as DBSessionStatus,
+  PaymentStatus as DBPaymentStatus,
+} from "@/types";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -64,134 +72,87 @@ type SessionStage =
   | "Confirmada"
   | "Realizada"
   | "Em Edicao"
-  | "Entregue";
+  | "Entregue"
+  | "Cancelada";
 
-type PaymentStatus = "Pago" | "Pendente" | "Parcial" | "Reembolsado";
+type PaymentStatusDisplay = "Pago" | "Pendente" | "Processando" | "Falhou" | "Reembolsado" | "Expirado";
 
 type SessionType = "Pocket" | "Estudio" | "Completa";
 
 interface SessionItem {
-  subId: string;         // e.g. "#SES-001-1"
+  subId: string;         // e.g. "#SES-0001"
+  dbId: string;          // UUID from photo_sessions.id
   type: SessionType;
   petName: string;
   date: string;
   time: string;
   location: string;
   photographer: string;
-  stage: SessionStage;   // each sub-order has its own stage
+  photographerId: string | null;
+  stage: SessionStage;
+  dbStatus: DBSessionStatus; // raw DB status for updates
 }
 
 interface SessionOrder {
-  id: string;            // e.g. "#SES-001"
+  id: string;            // order_id UUID
+  orderNumber: string;   // e.g. "#PAM-0001"
   client: string;
   email: string;
+  phone: string;
   orderDate: string;
   items: SessionItem[];
   total: string;
-  payment: PaymentStatus;
-  influencer: string;
-  coupon: string;
+  payment: PaymentStatusDisplay;
+  paymentMethod: string;
 }
 
-/* ────────────────────── Mock Data ────────────────────── */
+interface PhotographerOption {
+  id: string;
+  name: string;
+}
 
-const initialOrders: SessionOrder[] = [
-  {
-    id: "#SES-001",
-    client: "Ana Souza",
-    email: "ana@email.com",
-    orderDate: "2026-03-10",
-    items: [
-      { subId: "#SES-001-1", type: "Pocket", petName: "Thor", date: "2026-03-15", time: "10:00", location: "Parque Ibirapuera", photographer: "Juliano Lemos", stage: "Confirmada" },
-    ],
-    total: "R$ 900,00",
-    payment: "Pago",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#SES-002",
-    client: "Carlos Mendes",
-    email: "carlos@email.com",
-    orderDate: "2026-03-09",
-    items: [
-      { subId: "#SES-002-1", type: "Estudio", petName: "Luna", date: "2026-03-16", time: "14:00", location: "Estudio Pinheiros", photographer: "Juliano Lemos", stage: "Aguardando Pagamento" },
-      { subId: "#SES-002-2", type: "Pocket", petName: "Bella", date: "2026-03-17", time: "09:00", location: "Parque Villa-Lobos", photographer: "Juliano Lemos", stage: "Agendada" },
-    ],
-    total: "R$ 4.600,00",
-    payment: "Parcial",
-    influencer: "Camila Pet",
-    coupon: "CAMILA10",
-  },
-  {
-    id: "#SES-003",
-    client: "Fernanda Lima",
-    email: "fernanda@email.com",
-    orderDate: "2026-03-08",
-    items: [
-      { subId: "#SES-003-1", type: "Completa", petName: "Max", date: "2026-03-18", time: "09:00", location: "Residencia Cliente + Estudio", photographer: "Juliano Lemos", stage: "Realizada" },
-    ],
-    total: "R$ 4.900,00",
-    payment: "Pago",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#SES-004",
-    client: "Mariana Costa",
-    email: "mariana@email.com",
-    orderDate: "2026-03-05",
-    items: [
-      { subId: "#SES-004-1", type: "Pocket", petName: "Mel", date: "2026-03-20", time: "16:00", location: "Parque Villa-Lobos", photographer: "Juliano Lemos", stage: "Entregue" },
-      { subId: "#SES-004-2", type: "Estudio", petName: "Bob", date: "2026-03-21", time: "10:00", location: "Estudio Pinheiros", photographer: "Juliano Lemos", stage: "Em Edicao" },
-      { subId: "#SES-004-3", type: "Completa", petName: "Mel", date: "2026-03-22", time: "08:00", location: "Praia + Estudio", photographer: "Juliano Lemos", stage: "Confirmada" },
-    ],
-    total: "R$ 9.500,00",
-    payment: "Pago",
-    influencer: "Doglovers SP",
-    coupon: "DOG15",
-  },
-  {
-    id: "#SES-005",
-    client: "Pedro Santos",
-    email: "pedro@email.com",
-    orderDate: "2026-02-28",
-    items: [
-      { subId: "#SES-005-1", type: "Estudio", petName: "Pipoca", date: "2026-03-22", time: "11:00", location: "Estudio Pinheiros", photographer: "Juliano Lemos", stage: "Entregue" },
-    ],
-    total: "R$ 3.700,00",
-    payment: "Pago",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#SES-006",
-    client: "Rodrigo Alves",
-    email: "rodrigo@email.com",
-    orderDate: "2026-03-12",
-    items: [
-      { subId: "#SES-006-1", type: "Completa", petName: "Simba", date: "2026-03-25", time: "10:00", location: "Parque Ibirapuera + Estudio", photographer: "Juliano Lemos", stage: "Agendada" },
-      { subId: "#SES-006-2", type: "Pocket", petName: "Nala", date: "2026-03-26", time: "15:00", location: "Parque do Povo", photographer: "Juliano Lemos", stage: "Aguardando Pagamento" },
-    ],
-    total: "R$ 5.800,00",
-    payment: "Parcial",
-    influencer: "-",
-    coupon: "-",
-  },
-  {
-    id: "#SES-007",
-    client: "Juliana Ferreira",
-    email: "juliana@email.com",
-    orderDate: "2026-03-11",
-    items: [
-      { subId: "#SES-007-1", type: "Pocket", petName: "Amora", date: "2026-03-28", time: "09:00", location: "Parque Ibirapuera", photographer: "Juliano Lemos", stage: "Confirmada" },
-    ],
-    total: "R$ 900,00",
-    payment: "Pago",
-    influencer: "Vida Animal",
-    coupon: "VIDA5",
-  },
-];
+/* ────────────────────── DB <-> Display Mappings ────────────────────── */
+
+const statusToStage: Record<DBSessionStatus, SessionStage> = {
+  aguardando_pagamento: "Aguardando Pagamento",
+  agendada: "Agendada",
+  confirmada: "Confirmada",
+  realizada: "Realizada",
+  em_edicao: "Em Edicao",
+  entregue: "Entregue",
+  cancelada: "Cancelada",
+};
+
+const stageToStatus: Record<SessionStage, DBSessionStatus> = {
+  "Aguardando Pagamento": "aguardando_pagamento",
+  "Agendada": "agendada",
+  "Confirmada": "confirmada",
+  "Realizada": "realizada",
+  "Em Edicao": "em_edicao",
+  "Entregue": "entregue",
+  "Cancelada": "cancelada",
+};
+
+const sessionTypeToDisplay: Record<DBSessionType, SessionType> = {
+  pocket: "Pocket",
+  estudio: "Estudio",
+  completa: "Completa",
+};
+
+const paymentStatusToDisplay: Record<DBPaymentStatus, PaymentStatusDisplay> = {
+  pendente: "Pendente",
+  processando: "Processando",
+  pago: "Pago",
+  falhou: "Falhou",
+  reembolsado: "Reembolsado",
+  expirado: "Expirado",
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  cartao: "Cartao",
+  pix: "PIX",
+  boleto: "Boleto",
+};
 
 /* ────────────────────── Helpers ────────────────────── */
 
@@ -202,6 +163,7 @@ const allStages: SessionStage[] = [
   "Realizada",
   "Em Edicao",
   "Entregue",
+  "Cancelada",
 ];
 
 function stageBadgeVariant(stage: string) {
@@ -215,6 +177,8 @@ function stageBadgeVariant(stage: string) {
     case "Agendada":
       return "outline" as const;
     case "Aguardando Pagamento":
+      return "destructive" as const;
+    case "Cancelada":
       return "destructive" as const;
     default:
       return "secondary" as const;
@@ -235,6 +199,8 @@ function stageColor(stage: string) {
       return "text-orange-700 bg-orange-50";
     case "Aguardando Pagamento":
       return "text-red-700 bg-red-50";
+    case "Cancelada":
+      return "text-gray-700 bg-gray-200";
     default:
       return "text-gray-700 bg-gray-50";
   }
@@ -277,6 +243,13 @@ function deriveOrderStage(items: SessionItem[]): string {
   return stageOrder[earliestIdx];
 }
 
+function formatCurrency(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 const stageIcons: Record<string, typeof Clock> = {
   "Aguardando Pagamento": Clock,
   Agendada: Calendar,
@@ -284,6 +257,7 @@ const stageIcons: Record<string, typeof Clock> = {
   Realizada: Camera,
   "Em Edicao": FileText,
   Entregue: Truck,
+  Cancelada: XCircle,
 };
 
 const kanbanColumns = [
@@ -293,16 +267,18 @@ const kanbanColumns = [
   { title: "Realizada" as SessionStage, color: "border-blue-300" },
   { title: "Em Edicao" as SessionStage, color: "border-purple-300" },
   { title: "Entregue" as SessionStage, color: "border-green-300" },
+  { title: "Cancelada" as SessionStage, color: "border-gray-300" },
 ];
 
 /* ────────────────────── Calendar Helpers ────────────────────── */
 
-function buildCalendarData(orders: SessionOrder[]) {
+function buildCalendarData(orders: SessionOrder[], year: number, month: number) {
   const map: Record<number, string[]> = {};
   orders.forEach((order) => {
     order.items.forEach((item) => {
-      const d = new Date(item.date);
-      if (d.getMonth() === 2 && d.getFullYear() === 2026) {
+      if (!item.date) return;
+      const d = new Date(item.date + "T00:00:00");
+      if (d.getMonth() === month && d.getFullYear() === year) {
         const day = d.getDate();
         if (!map[day]) map[day] = [];
         map[day].push(`${order.client} - ${item.type}`);
@@ -312,12 +288,18 @@ function buildCalendarData(orders: SessionOrder[]) {
   return map;
 }
 
-const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
 
 /* ────────────────────── Page ────────────────────── */
 
 export default function SessoesPage() {
-  const [orderList, setOrderList] = useState<SessionOrder[]>(initialOrders);
+  const supabase = createClient();
+  const [orderList, setOrderList] = useState<SessionOrder[]>([]);
+  const [photographers, setPhotographers] = useState<PhotographerOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<SessionStage | "todos">("todos");
   const [typeFilter, setTypeFilter] = useState<SessionType | "todos">("todos");
@@ -325,22 +307,276 @@ export default function SessoesPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
   const [viewOrder, setViewOrder] = useState<SessionOrder | null>(null);
+  const [updatingSessionId, setUpdatingSessionId] = useState<string | null>(null);
 
-  /** Change the stage of an individual sub-order (session item) */
-  const changeItemStage = (orderId: string, subId: string, newStage: SessionStage) => {
+  /* ─── Fetch photographers list ─── */
+  const fetchPhotographers = useCallback(async () => {
+    const { data } = await supabase
+      .from("photographers")
+      .select("id, name")
+      .eq("status", "ativo")
+      .order("name");
+    if (data) {
+      setPhotographers(data);
+    }
+  }, [supabase]);
+
+  /* ─── Fetch sessions with joins ─── */
+  const fetchSessions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const { data, error: fetchError } = await supabase
+      .from("photo_sessions")
+      .select(`
+        id,
+        session_number,
+        order_item_id,
+        order_id,
+        customer_id,
+        photographer_id,
+        pet_id,
+        session_type,
+        status,
+        payment_status,
+        scheduled_date,
+        scheduled_time,
+        duration_minutes,
+        location,
+        total_photos,
+        observations,
+        created_at,
+        updated_at,
+        customers:customer_id (
+          id,
+          name,
+          email,
+          phone
+        ),
+        pets:pet_id (
+          id,
+          name
+        ),
+        photographers:photographer_id (
+          id,
+          name
+        ),
+        orders:order_id (
+          id,
+          order_number,
+          total,
+          payment_method,
+          payment_status,
+          created_at
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (fetchError) {
+      setError(fetchError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setOrderList([]);
+      setLoading(false);
+      return;
+    }
+
+    // Group sessions by order_id to create "order" groups
+    const orderMap = new Map<string, {
+      orderId: string;
+      orderNumber: string;
+      client: string;
+      email: string;
+      phone: string;
+      orderDate: string;
+      total: number;
+      payment: PaymentStatusDisplay;
+      paymentMethod: string;
+      items: SessionItem[];
+    }>();
+
+    for (const row of data) {
+      const customer = row.customers as unknown as { id: string; name: string; email: string; phone: string | null } | null;
+      const pet = row.pets as unknown as { id: string; name: string } | null;
+      const photographer = row.photographers as unknown as { id: string; name: string } | null;
+      const order = row.orders as unknown as {
+        id: string;
+        order_number: string;
+        total: number;
+        payment_method: string | null;
+        payment_status: string;
+        created_at: string;
+      } | null;
+
+      // Use order_id as grouping key, or session id if no order
+      const groupKey = row.order_id || row.id;
+
+      const sessionItem: SessionItem = {
+        subId: row.session_number || `#SES-${row.id.slice(0, 4).toUpperCase()}`,
+        dbId: row.id,
+        type: sessionTypeToDisplay[row.session_type as DBSessionType] || "Pocket",
+        petName: pet?.name || "-",
+        date: row.scheduled_date || "",
+        time: row.scheduled_time ? row.scheduled_time.slice(0, 5) : "-",
+        location: row.location || "-",
+        photographer: photographer?.name || "Nao atribuido",
+        photographerId: row.photographer_id,
+        stage: statusToStage[row.status as DBSessionStatus] || "Aguardando Pagamento",
+        dbStatus: row.status as DBSessionStatus,
+      };
+
+      if (!orderMap.has(groupKey)) {
+        orderMap.set(groupKey, {
+          orderId: row.order_id || row.id,
+          orderNumber: order?.order_number
+            ? `#${order.order_number}`
+            : row.session_number || `#SES-${row.id.slice(0, 4).toUpperCase()}`,
+          client: customer?.name || "Cliente desconhecido",
+          email: customer?.email || "-",
+          phone: customer?.phone || "-",
+          orderDate: order?.created_at || row.created_at,
+          total: order?.total || 0,
+          payment: paymentStatusToDisplay[(order?.payment_status || row.payment_status) as DBPaymentStatus] || "Pendente",
+          paymentMethod: order?.payment_method
+            ? (paymentMethodLabels[order.payment_method] || order.payment_method)
+            : "-",
+          items: [],
+        });
+      }
+
+      orderMap.get(groupKey)!.items.push(sessionItem);
+    }
+
+    const orders: SessionOrder[] = Array.from(orderMap.values()).map((o) => ({
+      id: o.orderId,
+      orderNumber: o.orderNumber,
+      client: o.client,
+      email: o.email,
+      phone: o.phone,
+      orderDate: o.orderDate,
+      items: o.items,
+      total: formatCurrency(o.total),
+      payment: o.payment,
+      paymentMethod: o.paymentMethod,
+    }));
+
+    setOrderList(orders);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchSessions();
+    fetchPhotographers();
+  }, [fetchSessions, fetchPhotographers]);
+
+  /** Change the status of an individual session in Supabase */
+  const changeItemStage = useCallback(async (
+    _orderId: string,
+    subId: string,
+    newStage: SessionStage,
+    dbId: string,
+  ) => {
+    const newStatus = stageToStatus[newStage];
+    if (!newStatus) return;
+
+    setUpdatingSessionId(dbId);
+
+    const { error: updateError } = await supabase
+      .from("photo_sessions")
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq("id", dbId);
+
+    setUpdatingSessionId(null);
+
+    if (updateError) {
+      alert(`Erro ao atualizar status: ${updateError.message}`);
+      return;
+    }
+
+    // Optimistically update local state
+    setOrderList((prev) =>
+      prev.map((o) =>
+        o.id === _orderId
+          ? {
+              ...o,
+              items: o.items.map((item) =>
+                item.dbId === dbId ? { ...item, stage: newStage, dbStatus: newStatus } : item
+              ),
+            }
+          : o
+      )
+    );
+
+    // Also update viewOrder if open
+    setViewOrder((prev) => {
+      if (!prev || prev.id !== _orderId) return prev;
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.dbId === dbId ? { ...item, stage: newStage, dbStatus: newStatus } : item
+        ),
+      };
+    });
+  }, [supabase]);
+
+  /** Assign a photographer to a session */
+  const assignPhotographer = useCallback(async (
+    orderId: string,
+    dbId: string,
+    photographerId: string | null,
+  ) => {
+    setUpdatingSessionId(dbId);
+
+    const { error: updateError } = await supabase
+      .from("photo_sessions")
+      .update({
+        photographer_id: photographerId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", dbId);
+
+    setUpdatingSessionId(null);
+
+    if (updateError) {
+      alert(`Erro ao atribuir fotografo: ${updateError.message}`);
+      return;
+    }
+
+    const photographerName = photographerId
+      ? photographers.find((p) => p.id === photographerId)?.name || "Nao atribuido"
+      : "Nao atribuido";
+
+    // Optimistically update local state
     setOrderList((prev) =>
       prev.map((o) =>
         o.id === orderId
           ? {
               ...o,
               items: o.items.map((item) =>
-                item.subId === subId ? { ...item, stage: newStage } : item
+                item.dbId === dbId
+                  ? { ...item, photographer: photographerName, photographerId }
+                  : item
               ),
             }
           : o
       )
     );
-  };
+
+    setViewOrder((prev) => {
+      if (!prev || prev.id !== orderId) return prev;
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.dbId === dbId
+            ? { ...item, photographer: photographerName, photographerId }
+            : item
+        ),
+      };
+    });
+  }, [supabase, photographers]);
 
   /* ─── KPIs (filtered by date range) ─── */
   const ordersInRange = orderList.filter((o) => isInRange(o.orderDate, dateRange));
@@ -354,7 +590,7 @@ export default function SessoesPage() {
   const filteredOrders = orderList.filter((o) => {
     const matchesSearch =
       searchTerm === "" ||
-      o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.items.some(
@@ -376,7 +612,36 @@ export default function SessoesPage() {
     return matchesSearch && matchesStage && matchesType && matchesQty;
   });
 
-  const sessionsOnCalendar = buildCalendarData(orderList);
+  const now = new Date();
+  const calendarYear = now.getFullYear();
+  const calendarMonth = now.getMonth();
+  const calendarDaysCount = getDaysInMonth(calendarYear, calendarMonth);
+  const calendarDays = Array.from({ length: calendarDaysCount }, (_, i) => i + 1);
+  const sessionsOnCalendar = buildCalendarData(orderList, calendarYear, calendarMonth);
+  const calendarMonthLabel = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  /* ─── Loading state ─── */
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <Loader2 className="size-8 animate-spin text-primary/60" />
+        <p className="text-sm text-muted-foreground">Carregando sessoes...</p>
+      </div>
+    );
+  }
+
+  /* ─── Error state ─── */
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <AlertCircle className="size-8 text-red-500" />
+        <p className="text-sm text-red-600">Erro ao carregar sessoes: {error}</p>
+        <Button variant="outline" onClick={fetchSessions}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -569,7 +834,7 @@ export default function SessoesPage() {
                               </Button>
                             </TableCell>
                             <TableCell className="font-mono text-xs font-medium text-primary">
-                              {order.id}
+                              {order.orderNumber}
                             </TableCell>
                             <TableCell>
                               <div>
@@ -617,7 +882,7 @@ export default function SessoesPage() {
                                 variant={
                                   order.payment === "Pago"
                                     ? "default"
-                                    : order.payment === "Parcial"
+                                    : order.payment === "Pendente"
                                       ? "outline"
                                       : "destructive"
                                 }
@@ -651,7 +916,7 @@ export default function SessoesPage() {
                           {isExpanded &&
                             order.items.map((item) => (
                               <TableRow
-                                key={item.subId}
+                                key={item.dbId}
                                 className="bg-muted/20 border-l-2 border-l-primary/20"
                               >
                                 <TableCell className="w-8 px-2" />
@@ -682,19 +947,21 @@ export default function SessoesPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center text-[10px] text-muted-foreground">
-                                  {formatDateTime(item.date, item.time)}
+                                  {item.date ? formatDateTime(item.date, item.time) : "-"}
                                 </TableCell>
                                 <TableCell>
                                   <select
                                     value={item.stage}
+                                    disabled={updatingSessionId === item.dbId}
                                     onChange={(e) =>
                                       changeItemStage(
                                         order.id,
                                         item.subId,
-                                        e.target.value as SessionStage
+                                        e.target.value as SessionStage,
+                                        item.dbId,
                                       )
                                     }
-                                    className={`h-7 rounded-md border border-input px-2 text-[11px] font-medium ${stageColor(item.stage)}`}
+                                    className={`h-7 rounded-md border border-input px-2 text-[11px] font-medium ${stageColor(item.stage)} ${updatingSessionId === item.dbId ? "opacity-50" : ""}`}
                                   >
                                     {allStages.map((s) => (
                                       <option key={s} value={s}>
@@ -704,9 +971,25 @@ export default function SessoesPage() {
                                   </select>
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
-                                  <span className="text-[10px] text-muted-foreground">
-                                    Fotog.: {item.photographer}
-                                  </span>
+                                  <select
+                                    value={item.photographerId || ""}
+                                    disabled={updatingSessionId === item.dbId}
+                                    onChange={(e) =>
+                                      assignPhotographer(
+                                        order.id,
+                                        item.dbId,
+                                        e.target.value || null,
+                                      )
+                                    }
+                                    className={`h-7 rounded-md border border-input bg-background px-2 text-[10px] text-muted-foreground ${updatingSessionId === item.dbId ? "opacity-50" : ""}`}
+                                  >
+                                    <option value="">Nao atribuido</option>
+                                    {photographers.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell" />
                                 <TableCell className="hidden xl:table-cell" />
@@ -735,22 +1018,12 @@ export default function SessoesPage() {
                             >
                               <TableCell colSpan={9}>
                                 <div className="flex flex-wrap gap-6 px-4 py-2 text-xs text-muted-foreground">
-                                  {order.influencer !== "-" && (
+                                  {order.paymentMethod !== "-" && (
                                     <div>
                                       <span className="font-medium uppercase">
-                                        Influenciador:
+                                        Metodo Pagamento:
                                       </span>{" "}
-                                      {order.influencer}
-                                    </div>
-                                  )}
-                                  {order.coupon !== "-" && (
-                                    <div>
-                                      <span className="font-medium uppercase">
-                                        Cupom:
-                                      </span>{" "}
-                                      <span className="font-mono">
-                                        {order.coupon}
-                                      </span>
+                                      {order.paymentMethod}
                                     </div>
                                   )}
                                   <div>
@@ -771,6 +1044,14 @@ export default function SessoesPage() {
                                     </span>{" "}
                                     {order.total}
                                   </div>
+                                  {order.phone !== "-" && (
+                                    <div>
+                                      <span className="font-medium uppercase">
+                                        Telefone:
+                                      </span>{" "}
+                                      {order.phone}
+                                    </div>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -799,14 +1080,14 @@ export default function SessoesPage() {
           <p className="mb-3 mt-4 text-xs text-muted-foreground">
             Cada card representa um sub-pedido (sessao individual). Sessoes da mesma compra compartilham o codigo do pedido.
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
             {kanbanColumns.map((column) => {
               const Icon = stageIcons[column.title] || Package;
               // Flatten: each sub-order card shows in the kanban by its own stage
               const subOrders = orderList.flatMap((o) =>
                 o.items
                   .filter((item) => item.stage === column.title)
-                  .map((item) => ({ ...item, orderId: o.id, client: o.client }))
+                  .map((item) => ({ ...item, orderId: o.id, orderNumber: o.orderNumber, client: o.client }))
               );
 
               return (
@@ -826,7 +1107,7 @@ export default function SessoesPage() {
                   <div className="space-y-2">
                     {subOrders.map((sub) => (
                       <div
-                        key={sub.subId}
+                        key={sub.dbId}
                         className="rounded-lg border bg-background p-2"
                       >
                         <div className="flex items-center justify-between">
@@ -845,11 +1126,19 @@ export default function SessoesPage() {
                         <div className="mt-1 flex items-center gap-1">
                           <Camera className="size-3 text-primary/50" />
                           <span className="text-[10px] text-muted-foreground">
-                            {sub.petName} · {formatDateTime(sub.date, sub.time)}
+                            {sub.petName} {sub.date ? `· ${formatDateTime(sub.date, sub.time)}` : ""}
                           </span>
                         </div>
+                        {sub.photographer !== "Nao atribuido" && (
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <User className="size-2.5 text-muted-foreground/60" />
+                            <span className="text-[9px] text-muted-foreground/60">
+                              {sub.photographer}
+                            </span>
+                          </div>
+                        )}
                         <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/60">
-                          {sub.orderId}
+                          {sub.orderNumber}
                         </p>
                       </div>
                     ))}
@@ -869,9 +1158,9 @@ export default function SessoesPage() {
         <TabsContent value="calendario">
           <Card className="mt-4">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-serif text-[#8b5e5e]">
+              <CardTitle className="flex items-center gap-2 font-serif text-[#8b5e5e] capitalize">
                 <Calendar className="size-5" />
-                Marco 2026
+                {calendarMonthLabel}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -917,10 +1206,10 @@ export default function SessoesPage() {
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="font-serif text-foreground">
-              Detalhes do Pedido {viewOrder?.id}
+              Detalhes do Pedido {viewOrder?.orderNumber}
             </SheetTitle>
             <SheetDescription>
-              Informações completas da compra e sessões
+              Informacoes completas da compra e sessoes
             </SheetDescription>
           </SheetHeader>
 
@@ -941,6 +1230,12 @@ export default function SessoesPage() {
                     <p className="text-[10px] font-medium uppercase text-muted-foreground">E-mail</p>
                     <p className="mt-0.5 text-sm text-foreground">{viewOrder.email}</p>
                   </div>
+                  {viewOrder.phone !== "-" && (
+                    <div className="rounded-lg border border-border p-3">
+                      <p className="text-[10px] font-medium uppercase text-muted-foreground">Telefone</p>
+                      <p className="mt-0.5 text-sm text-foreground">{viewOrder.phone}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -971,47 +1266,36 @@ export default function SessoesPage() {
                     </Badge>
                   </div>
                   <div className="rounded-lg border border-border p-3">
-                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Qtd. Sessões</p>
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">Qtd. Sessoes</p>
                     <p className="mt-0.5 text-sm font-medium text-foreground">{viewOrder.items.length}</p>
                   </div>
                 </div>
 
-                {(viewOrder.influencer !== "-" || viewOrder.coupon !== "-") && (
+                {viewOrder.paymentMethod !== "-" && (
                   <div className="mt-3 grid grid-cols-2 gap-3">
-                    {viewOrder.influencer !== "-" && (
-                      <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
-                        <Tag className="size-3.5 text-blue-600" />
-                        <div>
-                          <p className="text-[10px] font-medium uppercase text-blue-600">Influenciador</p>
-                          <p className="text-sm font-medium text-blue-800">{viewOrder.influencer}</p>
-                        </div>
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+                      <CreditCard className="size-3.5 text-blue-600" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase text-blue-600">Metodo Pagamento</p>
+                        <p className="text-sm font-medium text-blue-800">{viewOrder.paymentMethod}</p>
                       </div>
-                    )}
-                    {viewOrder.coupon !== "-" && (
-                      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50/50 p-3">
-                        <CreditCard className="size-3.5 text-green-600" />
-                        <div>
-                          <p className="text-[10px] font-medium uppercase text-green-600">Cupom</p>
-                          <p className="font-mono text-sm font-medium text-green-800">{viewOrder.coupon}</p>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>
 
               <Separator />
 
-              {/* ─── Sessões Individuais ─── */}
+              {/* ─── Sessoes Individuais ─── */}
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <Camera className="size-3.5" />
-                  Sessões ({viewOrder.items.length})
+                  Sessoes ({viewOrder.items.length})
                 </h3>
                 <div className="space-y-3">
                   {viewOrder.items.map((item) => (
                     <div
-                      key={item.subId}
+                      key={item.dbId}
                       className="rounded-lg border border-border p-4"
                     >
                       <div className="flex items-center justify-between">
@@ -1029,7 +1313,7 @@ export default function SessoesPage() {
                           variant={
                             item.stage === "Entregue"
                               ? "default"
-                              : item.stage === "Aguardando Pagamento"
+                              : item.stage === "Aguardando Pagamento" || item.stage === "Cancelada"
                                 ? "destructive"
                                 : "secondary"
                           }
@@ -1047,11 +1331,11 @@ export default function SessoesPage() {
                         <div>
                           <p className="text-[10px] font-medium uppercase text-muted-foreground">Data & Hora</p>
                           <p className="text-sm text-foreground">
-                            {formatDate(item.date)} às {item.time}
+                            {item.date ? `${formatDate(item.date)} as ${item.time}` : "-"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Fotógrafo</p>
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Fotografo</p>
                           <p className="text-sm text-foreground">{item.photographer}</p>
                         </div>
                         <div className="sm:col-span-3">
@@ -1061,6 +1345,53 @@ export default function SessoesPage() {
                             <p className="text-sm text-foreground">{item.location}</p>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Status change & photographer assignment in sheet */}
+                      <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-medium uppercase text-muted-foreground">Status:</span>
+                          <select
+                            value={item.stage}
+                            disabled={updatingSessionId === item.dbId}
+                            onChange={(e) =>
+                              changeItemStage(
+                                viewOrder.id,
+                                item.subId,
+                                e.target.value as SessionStage,
+                                item.dbId,
+                              )
+                            }
+                            className={`h-7 rounded-md border border-input px-2 text-[11px] font-medium ${stageColor(item.stage)} ${updatingSessionId === item.dbId ? "opacity-50" : ""}`}
+                          >
+                            {allStages.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-medium uppercase text-muted-foreground">Fotografo:</span>
+                          <select
+                            value={item.photographerId || ""}
+                            disabled={updatingSessionId === item.dbId}
+                            onChange={(e) =>
+                              assignPhotographer(
+                                viewOrder.id,
+                                item.dbId,
+                                e.target.value || null,
+                              )
+                            }
+                            className={`h-7 rounded-md border border-input bg-background px-2 text-[11px] ${updatingSessionId === item.dbId ? "opacity-50" : ""}`}
+                          >
+                            <option value="">Nao atribuido</option>
+                            {photographers.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {updatingSessionId === item.dbId && (
+                          <Loader2 className="size-3.5 animate-spin text-primary/60" />
+                        )}
                       </div>
                     </div>
                   ))}

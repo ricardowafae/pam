@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { useCepLookup } from "@/hooks/useCepLookup";
+import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -71,208 +72,85 @@ import {
 /* ────────────────────── Types ────────────────────── */
 
 interface Photographer {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
   city: string;
   state: string;
   instagram: string;
+  portfolio_url: string;
+  bio: string;
+  status: "ativo" | "inativo";
+  price_pocket: number | null;
+  price_estudio: number | null;
+  price_completa: number | null;
+  commission_pct: number;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  razao_social: string;
+  nome_fantasia: string;
+  cnpj: string;
+  bank: string;
+  agency: string;
+  account: string;
+  pix_key: string;
+  work_period_start: string;
+  work_period_end: string;
+  available_monday: boolean;
+  available_tuesday: boolean;
+  available_wednesday: boolean;
+  available_thursday: boolean;
+  available_friday: boolean;
+  available_saturday: boolean;
+  available_sunday: boolean;
+  created_at: string;
+  updated_at: string;
+  /* computed client-side */
   pocket: number;
   estudio: number;
   completa: number;
-  status: "ativo" | "inativo";
 }
 
-type CommissionStatus = "pago" | "pendente" | "atrasado" | "cancelado";
+type CommissionStatus = "pago" | "pendente" | "processando";
 
 interface CommissionPayment {
-  id: number;
+  id: string;
+  photographer_id: string;
   photographerName: string;
   month: string;
   sessions: number;
-  revenue: string;
-  commissionValue: string;
+  revenue: number;
+  commissionValue: number;
   commissionPct: number;
   status: CommissionStatus;
   paidDate: string | null;
-  dueDate: string;
   receiptUrl: string | null;
-  notes: string;
+  period_month: number;
+  period_year: number;
+  created_at: string;
 }
 
-/* ────────────────────── Mock Data ────────────────────── */
-
-const mockPhotographers: Photographer[] = [
-  {
-    id: 1,
-    name: "Juliano Lemos",
-    email: "fracaodotempo@gmail.com",
-    phone: "(11) 94522-4120",
-    city: "Sao Paulo",
-    state: "SP",
-    instagram: "@julianolemos",
-    pocket: 12,
-    estudio: 8,
-    completa: 5,
-    status: "ativo",
-  },
-  {
-    id: 2,
-    name: "Carlos Silva Fotografo",
-    email: "fotografo.teste@example.com",
-    phone: "",
-    city: "",
-    state: "",
-    instagram: "",
-    pocket: 0,
-    estudio: 0,
-    completa: 0,
-    status: "ativo",
-  },
-  {
-    id: 3,
-    name: "Fotografo Teste",
-    email: "teste.fotografo@patasamor.com",
-    phone: "",
-    city: "",
-    state: "",
-    instagram: "",
-    pocket: 0,
-    estudio: 0,
-    completa: 0,
-    status: "ativo",
-  },
-  {
-    id: 4,
-    name: "Priscila Santos",
-    email: "priscila@email.com",
-    phone: "(11) 98234-5678",
-    city: "Sao Paulo",
-    state: "SP",
-    instagram: "@priscilafoto",
-    pocket: 8,
-    estudio: 6,
-    completa: 3,
-    status: "ativo",
-  },
-  {
-    id: 5,
-    name: "Beatriz Almeida",
-    email: "beatriz@email.com",
-    phone: "(19) 97654-3210",
-    city: "Campinas",
-    state: "SP",
-    instagram: "@beatrizpet",
-    pocket: 3,
-    estudio: 2,
-    completa: 1,
-    status: "inativo",
-  },
-];
-
-const mockCommissions: CommissionPayment[] = [
-  {
-    id: 1,
-    photographerName: "Juliano Lemos",
-    month: "Marco/2026",
-    sessions: 12,
-    revenue: "R$ 22.600,00",
-    commissionValue: "R$ 6.780,00",
-    commissionPct: 30,
-    status: "pendente",
-    paidDate: null,
-    dueDate: "2026-04-10",
-    receiptUrl: null,
-    notes: "",
-  },
-  {
-    id: 2,
-    photographerName: "Priscila Santos",
-    month: "Marco/2026",
-    sessions: 6,
-    revenue: "R$ 10.800,00",
-    commissionValue: "R$ 3.240,00",
-    commissionPct: 30,
-    status: "pendente",
-    paidDate: null,
-    dueDate: "2026-04-10",
-    receiptUrl: null,
-    notes: "",
-  },
-  {
-    id: 3,
-    photographerName: "Juliano Lemos",
-    month: "Fevereiro/2026",
-    sessions: 10,
-    revenue: "R$ 18.200,00",
-    commissionValue: "R$ 5.460,00",
-    commissionPct: 30,
-    status: "pago",
-    paidDate: "2026-03-08",
-    dueDate: "2026-03-10",
-    receiptUrl: "comprovante_fev_juliano.pdf",
-    notes: "Pago via PIX",
-  },
-  {
-    id: 4,
-    photographerName: "Priscila Santos",
-    month: "Fevereiro/2026",
-    sessions: 4,
-    revenue: "R$ 7.200,00",
-    commissionValue: "R$ 2.160,00",
-    commissionPct: 30,
-    status: "pago",
-    paidDate: "2026-03-09",
-    dueDate: "2026-03-10",
-    receiptUrl: "comprovante_fev_priscila.pdf",
-    notes: "Pago via transferencia",
-  },
-  {
-    id: 5,
-    photographerName: "Juliano Lemos",
-    month: "Janeiro/2026",
-    sessions: 8,
-    revenue: "R$ 14.800,00",
-    commissionValue: "R$ 4.440,00",
-    commissionPct: 30,
-    status: "pago",
-    paidDate: "2026-02-07",
-    dueDate: "2026-02-10",
-    receiptUrl: "comprovante_jan_juliano.pdf",
-    notes: "Pago via PIX",
-  },
-  {
-    id: 6,
-    photographerName: "Beatriz Almeida",
-    month: "Janeiro/2026",
-    sessions: 3,
-    revenue: "R$ 4.500,00",
-    commissionValue: "R$ 1.350,00",
-    commissionPct: 30,
-    status: "atrasado",
-    paidDate: null,
-    dueDate: "2026-02-10",
-    receiptUrl: null,
-    notes: "Fotografa inativa, pendencia de pagamento",
-  },
-  {
-    id: 7,
-    photographerName: "Priscila Santos",
-    month: "Janeiro/2026",
-    sessions: 4,
-    revenue: "R$ 7.200,00",
-    commissionValue: "R$ 2.160,00",
-    commissionPct: 30,
-    status: "pago",
-    paidDate: "2026-02-09",
-    dueDate: "2026-02-10",
-    receiptUrl: "comprovante_jan_priscila.pdf",
-    notes: "",
-  },
-];
-
 /* ────────────────────── Helpers ────────────────────── */
+
+const MONTH_NAMES = [
+  "", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function formatMonthYear(month: number, year: number): string {
+  return `${MONTH_NAMES[month] || month}/${year}`;
+}
+
+function formatCurrency(value: number): string {
+  return `R$ ${value
+    .toFixed(2)
+    .replace(".", ",")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
 
 function getCommissionStatusConfig(status: CommissionStatus) {
   switch (status) {
@@ -280,10 +158,8 @@ function getCommissionStatusConfig(status: CommissionStatus) {
       return { label: "Pago", variant: "default" as const, icon: CheckCircle2, color: "text-green-600" };
     case "pendente":
       return { label: "Pendente", variant: "secondary" as const, icon: Clock, color: "text-amber-600" };
-    case "atrasado":
-      return { label: "Atrasado", variant: "destructive" as const, icon: AlertTriangle, color: "text-red-600" };
-    case "cancelado":
-      return { label: "Cancelado", variant: "outline" as const, icon: Ban, color: "text-gray-500" };
+    case "processando":
+      return { label: "Processando", variant: "outline" as const, icon: Loader2, color: "text-blue-600" };
   }
 }
 
@@ -307,6 +183,7 @@ const emptyForm = {
   valorPocket: "150.00",
   valorEstudio: "300.00",
   valorCompleta: "500.00",
+  commissionPct: "10.00",
   chavePix: "",
   instagram: "",
   portfolioUrl: "",
@@ -320,6 +197,9 @@ const emptyForm = {
   razaoSocial: "",
   nomeFantasia: "",
   cnpj: "",
+  bank: "",
+  agency: "",
+  account: "",
   periodoInicio: "",
   periodoFim: "",
   segunda: "",
@@ -337,39 +217,212 @@ const emptyForm = {
 /* ────────────────────── Page ────────────────────── */
 
 export default function FotografosPage() {
-  const [photographers] = useState<Photographer[]>(mockPhotographers);
-  const [commissions, setCommissions] = useState<CommissionPayment[]>(mockCommissions);
+  const supabase = createClient();
+  const [photographers, setPhotographers] = useState<Photographer[]>([]);
+  const [commissions, setCommissions] = useState<CommissionPayment[]>([]);
+  const [sessionCounts, setSessionCounts] = useState<Record<string, { pocket: number; estudio: number; completa: number }>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [commissionFilter, setCommissionFilter] = useState<CommissionStatus | "todos">("todos");
   const [commissionPhotographerFilter, setCommissionPhotographerFilter] = useState("todos");
   const [selectedCommission, setSelectedCommission] = useState<CommissionPayment | null>(null);
-  const [expandedCommissionId, setExpandedCommissionId] = useState<number | null>(null);
+  const [expandedCommissionId, setExpandedCommissionId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(getDefault30DayRange());
 
+  /* ─── Fetch photographers ─── */
+  const fetchPhotographers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("photographers")
+      .select("*")
+      .order("name");
+
+    if (error) {
+      toast.error("Erro ao carregar fotógrafos.", { description: error.message });
+      return;
+    }
+
+    const mapped: Photographer[] = (data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name || "",
+      email: row.email || "",
+      phone: row.phone || "",
+      city: row.city || "",
+      state: row.state || "",
+      instagram: row.instagram || "",
+      portfolio_url: row.portfolio_url || "",
+      bio: row.bio || "",
+      status: row.status || "ativo",
+      price_pocket: row.price_pocket ? Number(row.price_pocket) : null,
+      price_estudio: row.price_estudio ? Number(row.price_estudio) : null,
+      price_completa: row.price_completa ? Number(row.price_completa) : null,
+      commission_pct: row.commission_pct ? Number(row.commission_pct) : 10,
+      cep: row.cep || "",
+      street: row.street || "",
+      number: row.number || "",
+      complement: row.complement || "",
+      neighborhood: row.neighborhood || "",
+      razao_social: row.razao_social || "",
+      nome_fantasia: row.nome_fantasia || "",
+      cnpj: row.cnpj || "",
+      bank: row.bank || "",
+      agency: row.agency || "",
+      account: row.account || "",
+      pix_key: row.pix_key || "",
+      work_period_start: row.work_period_start || "",
+      work_period_end: row.work_period_end || "",
+      available_monday: row.available_monday ?? false,
+      available_tuesday: row.available_tuesday ?? false,
+      available_wednesday: row.available_wednesday ?? false,
+      available_thursday: row.available_thursday ?? false,
+      available_friday: row.available_friday ?? false,
+      available_saturday: row.available_saturday ?? false,
+      available_sunday: row.available_sunday ?? false,
+      created_at: row.created_at || "",
+      updated_at: row.updated_at || "",
+      pocket: 0,
+      estudio: 0,
+      completa: 0,
+    }));
+
+    setPhotographers(mapped);
+  }, [supabase]);
+
+  /* ─── Fetch session counts per photographer ─── */
+  const fetchSessionCounts = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("photo_sessions")
+      .select("photographer_id, status");
+
+    if (error) {
+      console.error("Erro ao carregar sessões:", error.message);
+      return;
+    }
+
+    const counts: Record<string, { pocket: number; estudio: number; completa: number }> = {};
+    for (const row of data || []) {
+      const pid = row.photographer_id;
+      if (!pid) continue;
+      if (!counts[pid]) counts[pid] = { pocket: 0, estudio: 0, completa: 0 };
+      // Count all sessions regardless of status type name
+      // The status field tracks session_status, we just count by photographer
+      counts[pid].pocket += 1; // We'll refine below if session_type exists
+    }
+
+    // Try to get session type breakdown if the column exists
+    const { data: typedData, error: typedError } = await supabase
+      .from("photo_sessions")
+      .select("photographer_id, session_type");
+
+    if (!typedError && typedData) {
+      // Reset and recount with types
+      const typedCounts: Record<string, { pocket: number; estudio: number; completa: number }> = {};
+      for (const row of typedData) {
+        const pid = row.photographer_id;
+        if (!pid) continue;
+        if (!typedCounts[pid]) typedCounts[pid] = { pocket: 0, estudio: 0, completa: 0 };
+        const t = (row.session_type || "").toLowerCase();
+        if (t.includes("pocket")) typedCounts[pid].pocket += 1;
+        else if (t.includes("estudio") || t.includes("estúdio")) typedCounts[pid].estudio += 1;
+        else if (t.includes("completa")) typedCounts[pid].completa += 1;
+        else typedCounts[pid].pocket += 1; // default bucket
+      }
+      setSessionCounts(typedCounts);
+    } else {
+      setSessionCounts(counts);
+    }
+  }, [supabase]);
+
+  /* ─── Fetch commissions ─── */
+  const fetchCommissions = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("commissions")
+      .select("*, photographers(name)")
+      .order("period_year", { ascending: false })
+      .order("period_month", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar comissões.", { description: error.message });
+      return;
+    }
+
+    const mapped: CommissionPayment[] = (data || []).map((row: any) => ({
+      id: row.id,
+      photographer_id: row.photographer_id || "",
+      photographerName: row.photographers?.name || "Fotógrafo removido",
+      month: formatMonthYear(row.period_month, row.period_year),
+      sessions: 0, // will be enriched if needed
+      revenue: Number(row.total_sale_value) || 0,
+      commissionValue: Number(row.commission_amount) || 0,
+      commissionPct: Number(row.commission_pct) || 0,
+      status: row.status as CommissionStatus,
+      paidDate: row.paid_at || null,
+      receiptUrl: row.receipt_url || null,
+      period_month: row.period_month,
+      period_year: row.period_year,
+      created_at: row.created_at || "",
+    }));
+
+    setCommissions(mapped);
+  }, [supabase]);
+
+  /* ─── Initial load ─── */
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      await Promise.all([fetchPhotographers(), fetchSessionCounts(), fetchCommissions()]);
+      setLoading(false);
+    }
+    load();
+  }, [fetchPhotographers, fetchSessionCounts, fetchCommissions]);
+
+  /* ─── Merge session counts into photographers ─── */
+  const photographersWithCounts = useMemo(() => {
+    return photographers.map((ph) => {
+      const counts = sessionCounts[ph.id];
+      return {
+        ...ph,
+        pocket: counts?.pocket ?? 0,
+        estudio: counts?.estudio ?? 0,
+        completa: counts?.completa ?? 0,
+      };
+    });
+  }, [photographers, sessionCounts]);
+
+  /* ─── Compute a due-date-like string for commission filtering ─── */
+  function commissionDueDateStr(c: CommissionPayment): string {
+    // Use 10th of next month as due date for date-range filtering
+    const nextMonth = c.period_month === 12 ? 1 : c.period_month + 1;
+    const nextYear = c.period_month === 12 ? c.period_year + 1 : c.period_year;
+    return `${nextYear}-${String(nextMonth).padStart(2, "0")}-10`;
+  }
+
   /* ─── KPIs (filtered by date range) ─── */
-  const commissionsInRange = commissions.filter((c) => isInRange(c.dueDate, dateRange));
-  const totalFotografos = photographers.length;
-  const ativos = photographers.filter((p) => p.status === "ativo").length;
-  const totalSessoes = commissionsInRange.reduce((sum, c) => sum + c.sessions, 0);
-  const comissoesPendentes = commissionsInRange.filter(
-    (c) => c.status === "pendente" || c.status === "atrasado"
+  const commissionsInRange = commissions.filter((c) =>
+    isInRange(commissionDueDateStr(c), dateRange)
   );
-  const valorPendente = comissoesPendentes.reduce((sum, c) => {
-    const num = parseFloat(
-      c.commissionValue.replace("R$ ", "").replace(/\./g, "").replace(",", ".")
-    );
-    return sum + (isNaN(num) ? 0 : num);
-  }, 0);
+  const totalFotografos = photographersWithCounts.length;
+  const ativos = photographersWithCounts.filter((p) => p.status === "ativo").length;
+  const totalSessoes = commissionsInRange.reduce((sum, c) => sum + c.sessions, 0) ||
+    photographersWithCounts.reduce((sum, p) => sum + p.pocket + p.estudio + p.completa, 0);
+  const comissoesPendentes = commissionsInRange.filter(
+    (c) => c.status === "pendente" || c.status === "processando"
+  );
+  const valorPendente = comissoesPendentes.reduce(
+    (sum, c) => sum + c.commissionValue,
+    0
+  );
 
   /* ─── Filtered ─── */
-  const filteredPhotographers = photographers.filter(
+  const filteredPhotographers = photographersWithCounts.filter(
     (p) =>
       searchTerm === "" ||
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.city.toLowerCase().includes(searchTerm.toLowerCase())
+      p.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.instagram.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredCommissions = commissions.filter((c) => {
@@ -436,7 +489,18 @@ export default function FotografosPage() {
     }
   };
 
-  const markAsPaid = (id: number) => {
+  /* ─── Mark commission as paid ─── */
+  const markAsPaid = async (id: string) => {
+    const { error } = await supabase
+      .from("commissions")
+      .update({ status: "pago", paid_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao atualizar comissão.", { description: error.message });
+      return;
+    }
+
     setCommissions((prev) =>
       prev.map((c) =>
         c.id === id
@@ -448,18 +512,74 @@ export default function FotografosPage() {
           : c
       )
     );
+    toast.success("Comissão marcada como paga!");
   };
 
+  /* ─── Update commission status ─── */
+  const updateCommissionStatus = async (id: string, newStatus: CommissionStatus) => {
+    const updateData: any = { status: newStatus };
+    if (newStatus === "pago") {
+      updateData.paid_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from("commissions")
+      .update(updateData)
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao atualizar status da comissão.", { description: error.message });
+      return;
+    }
+
+    setCommissions((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? { ...c, status: newStatus, paidDate: newStatus === "pago" ? new Date().toISOString().split("T")[0] : c.paidDate }
+          : c
+      )
+    );
+    toast.success(`Status atualizado para "${newStatus}"!`);
+  };
+
+  /* ─── Edit photographer: populate form ─── */
   const handleEditPhotographer = useCallback((ph: Photographer) => {
     setForm({
       ...emptyForm,
-      personType: "PF",
+      personType: ph.cnpj ? "PJ" : "PF",
       name: ph.name,
       email: ph.email,
       phone: ph.phone,
       instagram: ph.instagram,
+      portfolioUrl: ph.portfolio_url,
+      bio: ph.bio,
+      valorPocket: ph.price_pocket?.toString() || "150.00",
+      valorEstudio: ph.price_estudio?.toString() || "300.00",
+      valorCompleta: ph.price_completa?.toString() || "500.00",
+      commissionPct: ph.commission_pct?.toString() || "10.00",
+      chavePix: ph.pix_key,
+      cep: ph.cep,
+      rua: ph.street,
+      numero: ph.number,
+      complemento: ph.complement,
+      bairro: ph.neighborhood,
       cidade: ph.city,
       estado: ph.state,
+      razaoSocial: ph.razao_social,
+      nomeFantasia: ph.nome_fantasia,
+      cnpj: ph.cnpj,
+      bank: ph.bank || "",
+      agency: ph.agency || "",
+      account: ph.account || "",
+      periodoInicio: ph.work_period_start || "",
+      periodoFim: ph.work_period_end || "",
+      segunda: ph.available_monday ? "Disponível" : "",
+      terca: ph.available_tuesday ? "Disponível" : "",
+      quarta: ph.available_wednesday ? "Disponível" : "",
+      quinta: ph.available_thursday ? "Disponível" : "",
+      sexta: ph.available_friday ? "Disponível" : "",
+      sabado: ph.available_saturday ? "Disponível" : "",
+      domingo: ph.available_sunday ? "Disponível" : "",
       ativo: ph.status === "ativo",
     });
     setEditPhotographer(ph);
@@ -481,17 +601,137 @@ export default function FotografosPage() {
     });
   }, []);
 
-  const handleConfirmDelete = useCallback(() => {
+  /* ─── Toggle status ─── */
+  const handleToggleStatus = async (ph: Photographer) => {
+    const newStatus = ph.status === "ativo" ? "inativo" : "ativo";
+    const { error } = await supabase
+      .from("photographers")
+      .update({ status: newStatus })
+      .eq("id", ph.id);
+
+    if (error) {
+      toast.error("Erro ao alterar status.", { description: error.message });
+      return;
+    }
+
+    setPhotographers((prev) =>
+      prev.map((p) => (p.id === ph.id ? { ...p, status: newStatus } : p))
+    );
+    toast.success(`Fotógrafo "${ph.name}" agora está ${newStatus}.`);
+  };
+
+  /* ─── Delete photographer ─── */
+  const handleConfirmDelete = useCallback(async () => {
     if (!deletePhotographer) return;
+
+    const { error } = await supabase
+      .from("photographers")
+      .delete()
+      .eq("id", deletePhotographer.id);
+
+    if (error) {
+      toast.error("Erro ao excluir fotógrafo.", { description: error.message });
+      setDeletePhotographer(null);
+      return;
+    }
+
+    setPhotographers((prev) => prev.filter((p) => p.id !== deletePhotographer.id));
     toast.success(`Fotógrafo "${deletePhotographer.name}" excluído com sucesso.`);
     setDeletePhotographer(null);
-  }, [deletePhotographer]);
+  }, [deletePhotographer, supabase]);
+
+  /* ─── Save (create or edit) photographer ─── */
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error("O nome é obrigatório.");
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      name: form.name.trim(),
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      instagram: form.instagram.trim() || null,
+      portfolio_url: form.portfolioUrl.trim() || null,
+      bio: form.bio.trim() || null,
+      status: form.ativo ? "ativo" : "inativo",
+      price_pocket: form.valorPocket ? parseFloat(form.valorPocket) : null,
+      price_estudio: form.valorEstudio ? parseFloat(form.valorEstudio) : null,
+      price_completa: form.valorCompleta ? parseFloat(form.valorCompleta) : null,
+      commission_pct: form.commissionPct ? parseFloat(form.commissionPct) : 10.0,
+      cep: form.cep.trim() || null,
+      street: form.rua.trim() || null,
+      number: form.numero.trim() || null,
+      complement: form.complemento.trim() || null,
+      neighborhood: form.bairro.trim() || null,
+      city: form.cidade.trim() || null,
+      state: form.estado.trim() || null,
+      razao_social: form.razaoSocial.trim() || null,
+      nome_fantasia: form.nomeFantasia.trim() || null,
+      cnpj: form.cnpj.trim() || null,
+      bank: form.bank?.trim() || null,
+      agency: form.agency?.trim() || null,
+      account: form.account?.trim() || null,
+      pix_key: form.chavePix.trim() || null,
+      work_period_start: form.periodoInicio || null,
+      work_period_end: form.periodoFim || null,
+      available_monday: !!form.segunda,
+      available_tuesday: !!form.terca,
+      available_wednesday: !!form.quarta,
+      available_thursday: !!form.quinta,
+      available_friday: !!form.sexta,
+      available_saturday: !!form.sabado,
+      available_sunday: !!form.domingo,
+    };
+
+    try {
+      if (editPhotographer) {
+        const { error } = await supabase
+          .from("photographers")
+          .update(payload)
+          .eq("id", editPhotographer.id);
+
+        if (error) throw error;
+
+        toast.success(`Fotógrafo "${form.name}" atualizado com sucesso!`);
+      } else {
+        const { error } = await supabase
+          .from("photographers")
+          .insert(payload);
+
+        if (error) throw error;
+
+        toast.success(`Fotógrafo "${form.name}" cadastrado com sucesso!`);
+      }
+
+      handleCloseForm();
+      await fetchPhotographers();
+    } catch (err: any) {
+      toast.error(editPhotographer ? "Erro ao atualizar." : "Erro ao cadastrar.", {
+        description: err.message,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCloseForm = useCallback(() => {
     setShowNewForm(false);
     setEditPhotographer(null);
     setForm(emptyForm);
   }, []);
+
+  /* ─── Loading state ─── */
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-8 animate-spin text-primary/60" />
+        <p className="text-sm text-muted-foreground">Carregando fotógrafos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -565,11 +805,7 @@ export default function FotografosPage() {
               </p>
             </div>
             <p className="mt-2 text-2xl font-bold text-amber-600">
-              R${" "}
-              {valorPendente
-                .toFixed(2)
-                .replace(".", ",")
-                .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+              {formatCurrency(valorPendente)}
             </p>
           </CardContent>
         </Card>
@@ -627,6 +863,18 @@ export default function FotografosPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {filteredPhotographers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-12 text-center">
+                          <Users className="mx-auto size-8 text-muted-foreground/40" />
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {searchTerm
+                              ? "Nenhum fotógrafo encontrado com os filtros atuais."
+                              : "Nenhum fotógrafo cadastrado ainda. Clique em \"Novo Fotografo\" para começar."}
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {filteredPhotographers.map((ph) => (
                       <TableRow key={ph.id}>
                         <TableCell className="font-medium text-foreground">
@@ -745,13 +993,13 @@ export default function FotografosPage() {
                   </p>
                 </CardContent>
               </Card>
-              <Card className="border-red-200 bg-red-50">
+              <Card className="border-blue-200 bg-blue-50">
                 <CardContent className="p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-red-700">
-                    Atrasadas
+                  <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                    Processando
                   </p>
-                  <p className="mt-1 text-xl font-bold text-red-700">
-                    {commissions.filter((c) => c.status === "atrasado").length}
+                  <p className="mt-1 text-xl font-bold text-blue-700">
+                    {commissions.filter((c) => c.status === "processando").length}
                   </p>
                 </CardContent>
               </Card>
@@ -761,11 +1009,7 @@ export default function FotografosPage() {
                     Total Pendente
                   </p>
                   <p className="mt-1 text-xl font-bold text-foreground">
-                    R${" "}
-                    {valorPendente
-                      .toFixed(2)
-                      .replace(".", ",")
-                      .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                    {formatCurrency(valorPendente)}
                   </p>
                 </CardContent>
               </Card>
@@ -789,8 +1033,7 @@ export default function FotografosPage() {
                       <option value="todos">Todos os Status</option>
                       <option value="pago">Pago</option>
                       <option value="pendente">Pendente</option>
-                      <option value="atrasado">Atrasado</option>
-                      <option value="cancelado">Cancelado</option>
+                      <option value="processando">Processando</option>
                     </select>
                     <select
                       value={commissionPhotographerFilter}
@@ -860,14 +1103,14 @@ export default function FotografosPage() {
                             </div>
                             <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
                               <span>{commission.sessions} sessoes</span>
-                              <span>Receita: {commission.revenue}</span>
+                              <span>Receita: {formatCurrency(commission.revenue)}</span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-4">
                             <div className="text-right">
                               <p className="text-sm font-bold text-foreground">
-                                {commission.commissionValue}
+                                {formatCurrency(commission.commissionValue)}
                               </p>
                               <p className="text-[10px] text-muted-foreground">
                                 {commission.commissionPct}% comissao
@@ -896,10 +1139,10 @@ export default function FotografosPage() {
                             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                               <div>
                                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                  Data Vencimento
+                                  Periodo
                                 </p>
                                 <p className="mt-0.5 text-sm text-foreground">
-                                  {formatDate(commission.dueDate)}
+                                  {commission.month}
                                 </p>
                               </div>
                               <div>
@@ -931,18 +1174,44 @@ export default function FotografosPage() {
                               </div>
                               <div>
                                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                  Observacoes
+                                  Criado em
                                 </p>
                                 <p className="mt-0.5 text-sm text-foreground">
-                                  {commission.notes || "—"}
+                                  {commission.created_at ? formatDate(commission.created_at) : "—"}
                                 </p>
                               </div>
                             </div>
 
                             {/* Actions */}
                             <div className="mt-4 flex gap-2 border-t border-border pt-3">
-                              {(commission.status === "pendente" ||
-                                commission.status === "atrasado") && (
+                              {commission.status === "pendente" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateCommissionStatus(commission.id, "processando");
+                                    }}
+                                  >
+                                    <Loader2 className="size-3.5" />
+                                    Marcar como Processando
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1.5"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markAsPaid(commission.id);
+                                    }}
+                                  >
+                                    <CheckCircle2 className="size-3.5" />
+                                    Marcar como Pago
+                                  </Button>
+                                </>
+                              )}
+                              {commission.status === "processando" && (
                                 <Button
                                   size="sm"
                                   className="gap-1.5"
@@ -1168,6 +1437,15 @@ export default function FotografosPage() {
                       updateForm("valorCompleta", e.target.value)
                     }
                     placeholder="500.00"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Comissão (%)</Label>
+                  <Input
+                    value={form.commissionPct}
+                    onChange={(e) => updateForm("commissionPct", e.target.value)}
+                    placeholder="10.00"
                     className="mt-1"
                   />
                 </div>
@@ -1453,17 +1731,12 @@ export default function FotografosPage() {
                 <Button
                   variant="outline"
                   onClick={handleCloseForm}
+                  disabled={saving}
                 >
                   Cancelar
                 </Button>
-                <Button onClick={() => {
-                  if (editPhotographer) {
-                    toast.success(`Fotógrafo "${form.name}" atualizado com sucesso!`);
-                  } else {
-                    toast.success(`Fotógrafo "${form.name}" cadastrado com sucesso!`);
-                  }
-                  handleCloseForm();
-                }}>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
                   {editPhotographer ? "Salvar Alterações" : "Cadastrar"}
                 </Button>
               </div>
