@@ -151,13 +151,13 @@ export default function ConviteInfluenciadorPage() {
       <section className="relative overflow-hidden bg-[#8b5e5e] px-4 py-20 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-[#8b5e5e] to-[#6b4444] opacity-90" />
         <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mb-6 flex items-center justify-center">
+          <div className="mb-8 flex items-center justify-center">
             <Image
               src="/images/logo.svg"
               alt="Patas, Amor e Memórias"
-              width={220}
-              height={60}
-              className="brightness-0 invert"
+              width={400}
+              height={110}
+              className="brightness-0 invert w-[280px] md:w-[400px] h-auto"
               priority
             />
           </div>
