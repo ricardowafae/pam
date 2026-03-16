@@ -66,6 +66,7 @@ import {
   Image as ImageIcon,
   Package,
   CheckCircle,
+  CheckCircle2,
   Clock,
   AlertCircle,
   DollarSign,
@@ -100,6 +101,7 @@ interface DbPet {
 interface DbCustomer {
   id: string;
   user_id: string | null;
+  person_type: string;
   name: string;
   email: string;
   phone: string;
@@ -112,6 +114,9 @@ interface DbCustomer {
   neighborhood: string | null;
   city: string | null;
   state: string | null;
+  cnpj: string | null;
+  razao_social: string | null;
+  nome_fantasia: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -469,11 +474,24 @@ function ClientHistoryPanel({
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {customer.cpf && (
+            {customer.person_type === "PJ" && customer.cnpj && (
+              <Badge variant="outline" className="text-xs px-2.5 py-0.5">
+                CNPJ: {customer.cnpj}
+              </Badge>
+            )}
+            {customer.person_type === "PJ" && customer.razao_social && (
+              <Badge variant="outline" className="text-xs px-2.5 py-0.5">
+                {customer.razao_social}
+              </Badge>
+            )}
+            {(customer.person_type !== "PJ") && customer.cpf && (
               <Badge variant="outline" className="text-xs px-2.5 py-0.5">
                 CPF: {customer.cpf}
               </Badge>
             )}
+            <Badge variant="secondary" className="text-xs px-2.5 py-0.5">
+              {customer.person_type === "PJ" ? "PJ" : "PF"}
+            </Badge>
             <span className="text-xs text-muted-foreground">
               Cliente desde {formatDate(customer.created_at)}
             </span>
@@ -753,11 +771,18 @@ export default function ClientesPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [savingNew, setSavingNew] = useState(false);
 
+  // Copy invite link state
+  const [linkCopied, setLinkCopied] = useState(false);
+
   // New client form state
+  const [newPersonType, setNewPersonType] = useState<"PF" | "PJ">("PF");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newCpf, setNewCpf] = useState("");
+  const [newCnpj, setNewCnpj] = useState("");
+  const [newRazaoSocial, setNewRazaoSocial] = useState("");
+  const [newNomeFantasia, setNewNomeFantasia] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [newPets, setNewPets] = useState<NewPetField[]>([{ ...emptyPet }]);
 
@@ -771,10 +796,14 @@ export default function ClientesPage() {
   const [newState, setNewState] = useState("");
 
   // Edit form state
+  const [editPersonType, setEditPersonType] = useState<"PF" | "PJ">("PF");
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editCpf, setEditCpf] = useState("");
+  const [editCnpj, setEditCnpj] = useState("");
+  const [editRazaoSocial, setEditRazaoSocial] = useState("");
+  const [editNomeFantasia, setEditNomeFantasia] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editCep, setEditCep] = useState("");
   const [editStreet, setEditStreet] = useState("");
@@ -932,10 +961,14 @@ export default function ClientesPage() {
   };
 
   const resetNewForm = () => {
+    setNewPersonType("PF");
     setNewName("");
     setNewEmail("");
     setNewPhone("");
     setNewCpf("");
+    setNewCnpj("");
+    setNewRazaoSocial("");
+    setNewNomeFantasia("");
     setNewNotes("");
     setNewPets([{ ...emptyPet }]);
     setNewCep("");
@@ -949,24 +982,43 @@ export default function ClientesPage() {
 
   /* ── Create customer ── */
   const handleCreateCustomer = async () => {
-    if (!newName.trim()) {
-      toast.error("Nome e obrigatorio");
-      return;
+    if (newPersonType === "PF") {
+      if (!newName.trim()) {
+        toast.error("Nome e obrigatorio");
+        return;
+      }
+    } else {
+      if (!newRazaoSocial.trim()) {
+        toast.error("Razao Social e obrigatoria");
+        return;
+      }
+      if (!newCnpj.trim()) {
+        toast.error("CNPJ e obrigatorio");
+        return;
+      }
     }
     if (!newPhone.trim()) {
       toast.error("Telefone e obrigatorio");
       return;
     }
 
+    const displayName = newPersonType === "PJ"
+      ? (newNomeFantasia.trim() || newRazaoSocial.trim())
+      : newName.trim();
+
     setSavingNew(true);
     try {
       const { data: customerData, error: customerErr } = await supabase
         .from("customers")
         .insert({
-          name: newName.trim(),
+          person_type: newPersonType,
+          name: displayName,
           email: newEmail.trim(),
           phone: newPhone.trim(),
-          cpf: newCpf.trim() || null,
+          cpf: newPersonType === "PF" ? (newCpf.trim() || null) : null,
+          cnpj: newPersonType === "PJ" ? (newCnpj.trim() || null) : null,
+          razao_social: newPersonType === "PJ" ? (newRazaoSocial.trim() || null) : null,
+          nome_fantasia: newPersonType === "PJ" ? (newNomeFantasia.trim() || null) : null,
           cep: newCep.trim() || null,
           street: newStreet.trim() || null,
           number: newNumber.trim() || null,
@@ -1011,10 +1063,14 @@ export default function ClientesPage() {
   /* ── Edit customer ── */
   const handleOpenEdit = (customer: DbCustomer) => {
     setEditClient(customer);
+    setEditPersonType((customer.person_type as "PF" | "PJ") || "PF");
     setEditName(customer.name);
     setEditEmail(customer.email);
     setEditPhone(customer.phone);
     setEditCpf(customer.cpf || "");
+    setEditCnpj(customer.cnpj || "");
+    setEditRazaoSocial(customer.razao_social || "");
+    setEditNomeFantasia(customer.nome_fantasia || "");
     setEditNotes(customer.notes || "");
     setEditCep(customer.cep || "");
     setEditStreet(customer.street || "");
@@ -1027,8 +1083,12 @@ export default function ClientesPage() {
 
   const handleSaveEdit = async () => {
     if (!editClient) return;
-    if (!editName.trim()) {
+    if (editPersonType === "PF" && !editName.trim()) {
       toast.error("Nome e obrigatorio");
+      return;
+    }
+    if (editPersonType === "PJ" && !editRazaoSocial.trim()) {
+      toast.error("Razao Social e obrigatoria");
       return;
     }
 
@@ -1037,10 +1097,15 @@ export default function ClientesPage() {
       const { error } = await supabase
         .from("customers")
         .update({
-          name: editName.trim(),
+          name: editPersonType === "PJ"
+            ? (editNomeFantasia.trim() || editRazaoSocial.trim() || editName.trim())
+            : editName.trim(),
           email: editEmail.trim(),
           phone: editPhone.trim(),
-          cpf: editCpf.trim() || null,
+          cpf: editPersonType === "PF" ? (editCpf.trim() || null) : null,
+          cnpj: editPersonType === "PJ" ? (editCnpj.trim() || null) : null,
+          razao_social: editPersonType === "PJ" ? (editRazaoSocial.trim() || null) : null,
+          nome_fantasia: editPersonType === "PJ" ? (editNomeFantasia.trim() || null) : null,
           notes: editNotes.trim() || null,
           cep: editCep.trim() || null,
           street: editStreet.trim() || null,
@@ -1162,15 +1227,35 @@ export default function ClientesPage() {
           </p>
         </div>
 
-        {/* New Client Button */}
-        <Dialog open={showNewClientModal} onOpenChange={(open) => {
-          setShowNewClientModal(open);
-          if (!open) resetNewForm();
-        }}>
-          <DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#8b5e5e] px-4 text-sm font-medium text-white hover:bg-[#7a4f4f]">
-            <UserPlus className="size-4" />
-            Novo Cliente
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {/* Copy Invite Link */}
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              const link = `${window.location.origin}/convite/cliente`;
+              navigator.clipboard.writeText(link);
+              setLinkCopied(true);
+              setTimeout(() => setLinkCopied(false), 2500);
+            }}
+          >
+            {linkCopied ? (
+              <CheckCircle2 className="size-4 text-green-600" />
+            ) : (
+              <Copy className="size-4" />
+            )}
+            {linkCopied ? "Link Copiado!" : "Copiar Link de Convite"}
+          </Button>
+
+          {/* New Client Button */}
+          <Dialog open={showNewClientModal} onOpenChange={(open) => {
+            setShowNewClientModal(open);
+            if (!open) resetNewForm();
+          }}>
+            <DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#8b5e5e] px-4 text-sm font-medium text-white hover:bg-[#7a4f4f]">
+              <UserPlus className="size-4" />
+              Novo Cliente
+            </DialogTrigger>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -1183,18 +1268,96 @@ export default function ClientesPage() {
             </DialogHeader>
 
             <div className="space-y-5 py-2">
-              {/* Basic info */}
+              {/* PF/PJ Toggle */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewPersonType("PF")}
+                  className={`flex-1 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors ${
+                    newPersonType === "PF"
+                      ? "border-[#8b5e5e] bg-[#8b5e5e]/10 text-[#8b5e5e]"
+                      : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  Pessoa Fisica
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewPersonType("PJ")}
+                  className={`flex-1 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors ${
+                    newPersonType === "PJ"
+                      ? "border-[#8b5e5e] bg-[#8b5e5e]/10 text-[#8b5e5e]"
+                      : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  Pessoa Juridica
+                </button>
+              </div>
+
+              {/* Basic info - PF */}
+              {newPersonType === "PF" && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">
+                        Nome <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Nome do cliente"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">CPF</Label>
+                      <Input
+                        placeholder="000.000.000-00"
+                        value={newCpf}
+                        onChange={(e) => setNewCpf(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Basic info - PJ */}
+              {newPersonType === "PJ" && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">
+                        Razao Social <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Razao Social da empresa"
+                        value={newRazaoSocial}
+                        onChange={(e) => setNewRazaoSocial(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Nome Fantasia</Label>
+                      <Input
+                        placeholder="Nome Fantasia"
+                        value={newNomeFantasia}
+                        onChange={(e) => setNewNomeFantasia(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-1 sm:w-1/2">
+                    <Label className="text-xs">
+                      CNPJ <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      placeholder="00.000.000/0000-00"
+                      value={newCnpj}
+                      onChange={(e) => setNewCnpj(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Contact info (common) */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-1">
-                  <Label className="text-xs">
-                    Nome <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    placeholder="Nome do cliente"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                  />
-                </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Email</Label>
                   <Input
@@ -1204,9 +1367,6 @@ export default function ClientesPage() {
                     onChange={(e) => setNewEmail(e.target.value)}
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <Label className="text-xs">
                     Telefone/WhatsApp <span className="text-red-500">*</span>
@@ -1220,14 +1380,6 @@ export default function ClientesPage() {
                       onChange={(e) => setNewPhone(e.target.value)}
                     />
                   </div>
-                </div>
-                <div className="grid gap-1">
-                  <Label className="text-xs">CPF</Label>
-                  <Input
-                    placeholder="000.000.000-00"
-                    value={newCpf}
-                    onChange={(e) => setNewCpf(e.target.value)}
-                  />
                 </div>
               </div>
 
@@ -1441,6 +1593,7 @@ export default function ClientesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Date Filter */}
@@ -1841,20 +1994,67 @@ export default function ClientesPage() {
           </DialogHeader>
           {editClient && (
             <div className="space-y-5">
+              {/* Person Type Badge (locked) */}
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {editPersonType === "PJ" ? "Pessoa Juridica" : "Pessoa Fisica"}
+                </Badge>
+                <span className="text-xs text-muted-foreground">(tipo de cadastro nao pode ser alterado)</span>
+              </div>
+
               {/* Personal Info */}
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Dados Pessoais
+                  {editPersonType === "PJ" ? "Dados da Empresa" : "Dados Pessoais"}
                 </p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>Nome Completo *</Label>
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                  {editPersonType === "PF" ? (
+                    <>
+                      <div>
+                        <Label>Nome Completo *</Label>
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>CPF</Label>
+                        <Input
+                          value={editCpf}
+                          onChange={(e) => setEditCpf(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <Label>Razao Social *</Label>
+                        <Input
+                          value={editRazaoSocial}
+                          onChange={(e) => setEditRazaoSocial(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>Nome Fantasia</Label>
+                        <Input
+                          value={editNomeFantasia}
+                          onChange={(e) => setEditNomeFantasia(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>CNPJ *</Label>
+                        <Input
+                          value={editCnpj}
+                          onChange={(e) => setEditCnpj(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <Label>E-mail</Label>
                     <Input
@@ -1869,14 +2069,6 @@ export default function ClientesPage() {
                     <Input
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>CPF</Label>
-                    <Input
-                      value={editCpf}
-                      onChange={(e) => setEditCpf(e.target.value)}
                       className="mt-1"
                     />
                   </div>
