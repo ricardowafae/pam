@@ -440,8 +440,8 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
   const prevUniqueVisitorIds = new Set(prevPageViews.map((pv) => pv.visitor_id).filter(Boolean));
   const prevTotalVisitors = prevUniqueVisitorIds.size;
 
-  const ticketMedio = totalOrderCount > 0 ? Math.round(totalRevenue / totalOrderCount) : 0;
-  const prevTicketMedio = prevTotalOrderCount > 0 ? Math.round(prevTotalRevenue / prevTotalOrderCount) : 0;
+  const ticketMedio = paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length) : 0;
+  const prevTicketMedio = prevPaidOrders.length > 0 ? Math.round(prevTotalRevenue / prevPaidOrders.length) : 0;
   const convRate = totalVisitors > 0 ? ((paidOrders.length / totalVisitors) * 100) : 0;
   const prevConvRate = prevTotalVisitors > 0 ? ((prevPaidOrders.length / prevTotalVisitors) * 100) : 0;
   const revenuePerVisitor = totalVisitors > 0 ? Math.round(totalRevenue / totalVisitors) : 0;
@@ -510,10 +510,8 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
       if (name.includes("pocket")) monthlyProductMap[key].pocket += amount;
       else if (name.includes("estudio") || name.includes("estúdio")) monthlyProductMap[key].estudio += amount;
       else monthlyProductMap[key].completa += amount;
-    } else if (cat === "vale_presente") {
-      // Count vale_presente under dogbook category for simplicity
-      monthlyProductMap[key].dogbook += amount;
     }
+    // vale_presente is excluded from the stacked bar (shown separately in pie chart)
     monthlyProductMap[key].total += amount;
   }
 
@@ -543,7 +541,9 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
     productRevMap[pName].revenue += item.total_price || 0;
   }
 
+  const prevPaidOrderIds = new Set(prevPaidOrders.map((o) => o.id));
   for (const item of prevOrderItems) {
+    if (!prevPaidOrderIds.has(item.order_id)) continue;
     const pName = (item.products as any)?.name || "Desconhecido";
     prevProductRevMap[pName] = (prevProductRevMap[pName] || 0) + (item.total_price || 0);
   }
@@ -590,15 +590,15 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
       .map((pv) => pv.visitor_id)
       .filter(Boolean)
   ).size;
-  const initiatedPayment = orders.filter((o) => o.payment_status && o.payment_status !== "pendente").length;
+  const initiatedPayment = orders.filter((o) => o.payment_status && !["pendente", "cancelado"].includes(o.payment_status)).length;
   const purchased = paidOrders.length;
 
   const funnelData: FunnelItem[] = [
     { name: "Visitantes", value: totalVisitors, fill: "#8b5e5e" },
     { name: "Visualizaram produto", value: viewedProduct, fill: "#9a6f6f" },
     { name: "Adicionaram ao carrinho", value: addedToCart, fill: "#a98282" },
-    { name: "Iniciaram checkout", value: startedCheckout || Math.round(addedToCart * 0.5), fill: "#b89494" },
-    { name: "Pagamento iniciado", value: initiatedPayment || Math.round(purchased * 1.2), fill: "#c7a7a7" },
+    { name: "Iniciaram checkout", value: startedCheckout, fill: "#b89494" },
+    { name: "Pagamento iniciado", value: initiatedPayment, fill: "#c7a7a7" },
     { name: "Compraram", value: purchased, fill: "#d6b9b9" },
   ];
 
@@ -733,36 +733,39 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
       };
     });
 
-  // ── Visitors by Hour ──
-  const hourMap: Record<number, number> = {};
-  for (let i = 0; i < 24; i++) hourMap[i] = 0;
+  // ── Visitors by Hour (unique visitors, not page views) ──
+  const hourVisitorMap: Record<number, Set<string>> = {};
+  for (let i = 0; i < 24; i++) hourVisitorMap[i] = new Set();
   for (const pv of pageViews) {
-    if (pv.created_at) {
+    if (pv.created_at && pv.visitor_id) {
       const hour = new Date(pv.created_at).getHours();
-      hourMap[hour] = (hourMap[hour] || 0) + 1;
+      hourVisitorMap[hour].add(pv.visitor_id);
     }
   }
 
-  const visitorsByHourData: VisitorsByHour[] = Object.entries(hourMap)
+  const visitorsByHourData: VisitorsByHour[] = Object.entries(hourVisitorMap)
     .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([hour, count]) => ({
+    .map(([hour, visitors]) => ({
       hour: `${String(hour).padStart(2, "0")}h`,
-      v: count,
+      v: visitors.size,
       fill: HOUR_COLORS[Number(hour)] || "#8b5e5e",
     }));
 
-  // ── Device Data ──
-  const deviceMap: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 };
+  // ── Device Data (unique visitors per device) ──
+  const deviceVisitorMap: Record<string, Set<string>> = { mobile: new Set(), desktop: new Set(), tablet: new Set() };
   for (const pv of pageViews) {
     const dt = (pv.device_type || "desktop").toLowerCase();
-    deviceMap[dt] = (deviceMap[dt] || 0) + 1;
+    if (pv.visitor_id) {
+      if (!deviceVisitorMap[dt]) deviceVisitorMap[dt] = new Set();
+      deviceVisitorMap[dt].add(pv.visitor_id);
+    }
   }
-  const totalDeviceViews = Object.values(deviceMap).reduce((s, v) => s + v, 0) || 1;
+  const totalDeviceVisitors = Object.values(deviceVisitorMap).reduce((s, v) => s + v.size, 0) || 1;
 
   const deviceData: DeviceDataItem[] = [
-    { name: "Mobile", value: deviceMap.mobile || 0, pct: Math.round((deviceMap.mobile || 0) / totalDeviceViews * 100), fill: "#8b5e5e" },
-    { name: "Desktop", value: deviceMap.desktop || 0, pct: Math.round((deviceMap.desktop || 0) / totalDeviceViews * 100), fill: "#c4a0a0" },
-    { name: "Tablet", value: deviceMap.tablet || 0, pct: Math.round((deviceMap.tablet || 0) / totalDeviceViews * 100), fill: "#e8d4d4" },
+    { name: "Mobile", value: deviceVisitorMap.mobile?.size || 0, pct: Math.round((deviceVisitorMap.mobile?.size || 0) / totalDeviceVisitors * 100), fill: "#8b5e5e" },
+    { name: "Desktop", value: deviceVisitorMap.desktop?.size || 0, pct: Math.round((deviceVisitorMap.desktop?.size || 0) / totalDeviceVisitors * 100), fill: "#c4a0a0" },
+    { name: "Tablet", value: deviceVisitorMap.tablet?.size || 0, pct: Math.round((deviceVisitorMap.tablet?.size || 0) / totalDeviceVisitors * 100), fill: "#e8d4d4" },
   ];
 
   // ── Geographic Data ──
@@ -808,21 +811,35 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
     }));
 
   // ── Customer KPIs ──
-  const uniqueCustomerIds = new Set(validOrders.map((o) => o.customer_id).filter(Boolean));
+  const uniqueCustomerIds = new Set(paidOrders.map((o) => o.customer_id).filter(Boolean));
   const uniqueCustomerCount = uniqueCustomerIds.size;
 
   // New customers: created in current period
   const newCustomerIds = new Set(customers.map((c) => c.id));
   const newCustomers = [...uniqueCustomerIds].filter((id) => newCustomerIds.has(id)).length;
-  const returningCustomers = uniqueCustomerCount - newCustomers;
+
+  // Returning customers: customers with more than 1 paid order
+  const customerPaidOrderCount: Record<string, number> = {};
+  for (const o of paidOrders) {
+    if (o.customer_id) {
+      customerPaidOrderCount[o.customer_id] = (customerPaidOrderCount[o.customer_id] || 0) + 1;
+    }
+  }
+  const returningCustomers = Object.values(customerPaidOrderCount).filter((count) => count > 1).length;
   const recompraRate = uniqueCustomerCount > 0 ? Math.round((returningCustomers / uniqueCustomerCount) * 100) : 0;
   const ltv = uniqueCustomerCount > 0 ? Math.round(totalRevenue / uniqueCustomerCount) : 0;
 
-  const prevUniqueCustomerIds = new Set(prevOrders.filter((o) => o.status !== "cancelado").map((o) => o.customer_id).filter(Boolean));
+  const prevUniqueCustomerIds = new Set(prevPaidOrders.map((o) => o.customer_id).filter(Boolean));
   const prevUniqueCustomerCount = prevUniqueCustomerIds.size;
   const prevNewCustomerIds = new Set(prevCustomers.map((c) => c.id));
   const prevNewCustomers = [...prevUniqueCustomerIds].filter((id) => prevNewCustomerIds.has(id)).length;
-  const prevReturning = prevUniqueCustomerCount - prevNewCustomers;
+  const prevCustomerPaidOrderCount: Record<string, number> = {};
+  for (const o of prevPaidOrders) {
+    if (o.customer_id) {
+      prevCustomerPaidOrderCount[o.customer_id] = (prevCustomerPaidOrderCount[o.customer_id] || 0) + 1;
+    }
+  }
+  const prevReturning = Object.values(prevCustomerPaidOrderCount).filter((count) => count > 1).length;
   const prevRecompra = prevUniqueCustomerCount > 0 ? Math.round((prevReturning / prevUniqueCustomerCount) * 100) : 0;
   const prevLtv = prevUniqueCustomerCount > 0 ? Math.round(prevTotalRevenue / prevUniqueCustomerCount) : 0;
 
@@ -858,40 +875,113 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, v]) => v);
 
-  // ── Customer Cohorts ──
-  const cohortMonthMap: Record<string, { month: string; year: number; orders: number; revenue: number; customers: Set<string> }> = {};
-  for (const o of validOrders) {
-    const d = new Date(o.created_at);
-    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
-    if (!cohortMonthMap[key]) cohortMonthMap[key] = { month: monthNames[d.getMonth()], year: d.getFullYear(), orders: 0, revenue: 0, customers: new Set() };
-    cohortMonthMap[key].orders += 1;
-    cohortMonthMap[key].revenue += o.total || 0;
-    if (o.customer_id) cohortMonthMap[key].customers.add(o.customer_id);
+  // ── Customer Cohorts (real retention based on paid orders) ──
+  // Group customers by the month of their FIRST paid order
+  const customerFirstOrderMonth: Record<string, string> = {};
+  const customerOrderMonths: Record<string, Set<string>> = {};
+  const sortedPaidOrders = [...paidOrders].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+
+  for (const o of sortedPaidOrders) {
+    if (!o.customer_id) continue;
+    const d = new Date(o.paid_at || o.created_at);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+    if (!customerFirstOrderMonth[o.customer_id]) {
+      customerFirstOrderMonth[o.customer_id] = monthKey;
+    }
+    if (!customerOrderMonths[o.customer_id]) customerOrderMonths[o.customer_id] = new Set();
+    customerOrderMonths[o.customer_id].add(monthKey);
   }
 
-  const cohortMonths = Object.entries(cohortMonthMap).sort(([a], [b]) => a.localeCompare(b));
-  const customerCohorts: CustomerCohort[] = cohortMonths.slice(-3).map(([, m], idx) => {
-    const cust = m.customers.size || 1;
-    const monthsAgo = cohortMonths.length - (cohortMonths.length - 3 + idx) - 1;
+  // Build cohorts from last 3 months
+  const allMonthKeys = [...new Set(Object.values(customerFirstOrderMonth))].sort();
+  const cohortMonths = allMonthKeys.slice(-3);
+
+  const customerCohorts: CustomerCohort[] = cohortMonths.map((cohortKey) => {
+    const [year, monthIdx] = cohortKey.split("-").map(Number);
+    const cohortCustomers = Object.entries(customerFirstOrderMonth)
+      .filter(([, firstMonth]) => firstMonth === cohortKey)
+      .map(([custId]) => custId);
+    const custCount = cohortCustomers.length || 1;
+
+    // Calculate retention: % of cohort customers who also ordered in month+1, month+2, month+3
+    const getMonthKey = (offset: number) => {
+      const d = new Date(year, monthIdx + offset, 1);
+      return `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+    };
+
+    const month1Key = getMonthKey(1);
+    const month2Key = getMonthKey(2);
+    const month3Key = getMonthKey(3);
+
+    const retMonth1 = cohortCustomers.filter((c) => customerOrderMonths[c]?.has(month1Key)).length;
+    const retMonth2 = cohortCustomers.filter((c) => customerOrderMonths[c]?.has(month2Key)).length;
+    const retMonth3 = cohortCustomers.filter((c) => customerOrderMonths[c]?.has(month3Key)).length;
+
+    // Only show retention if that month has passed
+    const now = new Date();
+    const nowKey = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+
+    const cohortRevenue = paidOrders
+      .filter((o) => o.customer_id && cohortCustomers.includes(o.customer_id))
+      .reduce((s, o) => s + (o.total || 0), 0);
+
     return {
-      cohort: `${m.month}/${m.year}`,
-      customers: cust,
-      month1: `${Math.min(100, Math.round((cust / cust) * 70))}%`,
-      month2: monthsAgo >= 1 ? `${Math.round(recompraRate * 1.5)}%` : "-",
-      month3: monthsAgo >= 2 ? `${Math.round(recompraRate)}%` : "-",
-      ltv: `R$ ${Math.round(m.revenue / cust).toLocaleString("pt-BR")}`,
+      cohort: `${monthNames[monthIdx]}/${year}`,
+      customers: cohortCustomers.length,
+      month1: month1Key <= nowKey ? `${Math.round((retMonth1 / custCount) * 100)}%` : "-",
+      month2: month2Key <= nowKey ? `${Math.round((retMonth2 / custCount) * 100)}%` : "-",
+      month3: month3Key <= nowKey ? `${Math.round((retMonth3 / custCount) * 100)}%` : "-",
+      ltv: `R$ ${Math.round(cohortRevenue / custCount).toLocaleString("pt-BR")}`,
     };
   });
 
-  // ── Customer Segments ──
-  // Segment based on order count and recency
+  // ── Customer Segments (real data based on order count and recency) ──
+  const now = new Date();
+  const segChampions: string[] = [];
+  const segLoyal: string[] = [];
+  const segHighPotential: string[] = [];
+  const segNew: string[] = [];
+  const segAtRisk: string[] = [];
+  const segInactive: string[] = [];
+
+  for (const custId of uniqueCustomerIds) {
+    const orderCount = customerPaidOrderCount[custId] || 0;
+    const custOrders = paidOrders.filter((o) => o.customer_id === custId);
+    const lastOrderDate = custOrders.reduce((max, o) => {
+      const d = new Date(o.paid_at || o.created_at);
+      return d > max ? d : max;
+    }, new Date(0));
+    const daysSinceLastOrder = Math.round((now.getTime() - lastOrderDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalSpent = custOrders.reduce((s, o) => s + (o.total || 0), 0);
+    const avgTicketCust = orderCount > 0 ? totalSpent / orderCount : 0;
+    const isNew = newCustomerIds.has(custId);
+
+    if (orderCount >= 3 && avgTicketCust >= ticketMedio) {
+      segChampions.push(custId);
+    } else if (orderCount >= 2 && daysSinceLastOrder <= 60) {
+      segLoyal.push(custId);
+    } else if (orderCount === 1 && avgTicketCust >= ticketMedio && daysSinceLastOrder <= 30) {
+      segHighPotential.push(custId);
+    } else if (isNew && daysSinceLastOrder <= 30) {
+      segNew.push(custId);
+    } else if (daysSinceLastOrder > 90) {
+      segInactive.push(custId);
+    } else if (daysSinceLastOrder > 60) {
+      segAtRisk.push(custId);
+    } else {
+      // Default: new if recent, otherwise at risk
+      if (daysSinceLastOrder <= 30) segNew.push(custId);
+      else segAtRisk.push(custId);
+    }
+  }
+
   const customerSegments: CustomerSegment[] = [
-    { segment: "Champions", desc: "Alta frequencia + alto valor", count: Math.round(uniqueCustomerCount * 0.08), pct: 8, color: "bg-green-100 text-green-700" },
-    { segment: "Leais", desc: "Compras regulares", count: Math.round(uniqueCustomerCount * 0.15), pct: 15, color: "bg-blue-100 text-blue-700" },
-    { segment: "Potencial Alto", desc: "1 compra de alto valor", count: Math.round(uniqueCustomerCount * 0.20), pct: 20, color: "bg-purple-100 text-purple-700" },
-    { segment: "Novos", desc: "Primeira compra recente", count: newCustomers, pct: uniqueCustomerCount > 0 ? Math.round((newCustomers / uniqueCustomerCount) * 100) : 0, color: "bg-amber-100 text-amber-700" },
-    { segment: "Em Risco", desc: "Nao compra ha 60+ dias", count: Math.round(uniqueCustomerCount * 0.13), pct: 13, color: "bg-orange-100 text-orange-700" },
-    { segment: "Inativos", desc: "Nao compra ha 90+ dias", count: Math.round(uniqueCustomerCount * 0.12), pct: 12, color: "bg-red-100 text-red-700" },
+    { segment: "Champions", desc: "3+ compras + alto valor", count: segChampions.length, pct: uniqueCustomerCount > 0 ? Math.round((segChampions.length / uniqueCustomerCount) * 100) : 0, color: "bg-green-100 text-green-700" },
+    { segment: "Leais", desc: "2+ compras nos ultimos 60 dias", count: segLoyal.length, pct: uniqueCustomerCount > 0 ? Math.round((segLoyal.length / uniqueCustomerCount) * 100) : 0, color: "bg-blue-100 text-blue-700" },
+    { segment: "Potencial Alto", desc: "1 compra de alto valor recente", count: segHighPotential.length, pct: uniqueCustomerCount > 0 ? Math.round((segHighPotential.length / uniqueCustomerCount) * 100) : 0, color: "bg-purple-100 text-purple-700" },
+    { segment: "Novos", desc: "Primeira compra nos ultimos 30 dias", count: segNew.length, pct: uniqueCustomerCount > 0 ? Math.round((segNew.length / uniqueCustomerCount) * 100) : 0, color: "bg-amber-100 text-amber-700" },
+    { segment: "Em Risco", desc: "Ultima compra ha 60-90 dias", count: segAtRisk.length, pct: uniqueCustomerCount > 0 ? Math.round((segAtRisk.length / uniqueCustomerCount) * 100) : 0, color: "bg-orange-100 text-orange-700" },
+    { segment: "Inativos", desc: "Ultima compra ha 90+ dias", count: segInactive.length, pct: uniqueCustomerCount > 0 ? Math.round((segInactive.length / uniqueCustomerCount) * 100) : 0, color: "bg-red-100 text-red-700" },
   ];
 
   // ── Top Pages ──
@@ -944,49 +1034,51 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
   ];
 
   // ── Marketing KPIs ──
-  // Use campaigns data for ad spend
-  const totalAdSpend = campaigns.reduce((s, c) => s + (c.total_sent || 0), 0); // total_sent used as proxy if no spend column
-  const prevTotalAdSpend = 0; // no prev campaigns fetched
-  const paidOrderCount = orders.filter((o) => o.influencer_id || (o.coupon_id)).length;
-  const paidRevenue = orders
-    .filter((o) => o.influencer_id || o.coupon_id)
-    .filter((o) => o.payment_status === "pago")
-    .reduce((s, o) => s + (o.total || 0), 0);
-  const organicRevenue = totalRevenue - paidRevenue;
-  const cpa = paidOrderCount > 0 && totalAdSpend > 0 ? Math.round(totalAdSpend / paidOrderCount) : 0;
-  const roas = totalAdSpend > 0 ? (totalRevenue / totalAdSpend).toFixed(0) : "0";
+  // Attributed revenue: paid orders with influencer or coupon
+  const attributedPaidOrders = paidOrders.filter((o) => o.influencer_id || o.coupon_id);
+  const attributedPaidOrderCount = attributedPaidOrders.length;
+  const attributedRevenue = attributedPaidOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const organicRevenue = totalRevenue - attributedRevenue;
   const organicPct = totalRevenue > 0 ? Math.round((organicRevenue / totalRevenue) * 100) : 0;
+  // No real ad spend data available — show "-" instead of fabricated numbers
+  const totalAdSpend = 0;
 
   const marketingKpis: MiniKpiData[] = [
-    { label: "Investimento Total", value: `R$ ${totalAdSpend.toLocaleString("pt-BR")}`, change: "0%", positive: true },
-    { label: "ROAS Geral", value: `${roas}x`, change: "0%", positive: true },
-    { label: "CPA Medio", value: `R$ ${cpa}`, change: "0%", positive: true },
-    { label: "Receita Paga", value: `R$ ${paidRevenue.toLocaleString("pt-BR")}`, change: "0%", positive: true },
+    { label: "Investimento Total", value: "-", change: "0%", positive: true },
+    { label: "ROAS Geral", value: "-", change: "0%", positive: true },
+    { label: "CPA Medio", value: "-", change: "0%", positive: true },
+    { label: "Receita Atribuida", value: `R$ ${attributedRevenue.toLocaleString("pt-BR")}`, change: "0%", positive: true },
     { label: "Receita Organica", value: `R$ ${organicRevenue.toLocaleString("pt-BR")}`, change: "0%", positive: true },
     { label: "% Receita Organica", value: `${organicPct}%`, change: "0%", positive: true },
   ];
 
   const marketingData: MarketingKpis = {
     kpis: marketingKpis,
-    paidRevenue: Math.round(paidRevenue),
+    paidRevenue: Math.round(attributedRevenue),
     organicRevenue: Math.round(organicRevenue),
-    totalAdSpend: Math.round(totalAdSpend),
+    totalAdSpend: 0,
   };
 
   // ── Marketing by Channel (from influencer / coupon attribution) ──
-  const influencerRevenueMap: Record<string, { name: string; revenue: number; orders: number }> = {};
+  // Only count PAID influencer orders, and use slug for attribution tracking
+  const influencerRevenueMap: Record<string, { name: string; slug: string; revenue: number; orders: number }> = {};
   for (const o of influencerOrders) {
+    // Skip unpaid orders
+    const isPaid = paidOrders.some((po) => po.id === o.id);
+    if (!isPaid) continue;
     const inf = o.influencers as any;
     const name = inf?.name || `Influencer ${o.influencer_id}`;
-    if (!influencerRevenueMap[name]) influencerRevenueMap[name] = { name, revenue: 0, orders: 0 };
-    influencerRevenueMap[name].revenue += o.total || 0;
-    influencerRevenueMap[name].orders += 1;
+    const slug = inf?.slug || "";
+    const key = slug || name; // Use slug as primary key for proper attribution
+    if (!influencerRevenueMap[key]) influencerRevenueMap[key] = { name, slug, revenue: 0, orders: 0 };
+    influencerRevenueMap[key].revenue += o.total || 0;
+    influencerRevenueMap[key].orders += 1;
   }
 
   const marketingByChannel: MarketingChannel[] = Object.values(influencerRevenueMap)
     .sort((a, b) => b.revenue - a.revenue)
     .map((ch) => ({
-      channel: ch.name,
+      channel: ch.slug ? `${ch.name} (@${ch.slug})` : ch.name,
       spend: 0,
       revenue: Math.round(ch.revenue),
       roas: 0,
@@ -994,7 +1086,7 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
       cpa: 0,
     }));
 
-  // If no influencer data, add campaign-based channels
+  // If no influencer data, show campaigns info (without fabricated order counts)
   if (marketingByChannel.length === 0 && campaigns.length > 0) {
     for (const c of campaigns) {
       marketingByChannel.push({
@@ -1002,7 +1094,7 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
         spend: 0,
         revenue: 0,
         roas: 0,
-        orders: c.total_clicked || 0,
+        orders: 0,
         cpa: 0,
       });
     }
@@ -1044,7 +1136,7 @@ async function fetchAnalyticsData(dateRange: DateRange): Promise<AnalyticsData> 
   // ── Refund Data ──
   const refundedOrders = orders.filter((o) => o.status === "reembolsado" || o.status === "devolvido");
   const refundValue = refundedOrders.reduce((s, o) => s + (o.total || 0), 0);
-  const refundRate = totalOrderCount > 0 ? Math.round((refundedOrders.length / totalOrderCount) * 100 * 10) / 10 : 0;
+  const refundRate = paidOrders.length > 0 ? Math.round((refundedOrders.length / paidOrders.length) * 100 * 10) / 10 : 0;
 
   const refundData = { rate: refundRate, refunds: refundedOrders.length, value: Math.round(refundValue) };
 
@@ -1349,9 +1441,7 @@ export default function AnalyticsPage() {
               const abandonRate = funnelData[2].value > 0
                 ? Math.round((1 - (funnelData[5].value / funnelData[2].value)) * 100)
                 : 0;
-              const cacVal = data.marketingData.totalAdSpend > 0 && customerKpis[0]
-                ? Math.round(data.marketingData.totalAdSpend / Math.max(1, parseInt(customerKpis[0].value.replace(/\D/g, ""), 10) || 1))
-                : 0;
+              const cacVal = 0; // No real ad spend data available
               const ltvVal = customerKpis.find((k) => k.label === "LTV Medio")?.value || "R$ 0";
               const ltvNum = parseInt(ltvVal.replace(/\D/g, ""), 10) || 0;
               const ltvCacRatio = cacVal > 0 ? Math.round(ltvNum / cacVal) : 0;
@@ -1362,9 +1452,9 @@ export default function AnalyticsPage() {
                   <MiniKpi label="Taxa Rejeicao" value={behaviorKpis[2].value} change={behaviorKpis[2].change} positive={behaviorKpis[2].positive} />
                   <MiniKpi label="Duracao Media" value={behaviorKpis[1].value} change={behaviorKpis[1].change} positive={behaviorKpis[1].positive} />
                   <MiniKpi label="Pag / Sessao" value={behaviorKpis[0].value} change={behaviorKpis[0].change} positive={behaviorKpis[0].positive} />
-                  <MiniKpi label="CAC" value={`R$ ${cacVal}`} change="0%" positive={true} />
+                  <MiniKpi label="CAC" value="-" change="0%" positive={true} />
                   <MiniKpi label="LTV" value={ltvVal} change="0%" positive={true} />
-                  <MiniKpi label="LTV / CAC" value={`${ltvCacRatio}x`} change="0%" positive={true} />
+                  <MiniKpi label="LTV / CAC" value="-" change="0%" positive={true} />
                   <MiniKpi label="Taxa Recompra" value={recompra} change="0%" positive={true} />
                 </div>
               );
