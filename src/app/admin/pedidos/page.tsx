@@ -91,7 +91,9 @@ interface Order {
   total: string;
   payment: PaymentStatus;
   influencer: string;
+  influencerSlug: string;
   coupon: string;
+  origem: string;       // lead origin: influencer, utm_source, or "Direto"
 }
 
 /* ────────────────────── Stage mappings ────────────────────── */
@@ -282,6 +284,25 @@ export default function PedidosPage() {
         return;
       }
 
+      // Fetch leads to get source attribution for customers
+      const customerEmails = orders
+        .map((o: any) => o.customers?.email)
+        .filter(Boolean);
+      let leadSourceMap: Record<string, string> = {};
+      if (customerEmails.length > 0) {
+        const { data: leads } = await supabase
+          .from("leads")
+          .select("email, source")
+          .in("email", customerEmails);
+        if (leads) {
+          for (const lead of leads) {
+            if (lead.email && lead.source) {
+              leadSourceMap[lead.email] = lead.source;
+            }
+          }
+        }
+      }
+
       const mapped: Order[] = orders.map((o: any) => {
         const customer = o.customers;
         const dogbooks = o.dogbooks || [];
@@ -301,6 +322,14 @@ export default function PedidosPage() {
           photosMax: Number(db.photos_max) || 0,
         }));
 
+        // Determine origin: influencer > lead source > "Direto"
+        let origem = "Direto";
+        if (influencer?.name) {
+          origem = influencer.slug ? `@${influencer.slug}` : influencer.name;
+        } else if (customer?.email && leadSourceMap[customer.email]) {
+          origem = leadSourceMap[customer.email];
+        }
+
         return {
           id: o.id,
           orderNumber: o.order_number || "-",
@@ -311,7 +340,9 @@ export default function PedidosPage() {
           total: formatCurrency(Number(o.total) || 0),
           payment: paymentStatusMap[o.payment_status] || "Pendente",
           influencer: influencer?.name || "-",
+          influencerSlug: influencer?.slug || "",
           coupon: coupon?.code || "-",
+          origem,
         };
       });
 
@@ -544,6 +575,7 @@ export default function PedidosPage() {
                       <TableHead className="w-8" />
                       <TableHead>#Compra</TableHead>
                       <TableHead>Cliente</TableHead>
+                      <TableHead className="hidden lg:table-cell">Origem</TableHead>
                       <TableHead className="text-center">Qtd</TableHead>
                       <TableHead>Status Geral</TableHead>
                       <TableHead className="text-center hidden md:table-cell">Fotos</TableHead>
@@ -610,6 +642,20 @@ export default function PedidosPage() {
                                   {order.email}
                                 </p>
                               </div>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  order.origem.startsWith("@")
+                                    ? "border-purple-200 bg-purple-50 text-purple-700"
+                                    : order.origem === "Direto"
+                                    ? "border-gray-200 bg-gray-50 text-gray-600"
+                                    : "border-blue-200 bg-blue-50 text-blue-700"
+                                }`}
+                              >
+                                {order.origem}
+                              </Badge>
                             </TableCell>
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">
@@ -710,6 +756,7 @@ export default function PedidosPage() {
                                     </div>
                                   </div>
                                 </TableCell>
+                                <TableCell className="hidden lg:table-cell" />
                                 <TableCell />
                                 <TableCell>
                                   <div className="flex items-center gap-1">
@@ -774,7 +821,7 @@ export default function PedidosPage() {
                               key={`${order.id}-info`}
                               className="bg-muted/10"
                             >
-                              <TableCell colSpan={9}>
+                              <TableCell colSpan={10}>
                                 <div className="flex flex-wrap gap-6 px-4 py-2 text-xs text-muted-foreground">
                                   {order.influencer !== "-" && (
                                     <div>

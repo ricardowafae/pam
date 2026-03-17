@@ -104,6 +104,7 @@ interface SessionOrder {
   total: string;
   payment: PaymentStatusDisplay;
   paymentMethod: string;
+  origem: string;        // lead origin: influencer, source, or "Direto"
 }
 
 interface PhotographerOption {
@@ -363,7 +364,8 @@ export default function SessoesPage() {
           total,
           payment_method,
           payment_status,
-          created_at
+          created_at,
+          influencers ( id, name, slug )
         )
       `)
       .order("created_at", { ascending: false });
@@ -391,6 +393,7 @@ export default function SessoesPage() {
       total: number;
       payment: PaymentStatusDisplay;
       paymentMethod: string;
+      origem: string;
       items: SessionItem[];
     }>();
 
@@ -405,6 +408,7 @@ export default function SessoesPage() {
         payment_method: string | null;
         payment_status: string;
         created_at: string;
+        influencers: { id: string; name: string; slug: string } | null;
       } | null;
 
       // Use order_id as grouping key, or session id if no order
@@ -425,6 +429,13 @@ export default function SessoesPage() {
       };
 
       if (!orderMap.has(groupKey)) {
+        // Determine origin
+        const inf = order?.influencers;
+        let origem = "Direto";
+        if (inf?.name) {
+          origem = inf.slug ? `@${inf.slug}` : inf.name;
+        }
+
         orderMap.set(groupKey, {
           orderId: row.order_id || row.id,
           orderNumber: order?.order_number
@@ -439,6 +450,7 @@ export default function SessoesPage() {
           paymentMethod: order?.payment_method
             ? (paymentMethodLabels[order.payment_method] || order.payment_method)
             : "-",
+          origem,
           items: [],
         });
       }
@@ -446,18 +458,40 @@ export default function SessoesPage() {
       orderMap.get(groupKey)!.items.push(sessionItem);
     }
 
-    const orders: SessionOrder[] = Array.from(orderMap.values()).map((o) => ({
-      id: o.orderId,
-      orderNumber: o.orderNumber,
-      client: o.client,
-      email: o.email,
-      phone: o.phone,
-      orderDate: o.orderDate,
-      items: o.items,
-      total: formatCurrency(o.total),
-      payment: o.payment,
-      paymentMethod: o.paymentMethod,
-    }));
+    // Fetch leads to get source attribution for customers
+    const custEmails = [...new Set(Array.from(orderMap.values()).map((o) => o.email).filter((e) => e !== "-"))];
+    let leadSrcMap: Record<string, string> = {};
+    if (custEmails.length > 0) {
+      const { data: leads } = await supabase
+        .from("leads")
+        .select("email, source")
+        .in("email", custEmails);
+      if (leads) {
+        for (const lead of leads) {
+          if (lead.email && lead.source) leadSrcMap[lead.email] = lead.source;
+        }
+      }
+    }
+
+    const orders: SessionOrder[] = Array.from(orderMap.values()).map((o) => {
+      let origem = o.origem;
+      if (origem === "Direto" && o.email !== "-" && leadSrcMap[o.email]) {
+        origem = leadSrcMap[o.email];
+      }
+      return {
+        id: o.orderId,
+        orderNumber: o.orderNumber,
+        client: o.client,
+        email: o.email,
+        phone: o.phone,
+        orderDate: o.orderDate,
+        items: o.items,
+        total: formatCurrency(o.total),
+        payment: o.payment,
+        paymentMethod: o.paymentMethod,
+        origem,
+      };
+    });
 
     setOrderList(orders);
     setLoading(false);
@@ -778,6 +812,7 @@ export default function SessoesPage() {
                       <TableHead className="w-8" />
                       <TableHead>#Compra</TableHead>
                       <TableHead>Cliente</TableHead>
+                      <TableHead className="hidden lg:table-cell">Origem</TableHead>
                       <TableHead className="text-center">Qtd</TableHead>
                       <TableHead>Status Geral</TableHead>
                       <TableHead className="hidden lg:table-cell">
@@ -841,6 +876,20 @@ export default function SessoesPage() {
                                   {order.email}
                                 </p>
                               </div>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  order.origem.startsWith("@")
+                                    ? "border-purple-200 bg-purple-50 text-purple-700"
+                                    : order.origem === "Direto"
+                                    ? "border-gray-200 bg-gray-50 text-gray-600"
+                                    : "border-blue-200 bg-blue-50 text-blue-700"
+                                }`}
+                              >
+                                {order.origem}
+                              </Badge>
                             </TableCell>
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">
@@ -942,6 +991,7 @@ export default function SessoesPage() {
                                     </div>
                                   </div>
                                 </TableCell>
+                                <TableCell className="hidden lg:table-cell" />
                                 <TableCell className="text-center text-[10px] text-muted-foreground">
                                   {item.date ? formatDateTime(item.date, item.time) : "-"}
                                 </TableCell>
@@ -1012,7 +1062,7 @@ export default function SessoesPage() {
                               key={`${order.id}-info`}
                               className="bg-muted/10"
                             >
-                              <TableCell colSpan={9}>
+                              <TableCell colSpan={10}>
                                 <div className="flex flex-wrap gap-6 px-4 py-2 text-xs text-muted-foreground">
                                   {order.paymentMethod !== "-" && (
                                     <div>
