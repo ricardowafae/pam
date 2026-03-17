@@ -34,16 +34,31 @@ export default function AdminLoginPage() {
         return;
       }
 
+      // Check user_metadata role
       const role = data.user?.user_metadata?.role;
 
       if (role === "admin" || role === "equipe") {
         router.push("/admin");
-      } else {
-        setError(
-          "Acesso restrito. Esta area e exclusiva para administradores."
-        );
-        await supabase.auth.signOut();
+        return;
       }
+
+      // Fallback: check team_members table directly
+      const { data: teamMember } = await supabase
+        .from("team_members")
+        .select("id, role")
+        .eq("user_id", data.user?.id)
+        .eq("active", true)
+        .single();
+
+      if (teamMember) {
+        router.push("/admin");
+        return;
+      }
+
+      setError(
+        "Acesso restrito. Esta area e exclusiva para administradores."
+      );
+      await supabase.auth.signOut();
     } catch {
       setError("Credenciais invalidas. Tente novamente.");
     } finally {

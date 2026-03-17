@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   BarChart3,
@@ -90,8 +91,29 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userName, setUserName] = useState("");
   const pathname = usePathname();
+  const router = useRouter();
   const isAuthPage = pathname === "/admin/login";
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const name =
+          data.user.user_metadata?.full_name ||
+          data.user.email?.split("@")[0] ||
+          "Admin";
+        setUserName(name);
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/admin/login");
+  };
 
   // Login page renders without sidebar
   if (isAuthPage) {
@@ -145,8 +167,13 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm text-[#6b4c4c]">Juliano Lemos</span>
-            <Button variant="ghost" size="icon-sm" className="text-[#8b5e5e]">
+            <span className="text-sm text-[#6b4c4c]">{userName || "Admin"}</span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-[#8b5e5e]"
+              onClick={handleLogout}
+            >
               <LogOut className="size-4" />
             </Button>
           </div>
