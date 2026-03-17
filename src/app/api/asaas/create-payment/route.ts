@@ -33,16 +33,58 @@ export async function POST(req: NextRequest) {
       addressComplement,
     } = body;
 
-    if (!items || items.length === 0) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: "Carrinho vazio" },
         { status: 400 }
       );
     }
 
-    if (!cpfCnpj) {
+    // Limit cart size to prevent abuse
+    if (items.length > 20) {
+      return NextResponse.json(
+        { error: "Limite de itens excedido" },
+        { status: 400 }
+      );
+    }
+
+    if (!cpfCnpj || typeof cpfCnpj !== "string") {
       return NextResponse.json(
         { error: "CPF/CNPJ obrigatorio" },
+        { status: 400 }
+      );
+    }
+
+    // Validate CPF (11 digits) or CNPJ (14 digits)
+    const cleanCpfCnpj = cpfCnpj.replace(/\D/g, "");
+    if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
+      return NextResponse.json(
+        { error: "CPF/CNPJ invalido" },
+        { status: 400 }
+      );
+    }
+
+    // Validate payment method
+    const validMethods = ["cartao", "pix", "boleto"];
+    if (!paymentMethod || !validMethods.includes(paymentMethod)) {
+      return NextResponse.json(
+        { error: "Metodo de pagamento invalido" },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    if (!customerEmail || typeof customerEmail !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      return NextResponse.json(
+        { error: "Email invalido" },
+        { status: 400 }
+      );
+    }
+
+    // Validate installment count
+    if (installmentCount && (typeof installmentCount !== "number" || installmentCount < 1 || installmentCount > 12)) {
+      return NextResponse.json(
+        { error: "Numero de parcelas invalido" },
         { status: 400 }
       );
     }

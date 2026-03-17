@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { PAYMENT_CONFIG } from "@/lib/pricing-config";
+import { adminFetch } from "@/lib/admin-fetch";
 
 /**
  * Supabase-backed persistence for payment configuration.
@@ -48,7 +49,7 @@ async function fetchPaymentConfig(): Promise<PaymentConfigData> {
 /** Save payment config to the API (Supabase-backed) */
 export async function persistPaymentConfig(cfg: PaymentConfigData): Promise<boolean> {
   try {
-    const res = await fetch("/api/settings", {
+    const res = await adminFetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "payment_config", value: cfg }),

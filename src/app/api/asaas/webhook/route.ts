@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "crypto";
 import {
   handlePaymentSuccess,
   handlePaymentFailure,
@@ -12,18 +13,36 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/**
+ * Timing-safe string comparison to prevent timing attacks on webhook tokens.
+ */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // Validate webhook token
+    // ── Validate webhook token (ALWAYS required) ──
     const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
-    if (webhookToken) {
-      const receivedToken = req.headers.get("asaas-access-token");
-      if (receivedToken !== webhookToken) {
-        return NextResponse.json(
-          { error: "Invalid webhook token" },
-          { status: 401 }
-        );
-      }
+    if (!webhookToken) {
+      console.error("[asaas-webhook] ASAAS_WEBHOOK_TOKEN not configured");
+      return NextResponse.json(
+        { error: "Webhook not configured" },
+        { status: 500 }
+      );
+    }
+
+    const receivedToken = req.headers.get("asaas-access-token") || "";
+    if (!receivedToken || !safeCompare(receivedToken, webhookToken)) {
+      return NextResponse.json(
+        { error: "Invalid webhook token" },
+        { status: 401 }
+      );
     }
 
     const body = await req.json();
@@ -39,8 +58,21 @@ export async function POST(req: NextRequest) {
     const asaasPaymentId = payment.id;
     const externalReference = payment.externalReference; // our order ID
 
+    // Validate payment ID format (Asaas uses pay_ prefix)
+    if (typeof asaasPaymentId !== "string" || !asaasPaymentId.startsWith("pay_")) {
+      return NextResponse.json(
+        { error: "Invalid payment ID format" },
+        { status: 400 }
+      );
+    }
+
     // Find order by externalReference (order.id) or asaas_payment_id
     let orderId = externalReference;
+
+    // Validate externalReference is a UUID if provided
+    if (orderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      orderId = null;
+    }
 
     if (!orderId) {
       const { data: order } = await supabaseAdmin

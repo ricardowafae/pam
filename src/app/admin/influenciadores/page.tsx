@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { adminFetch } from "@/lib/admin-fetch";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -436,7 +437,7 @@ export default function InfluenciadoresPage() {
   const handleResetPassword = async (email: string, name: string) => {
     setResettingEmail(email);
     try {
-      const res = await fetch("/api/admin/reset-password", {
+      const res = await adminFetch("/api/admin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

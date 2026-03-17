@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin, isAuthError } from "@/lib/admin-auth";
 
 /**
  * POST /api/admin/reset-password
  *
  * Sends a password reset email to the specified email address.
- * Uses the Supabase Admin client (service_role) so it works
- * regardless of the current session.
+ * Requires admin authentication.
  *
  * Body: { email: string }
  */
@@ -17,12 +17,24 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: NextRequest) {
+  // ── Auth check ──
+  const auth = await requireAdmin(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const { email } = await req.json();
 
-    if (!email) {
+    if (!email || typeof email !== "string") {
       return NextResponse.json(
-        { error: "Email é obrigatório." },
+        { error: "Email e obrigatorio." },
+        { status: 400 }
+      );
+    }
+
+    // Basic email format validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { error: "Email invalido." },
         { status: 400 }
       );
     }

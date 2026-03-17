@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin, isAuthError } from "@/lib/admin-auth";
 
 /**
  * POST /api/admin/save-products
  *
  * Updates product prices in the Supabase `products` table.
- * Accepts an array of { slug, base_price } objects.
+ * Requires admin authentication.
  *
  * Body: { products: [{ slug: string, base_price: number }] }
  */
@@ -22,7 +23,18 @@ const SLUG_MAP: Record<string, string> = {
   "Sessão Completa": "sessao-completa",
 };
 
+const VALID_SLUGS = new Set([
+  "dogbook",
+  "sessao-pocket",
+  "sessao-estudio",
+  "sessao-completa",
+]);
+
 export async function POST(req: NextRequest) {
+  // ── Auth check ──
+  const auth = await requireAdmin(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = await req.json();
     const { products } = body;
@@ -38,15 +50,22 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
     for (const p of products) {
       const slug = p.slug || SLUG_MAP[p.name];
-      if (!slug) {
-        errors.push(`Unknown product: ${p.name}`);
+      if (!slug || !VALID_SLUGS.has(slug)) {
+        errors.push(`Unknown product: ${p.name || p.slug}`);
+        continue;
+      }
+
+      // Validate price is a positive number
+      const price = Number(p.price);
+      if (isNaN(price) || price < 0 || price > 100000) {
+        errors.push(`Invalid price for ${slug}: ${p.price}`);
         continue;
       }
 
       const { error } = await supabaseAdmin
         .from("products")
         .update({
-          base_price: p.price,
+          base_price: price,
           updated_at: new Date().toISOString(),
         })
         .eq("slug", slug);

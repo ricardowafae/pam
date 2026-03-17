@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import { createClient } from "@/lib/supabase/client";
+import { adminFetch } from "@/lib/admin-fetch";
 import { toast } from "sonner";
 import type { TeamMember } from "@/types";
 
@@ -275,7 +276,7 @@ export default function EquipePage() {
   const handleDelete = async (member: TeamMember) => {
     setDeleting(true);
     try {
-      const res = await fetch("/api/admin/delete-team-member", {
+      const res = await adminFetch("/api/admin/delete-team-member", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: member.id }),
@@ -331,7 +332,7 @@ export default function EquipePage() {
   const handleResetPassword = async (member: TeamMember) => {
     setResetting(true);
     try {
-      const res = await fetch("/api/admin/reset-password", {
+      const res = await adminFetch("/api/admin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: member.email }),
@@ -372,7 +373,7 @@ export default function EquipePage() {
     }
 
     try {
-      const res = await fetch("/api/admin/create-team-member", {
+      const res = await adminFetch("/api/admin/create-team-member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

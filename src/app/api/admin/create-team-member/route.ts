@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin, isAuthError } from "@/lib/admin-auth";
 
 /**
  * POST /api/admin/create-team-member
  *
  * Creates an auth user via Supabase Admin and inserts a team_members row.
+ * Requires admin authentication.
  *
  * Body: { email, password, name, role, ...team_member fields }
  */
@@ -14,16 +16,50 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const VALID_ROLES = new Set(["admin", "equipe", "fotografo"]);
+
 export async function POST(req: NextRequest) {
+  // ── Auth check ──
+  const auth = await requireAdmin(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = await req.json();
     const { email, password, name, role, ...rest } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: "Email, senha e nome são obrigatórios." },
+        { error: "Email, senha e nome sao obrigatorios." },
         { status: 400 }
       );
+    }
+
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { error: "Email invalido." },
+        { status: 400 }
+      );
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Senha deve ter no minimo 8 caracteres." },
+        { status: 400 }
+      );
+    }
+
+    // Validate role
+    const sanitizedRole = role && VALID_ROLES.has(role) ? role : "equipe";
+
+    // Whitelist allowed fields for rest (prevent injection of arbitrary columns)
+    const allowedFields = ["phone", "avatar_url", "bio"];
+    const safeRest: Record<string, unknown> = {};
+    for (const key of allowedFields) {
+      if (key in rest && typeof rest[key] === "string") {
+        safeRest[key] = rest[key];
+      }
     }
 
     // 1. Create auth user
@@ -52,8 +88,8 @@ export async function POST(req: NextRequest) {
         user_id: userId,
         name,
         email,
-        role: role || "equipe",
-        ...rest,
+        role: sanitizedRole,
+        ...safeRest,
       })
       .select()
       .single();

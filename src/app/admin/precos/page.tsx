@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { formatBRL as formatBRLShared, type FixedCouponConfig } from "@/lib/pricing-config";
 import { persistPaymentConfig } from "@/hooks/usePaymentConfig";
+import { adminFetch } from "@/lib/admin-fetch";
 import { createClient } from "@/lib/supabase/client";
 import {
   Card,
@@ -405,7 +406,7 @@ export default function PrecosPage() {
 
       // 4. Save coupons to /api/settings
       try {
-        await fetch("/api/settings", {
+        await adminFetch("/api/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: "fixed_coupons", value: fixedCoupons }),
@@ -416,7 +417,7 @@ export default function PrecosPage() {
 
       // 5. Save redemption settings to /api/settings
       try {
-        await fetch("/api/settings", {
+        await adminFetch("/api/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: "redemption_settings", value: redemptionSettings }),

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import type { CommissionRates } from "@/lib/commission-config";
 import { DEFAULT_COMMISSION_RATES } from "@/lib/commission-config";
+import { adminFetch } from "@/lib/admin-fetch";
 
 function formatBRL(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -96,7 +97,7 @@ export default function AdminComissoesPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/commissions/rates", {
+      const res = await adminFetch("/api/commissions/rates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rates }),
@@ -119,7 +120,7 @@ export default function AdminComissoesPage() {
     setConfirmNotify(null);
     setNotifying(type);
     try {
-      const res = await fetch("/api/commissions/notify", {
+      const res = await adminFetch("/api/commissions/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type }),

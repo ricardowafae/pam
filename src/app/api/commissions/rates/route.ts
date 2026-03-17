@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin, isAuthError } from "@/lib/admin-auth";
 import {
   DEFAULT_COMMISSION_RATES,
   type CommissionRates,
@@ -63,9 +64,14 @@ export async function GET() {
 /**
  * POST /api/commissions/rates
  *
- * Saves commission rates. Body: { rates: CommissionRates }
+ * Saves commission rates. Requires admin authentication.
+ * Body: { rates: CommissionRates }
  */
 export async function POST(req: NextRequest) {
+  // ── Auth check ──
+  const auth = await requireAdmin(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = await req.json();
     const { rates } = body as { rates: CommissionRates };

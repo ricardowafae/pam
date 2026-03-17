@@ -18,6 +18,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Validate payment ID format (Asaas uses pay_ prefix)
+    if (!/^pay_[a-zA-Z0-9]+$/.test(paymentId)) {
+      return NextResponse.json(
+        { error: "payment_id invalido" },
+        { status: 400 }
+      );
+    }
+
     // Fetch payment status from Asaas
     const payment = await getPaymentStatus(paymentId);
 
@@ -52,25 +60,18 @@ export async function GET(req: NextRequest) {
         paymentStatus = payment.status?.toLowerCase() || "unknown";
     }
 
-    // Get order details from Supabase
+    // Get order details from Supabase (no email leakage)
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("order_number, customers(email)")
+      .select("order_number")
       .eq("asaas_payment_id", paymentId)
       .single();
-
-    const customerEmail =
-      order?.customers &&
-      typeof order.customers === "object" &&
-      "email" in order.customers
-        ? (order.customers as { email: string }).email
-        : null;
 
     return NextResponse.json({
       status,
       paymentStatus,
       orderNumber: order?.order_number || null,
-      customerEmail,
+      // customerEmail intentionally removed — no need to expose PII
     });
   } catch (error) {
     console.error("Payment status error:", error);

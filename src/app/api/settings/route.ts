@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin, isAuthError } from "@/lib/admin-auth";
 
 /**
  * API route for reading / writing global payment settings.
  *
- * Uses the existing `products` table in Supabase.
- * All products share the same max_installments and pix_discount_pct,
- * so we read from any product and write to all of them.
- *
- * GET  /api/settings?key=payment_config   → returns { value: {...} }
- * POST /api/settings  { key, value }       → updates all products
+ * GET  /api/settings?key=payment_config   → returns { value: {...} } (public, read-only)
+ * POST /api/settings  { key, value }       → updates all products (admin-only)
  */
 
 const supabaseAdmin = createClient(
@@ -79,8 +76,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ─── POST ───────────────────────────────────────────────────────────────
+// ─── POST (admin-only) ──────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  // ── Auth check ──
+  const auth = await requireAdmin(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = await req.json();
     const { key, value } = body;
@@ -94,12 +95,30 @@ export async function POST(req: NextRequest) {
 
     const { maxInstallments, pixDiscountPct } = value;
 
+    // Validate values
+    const installments = Number(maxInstallments);
+    const pixDiscount = Number(pixDiscountPct);
+
+    if (isNaN(installments) || installments < 1 || installments > 12) {
+      return NextResponse.json(
+        { error: "Parcelas devem ser entre 1 e 12" },
+        { status: 400 }
+      );
+    }
+
+    if (isNaN(pixDiscount) || pixDiscount < 0 || pixDiscount > 50) {
+      return NextResponse.json(
+        { error: "Desconto PIX deve ser entre 0 e 50%" },
+        { status: 400 }
+      );
+    }
+
     // Update ALL products with the new global payment config
     const { error } = await supabaseAdmin
       .from("products")
       .update({
-        max_installments: maxInstallments,
-        pix_discount_pct: pixDiscountPct,
+        max_installments: installments,
+        pix_discount_pct: pixDiscount,
         updated_at: new Date().toISOString(),
       })
       .gte("sort_order", 0); // matches all products

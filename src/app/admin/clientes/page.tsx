@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { adminFetch } from "@/lib/admin-fetch";
 import { useCepLookup } from "@/hooks/useCepLookup";
 import {
   Card,
@@ -1155,7 +1156,7 @@ export default function ClientesPage() {
   const handleResetPassword = async (email: string, name: string) => {
     setResettingEmail(email);
     try {
-      const res = await fetch("/api/admin/reset-password", {
+      const res = await adminFetch("/api/admin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
