@@ -726,7 +726,7 @@ export default function DogbookClient({ price, maxInstallments, pixDiscountPct }
             </div>
 
             {/* Paw Image */}
-            <div className="relative aspect-square md:aspect-[4/5] rounded-2xl overflow-hidden max-w-[70%] mx-auto">
+            <div className="relative w-full aspect-square md:aspect-[4/5] rounded-2xl overflow-hidden max-w-[340px] mx-auto">
               <Image
                 src="/images/dogbook-paw-page.jpg"
                 alt="Marca da pegada - registro da patinha"
