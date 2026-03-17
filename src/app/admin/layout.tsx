@@ -22,6 +22,7 @@ import {
   MessageSquareMore,
   HandCoins,
   ShieldBan,
+  Instagram,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -47,6 +48,7 @@ const sidebarLinks = [
   { href: "/admin/precos", label: "Produtos e Serviços", icon: DollarSign },
   { href: "/admin/vales", label: "Gestão de Vales", icon: Gift },
   { href: "/admin/comunicacao", label: "Comunicação", icon: MessageSquareMore },
+  { href: "/admin/instagram", label: "Instagram", icon: Instagram },
   { href: "/admin/equipe", label: "Equipe", icon: UsersRound },
   { href: "/admin/blacklist", label: "Blocklist", icon: ShieldBan },
 ];
