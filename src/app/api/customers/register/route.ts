@@ -141,6 +141,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Create a free photo session (Pocket) for the invited client
+    const { error: sessionError } = await supabaseAdmin
+      .from("photo_sessions")
+      .insert({
+        customer_id: customer.id,
+        session_type: "pocket",
+        status: "agendada",
+        payment_status: "gratuita",
+      });
+
+    if (sessionError) {
+      console.error("Error creating free session:", sessionError);
+      // Don't fail registration — session can be created manually later
+    }
+
     return NextResponse.json({
       success: true,
       customer,

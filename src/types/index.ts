@@ -109,7 +109,7 @@ export interface CartItem {
 // ── Orders ──
 export type OrderStatus = "pendente" | "pago" | "em_producao" | "enviado" | "entregue" | "cancelado";
 export type PaymentMethod = "cartao" | "pix" | "boleto";
-export type PaymentStatus = "pendente" | "processando" | "pago" | "falhou" | "reembolsado" | "expirado";
+export type PaymentStatus = "pendente" | "processando" | "pago" | "falhou" | "reembolsado" | "expirado" | "gratuita";
 
 export interface Order {
   id: string;

@@ -75,7 +75,7 @@ type SessionStage =
   | "Entregue"
   | "Cancelada";
 
-type PaymentStatusDisplay = "Pago" | "Pendente" | "Processando" | "Falhou" | "Reembolsado" | "Expirado";
+type PaymentStatusDisplay = "Pago" | "Pendente" | "Processando" | "Falhou" | "Reembolsado" | "Expirado" | "Gratuita";
 
 type SessionType = "Pocket" | "Estudio" | "Completa";
 
@@ -147,6 +147,7 @@ const paymentStatusToDisplay: Record<DBPaymentStatus, PaymentStatusDisplay> = {
   falhou: "Falhou",
   reembolsado: "Reembolsado",
   expirado: "Expirado",
+  gratuita: "Gratuita",
 };
 
 const paymentMethodLabels: Record<string, string> = {
@@ -925,7 +926,7 @@ export default function SessoesPage() {
                             <TableCell className="hidden lg:table-cell">
                               <Badge
                                 variant={
-                                  order.payment === "Pago"
+                                  order.payment === "Pago" || order.payment === "Gratuita"
                                     ? "default"
                                     : order.payment === "Pendente"
                                       ? "outline"
