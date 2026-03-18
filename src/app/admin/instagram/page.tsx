@@ -635,9 +635,9 @@ function InstagramPage() {
   }, [posts]);
 
   /* ─── Connect URL ─── */
-  const IG_APP_ID = process.env.NEXT_PUBLIC_INSTAGRAM_FB_APP_ID || "";
+  const FB_APP_ID = process.env.NEXT_PUBLIC_INSTAGRAM_FB_APP_ID || "";
   const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://patasamorememorias.com.br";
-  const connectUrl = `https://www.instagram.com/oauth/authorize?client_id=${IG_APP_ID}&redirect_uri=${encodeURIComponent(SITE_URL + "/admin/instagram")}&scope=instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_comments&response_type=code`;
+  const connectUrl = `https://www.facebook.com/dialog/oauth?client_id=${FB_APP_ID}&redirect_uri=${encodeURIComponent(SITE_URL + "/admin/instagram")}&scope=instagram_basic,pages_show_list,pages_read_engagement,business_management&response_type=code`;
 
   const monthNames = ["Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
